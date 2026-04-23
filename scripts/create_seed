@@ -1,0 +1,21 @@
+#!/bin/bash
+set -euo pipefail
+
+DB_PATH="${DB_PATH:-private/database.db}"
+
+if [ ! -f "$DB_PATH" ]; then
+  echo "Database not found: $DB_PATH" >&2
+  exit 1
+fi
+
+mkdir -p seed
+seed_file="seed/database.sql"
+
+tmp_db=$(mktemp --suffix=.db)
+trap 'rm -f "$tmp_db"' EXIT
+
+sqlite3 "$DB_PATH" ".backup '$tmp_db'"
+sqlite3 "$tmp_db" "DELETE FROM authtoken; DELETE FROM user;"
+sqlite3 "$tmp_db" ".dump" > "$seed_file"
+
+echo "Seed created: $seed_file"

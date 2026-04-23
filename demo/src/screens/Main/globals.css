@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+@layer base {
+  body {
+    font-size: 80%;
+    font-weight: 300;
+  }
+}
+
+.hero {
+  height: calc(100dvh - var(--spacing) * 8);
+}
+
+.interactive {
+  transition: opacity 0.2s ease;
+}
+
+.interactive:hover {
+  opacity: 0.5;
+}

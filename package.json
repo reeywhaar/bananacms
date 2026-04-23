@@ -1,0 +1,59 @@
+{
+  "name": "@reeywhaar/bananacms",
+  "version": "0.0.1-alpha.0",
+  "description": "Pluggable CMS package powering a Next.js multi-zone setup",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./runtime": "./src/runtime.ts",
+    "./stores": "./src/stores.ts"
+  },
+  "bin": {
+    "bananacms": "./src/cli/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "tsc": "tsc -p ./src/tsconfig.json --noEmit && tsc -p ./demo/tsconfig.json --noEmit",
+    "demo": "cd demo && node ../src/cli/index.ts",
+    "seed:create": "./scripts/create_seed",
+    "release": "./scripts/release"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@badrap/valita": "^0.4.6",
+    "@deemlol/next-icons": "^0.2.7",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@tailwindcss/postcss": "^4.2.2",
+    "disposablestack": "^1.1.7",
+    "postcss": "^8.5.9",
+    "sharp": "^0.34.5",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1",
+    "tailwindcss": "^4.2.2",
+    "uuid": "^13.0.0"
+  },
+  "peerDependencies": {
+    "next": "^16.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@types/node": "25.5.2",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^10.2.0",
+    "eslint-config-next": "^16.2.3",
+    "next": "^16.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1"
+  }
+}

@@ -1,0 +1,36 @@
+@keyframes scrollLTR {
+  from {
+    transform: translateX(0%);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.container {
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.track {
+  display: flex;
+  gap: 2px;
+  width: max-content;
+  height: 100%;
+  animation: scrollLTR linear infinite;
+}
+
+.slide {
+  flex-shrink: 0;
+  padding: 0 0.5rem;
+}
+
+.image {
+  height: 100%;
+  width: auto;
+  display: block;
+  object-fit: cover;
+  pointer-events: none;
+  user-select: none;
+}

@@ -1,0 +1,45 @@
+name: Publish to GitHub Packages
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@reeywhaar'
+
+      - run: npm ci
+
+      - name: Resolve dist-tag and verify version
+        id: resolve
+        run: |
+          pkg_version=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_NAME" != "$pkg_version" ]; then
+            echo "Git tag '$GITHUB_REF_NAME' does not match package.json version '$pkg_version'" >&2
+            exit 1
+          fi
+          if [[ "$pkg_version" == *-* ]]; then
+            prerelease_id="${pkg_version#*-}"
+            dist_tag="${prerelease_id%%.*}"
+          else
+            dist_tag="latest"
+          fi
+          echo "Publishing $pkg_version under dist-tag '$dist_tag'"
+          echo "dist_tag=$dist_tag" >> "$GITHUB_OUTPUT"
+
+      - run: npm publish --tag "${{ steps.resolve.outputs.dist_tag }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,91 @@
+{
+  "name": "@reeywhaar/bananacms",
+  "version": "0.0.1-alpha.3",
+  "description": "Pluggable CMS package powering a Next.js multi-zone setup",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.js"
+    },
+    "./stores": {
+      "types": "./dist/stores.d.ts",
+      "default": "./dist/stores.js"
+    }
+  },
+  "bin": {
+    "bananacms": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "seed",
+    "scripts/patch_build"
+  ],
+  "scripts": {
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "tsc": "tsc -p ./src/tsconfig.json --noEmit && tsc -p ./demo/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declaration && tsc-alias -p tsconfig.build.json && cd dist && next build && node ../scripts/patch_build",
+    "build:watch": "tsup --watch",
+    "prepack": "rm -rf dist/.next/cache",
+    "prepare": "npm run build",
+    "demo": "cd demo && node ../src/cli/index.ts dev --watch-cms",
+    "next:clean": "rm -rf src/.next demo/.next",
+    "seed:create": "./scripts/create_seed",
+    "tgz:pack": "./scripts/pack_latest",
+    "release": "./scripts/release",
+    "db:generate": "drizzle-kit generate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@badrap/valita": "^0.4.6",
+    "@deemlol/next-icons": "^0.2.7",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@libsql/client": "^0.17.3",
+    "@tailwindcss/postcss": "^4.2.2",
+    "crypto-lite": "^25.11.1",
+    "disposablestack": "^1.1.7",
+    "drizzle-orm": "^0.45.2",
+    "framer-motion": "^12.38.0",
+    "postcss": "^8.5.9",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4.2.2",
+    "uuid": "^14.0.0"
+  },
+  "peerDependencies": {
+    "next": "^16.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@types/node": "^25.6.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.2.0",
+    "eslint-config-next": "^16.2.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "next": "^16.2.2",
+    "prettier": "^3.8.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tsc-alias": "^1.8.10",
+    "tsup": "^8.3.5",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1",
+    "vitest": "^4.1.5"
+  }
+}

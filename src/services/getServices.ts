@@ -1,0 +1,88 @@
+'use server'
+
+import { ApiDispatcher } from '@cms/lib/api/Dispatcher'
+import { AuthTokenStore } from './AuthTokenStore'
+import { PostSearchStore } from './PostSearchStore'
+import { UserStore } from './UserStore'
+import { globalSetup, requestSetup } from '@cms/utils/globalSetup'
+import { invariant } from '@cms/utils/invariant'
+import { cookies, headers } from 'next/headers'
+import { createRootLogger } from '@cms/lib/logger/root'
+import { v4 as uuid } from 'uuid'
+import { isCMSInitialized, getCMS } from '@cms/config'
+import { openDb, runMigrations, type Db } from '@cms/lib/db/client'
+import { ApiError } from '@cms/lib/api/error'
+
+const resolveDbPath = (): string => {
+  if (isCMSInitialized()) return getCMS().env.dbPath
+  return process.env.DB_PATH ?? invariant('DB_PATH environment variable is not set')
+}
+
+const REQUEST_IDS = new WeakMap<object, { traceId: string; sessionId: string }>()
+
+const resolveRequestIds = async (): Promise<{ traceId: string; sessionId: string }> => {
+  const hdrs = await headers()
+  const key = hdrs as unknown as object
+  let ids = REQUEST_IDS.get(key)
+  if (!ids) {
+    ids = {
+      traceId: hdrs.get('x-trace-id') ?? uuid(),
+      sessionId: hdrs.get('x-session-id') ?? uuid(),
+    }
+    REQUEST_IDS.set(key, ids)
+  }
+  return ids
+}
+
+export type AuthData =
+  | { user: { id: string; name: string }; token: string; tokenExpiresAt: string }
+  | undefined
+
+export const getServices = async () => {
+  const { traceId, sessionId } = await resolveRequestIds()
+  return requestSetup(sessionId, 'services', async () => {
+    const db: Db = await globalSetup('services', async () => {
+      const { client, db } = openDb(resolveDbPath())
+      await runMigrations(client)
+      return db
+    })
+
+    const authTokenStore = new AuthTokenStore(db)
+    const userStore = new UserStore(db)
+    const postSearchStore = new PostSearchStore(db)
+
+    const rootLogger = createRootLogger({ traceId, sessionId })
+    const apiDispatcher = new ApiDispatcher(traceId)
+
+    const token = (await cookies()).get('auth')?.value
+    const tokenData = token ? await authTokenStore.getTokenData(token) : undefined
+    const user = tokenData ? await userStore.findById(tokenData.userId) : undefined
+    const authData: AuthData = user
+      ? {
+          user: { id: user.id, name: user.name },
+          token: token ?? invariant('token must be present when user is resolved'),
+          tokenExpiresAt:
+            tokenData?.expiresAt ?? invariant('tokenData must be present when user is resolved'),
+        }
+      : undefined
+
+    if (user) {
+      rootLogger.setContext({ auth: { type: 'user', id: user.id } })
+    } else if (token) {
+      rootLogger.setContext({ auth: { type: 'invalidToken' } })
+    } else {
+      rootLogger.setContext({ auth: { type: 'guest' } })
+    }
+
+    rootLogger.info('start')
+
+    return { db, apiDispatcher, rootLogger, traceId, authData, postSearchStore }
+  })
+}
+
+export const requireAuth = async (): Promise<void> => {
+  const services = await getServices()
+  if (!services.authData) {
+    throw new ApiError('Unauthorized').expose().withStatus(401)
+  }
+}

@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <major|minor|patch|prealpha>" >&2
+  exit 1
+fi
+
+case "$1" in
+  major|minor|patch)
+    npm_args=("$1")
+    ;;
+  prealpha)
+    npm_args=("prerelease" "--preid=alpha")
+    ;;
+  *)
+    echo "Unknown bump type: $1 (expected: major | minor | patch | prealpha)" >&2
+    exit 1
+    ;;
+esac
+
+new_version=$(npm version "${npm_args[@]}" --tag-version-prefix="" -m "Release %s")
+echo "Bumped to $new_version"
+
+git push --follow-tags
+echo "Pushed $new_version"

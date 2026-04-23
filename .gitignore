@@ -1,0 +1,26 @@
+build
+dist
+node_modules
+.DS_Store
+.env
+.next
+.vercel
+.claude/settings.local.json
+
+# Payload default media upload directory
+public/media/
+
+public/robots.txt
+public/sitemap*.xml
+
+private
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+*.tsbuildinfo
+*.tgz
+

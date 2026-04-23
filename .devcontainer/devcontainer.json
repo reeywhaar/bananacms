@@ -1,0 +1,46 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/typescript-node
+{
+  "name": "bananacms-devcnt",
+  // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+  // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+  "image": "mcr.microsoft.com/devcontainers/base:trixie",
+  // Features to add to the dev container. More info: https://containers.dev/features.
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    }
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  // "forwardPorts": [],
+  // Use 'postCreateCommand' to run commands after the container is created.
+  "postCreateCommand": ".devcontainer/postcreate.sh",
+  // Configure tool-specific properties.
+  "customizations": {
+    "vscode": {
+      // Add the IDs of extensions you want installed when the container is created.
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "github.copilot",
+        "reduckted.vscode-gitweblinks"
+      ]
+    }
+  },
+  "mounts": [
+    "source=bananacms-devcnt_node_modules,target=/workspace/node_modules,type=volume",
+    "source=bananacms-devcnt_demo_node_modules,target=/workspace/demo/node_modules,type=volume",
+    "source=bananacms-devcnt_dist,target=/workspace/dist,type=volume",
+    "source=bananacms-devcnt_cms_dotnext,target=/workspace/src/.next,type=volume",
+    "source=bananacms-devcnt_next_dotnext,target=/workspace/demo/.next,type=volume",
+    "source=bananacms-devcnt_home,target=/home_volume,type=volume"
+  ],
+  // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+  // "remoteUser": "root"
+  "runArgs": ["--name", "bananacms-devcnt"]
+}

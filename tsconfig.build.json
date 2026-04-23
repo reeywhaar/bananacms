@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "noEmit": false,
+    "incremental": false,
+    "paths": {
+      "@cms/*": ["./src/*"]
+    }
+  },
+  "include": ["./src/**/*"],
+  "exclude": [
+    "node_modules",
+    "./src/.next",
+    "./src/**/*.d.ts",
+    "./src/**/*.test.ts",
+    "./src/test/**"
+  ],
+  "tsc-alias": {
+    "resolveFullPaths": true
+  }
+}

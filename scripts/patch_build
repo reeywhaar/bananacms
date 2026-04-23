@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+// Post-processes the Turbopack production build in dist/.next to:
+//   1. Set relativeAppDir to '.' so `next start` works from dist/
+//   2. Replace hashed native-module names (e.g. @libsql/client-<hash>)
+//      with their real package names so they can be resolved at runtime.
+
+import { readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
+
+const distDir = process.cwd()
+const nextDir = join(distDir, '.next')
+
+// 1. Patch relativeAppDir
+const serverFilesPath = join(nextDir, 'required-server-files.json')
+const serverFiles = JSON.parse(readFileSync(serverFilesPath, 'utf8'))
+serverFiles.relativeAppDir = '.'
+writeFileSync(serverFilesPath, JSON.stringify(serverFiles))
+
+// 2. Replace hashed native-module names in all server chunks
+//    Turbopack encodes external package names as `<pkg>-<16 hex chars>`
+//    (e.g. `@libsql/client-6da938047d5fc1cd`). At runtime the consumer's
+//    node_modules has the real package, not the hashed alias.
+const EXTERNAL_PACKAGES = ['@libsql/client', 'sharp']
+const HASHED_PKG = new RegExp(
+  `(${EXTERNAL_PACKAGES.map((p) => p.replace(/[/@]/g, (s) => `\\${s}`)).join('|')})-[0-9a-f]{16}(\\/[a-z]+)?`,
+  'g',
+)
+
+const chunksDir = join(nextDir, 'server', 'chunks')
+
+function patchDir(dir) {
+  for (const name of readdirSync(dir)) {
+    const filePath = join(dir, name)
+    if (statSync(filePath).isDirectory()) {
+      patchDir(filePath)
+    } else if (name.endsWith('.js')) {
+      const source = readFileSync(filePath, 'utf8')
+      const patched = source.replace(HASHED_PKG, (_, pkg, sub) => pkg + (sub ?? ''))
+      if (patched !== source) writeFileSync(filePath, patched)
+    }
+  }
+}
+
+patchDir(chunksDir)

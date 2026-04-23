@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+html {
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  @apply font-normal;
+}
+
+.hero {
+  height: calc(100% - var(--spacing) * 8);
+}
+
+@layer utilities {
+  .interactive {
+    transition: opacity 0.2s ease;
+  }
+
+  .interactive:hover {
+    opacity: 0.5;
+  }
+
+  .link {
+    @apply text-blue-500 hover:text-blue-700;
+  }
+
+  .button {
+    @apply px-2 py-1 rounded border border-gray-300 text-blue-500 hover:text-blue-700 text-sm;
+  }
+
+  .button-danger {
+    @apply px-2 py-1 rounded border border-gray-300 text-red-500 hover:text-red-700 text-sm;
+  }
+
+  .button-sm {
+    @apply px-2 py-1 rounded border border-gray-300 text-blue-500 hover:text-blue-700 text-xs;
+  }
+
+  .button-sm-danger {
+    @apply px-2 py-1 rounded border border-gray-300 text-red-500 hover:text-red-700 text-xs;
+  }
+
+  .input-cnt {
+    @apply w-full;
+  }
+
+  .input {
+    @apply w-full p-1 border border-gray-300 rounded text-sm;
+  }
+
+  .input-sm {
+    @apply w-full p-1 border border-gray-300 rounded text-xs;
+  }
+
+  .input-xl {
+    @apply w-full p-1 border border-gray-300 rounded;
+  }
+
+  .label {
+    @apply flex flex-col gap-1 text-gray-700;
+  }
+
+  .label-row {
+    @apply flex flex-row gap-1 text-gray-700;
+  }
+
+  .label span:first-child {
+    @apply text-sm;
+  }
+}

@@ -15,6 +15,7 @@ export default defineConfig({
   async onSuccess() {
     await cp('src/lib/migrations', 'dist/lib/migrations', { recursive: true })
     await cp('src/screens/Manage/globals.css', 'dist/screens/Manage/globals.css')
+    await cp('src/proxy.js', 'dist/proxy.js')
 
     // Rewrite .ts/.tsx extensions in relative-import specifiers to .js.
     // Source files intentionally use .ts so Node can run them raw in dev; tsup

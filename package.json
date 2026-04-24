@@ -34,6 +34,7 @@
     "prepare": "npm run build",
     "demo": "cd demo && node ../src/cli/index.ts",
     "seed:create": "./scripts/create_seed",
+    "pack:latest": "./scripts/pack_latest",
     "release": "./scripts/release"
   },
   "keywords": [],

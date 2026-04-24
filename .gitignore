@@ -22,4 +22,5 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 *.tsbuildinfo
+*.tgz
 

@@ -1,6 +1,6 @@
 import { createCMSMiddleware } from './cmsProxy'
 
-export default createCMSMiddleware()
+export const proxy = createCMSMiddleware()
 
 // Must be a statically-analyzable literal for Next.js to pick up the matcher.
 export const config = {

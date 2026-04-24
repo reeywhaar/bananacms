@@ -17,11 +17,20 @@ export async function run(dev: boolean): Promise<void> {
 
   const configModule = resolve(consumerDir, process.env.BANANACMS_CONFIG_MODULE ?? 'src/cms.ts')
 
+  // Resolve path env vars against the consumer cwd (where `.env` lives), so
+  // both zones agree regardless of their own cwd — CMS zone runs from the
+  // package dir, which would otherwise resolve relative paths differently.
+  const absolutePath = (v: string | undefined) => (v ? resolve(consumerDir, v) : undefined)
+
   const env = {
     ...process.env,
     NEXT_PUBLIC_SERVER_URL: publicUrl,
     CMS_INTERNAL_URL: cmsInternalUrl,
     BANANACMS_CONFIG_MODULE: configModule,
+    ...(process.env.DB_PATH ? { DB_PATH: absolutePath(process.env.DB_PATH) } : {}),
+    ...(process.env.ASSETS_DIRECTORY
+      ? { ASSETS_DIRECTORY: absolutePath(process.env.ASSETS_DIRECTORY) }
+      : {}),
   }
 
   const mode = dev ? 'development' : 'production'

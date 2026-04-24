@@ -19,7 +19,7 @@ case "$1" in
     ;;
 esac
 
-new_version=$(npm version "${npm_args[@]}" --tag-version-prefix="" -m "release %s")
+new_version=$(npm version "${npm_args[@]}" --tag-version-prefix="" -m "Release %s")
 echo "Bumped to $new_version"
 
 git push --follow-tags

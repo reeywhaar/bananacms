@@ -1,5 +1,5 @@
 build
-dist / media
+dist
 node_modules
 .DS_Store
 .env
@@ -21,5 +21,5 @@ node_modules/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
-tsconfig.tsbuildinfo
+*.tsbuildinfo
 

@@ -1,9 +1,11 @@
 import { spawn, type ChildProcess } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
 export async function run(dev: boolean): Promise<void> {
   const cmsDir = fileURLToPath(new URL('../', import.meta.url))
+  const packageRoot = fileURLToPath(new URL('../../', import.meta.url))
   const consumerDir = process.cwd()
 
   const cmsPort = 3001
@@ -29,6 +31,7 @@ export async function run(dev: boolean): Promise<void> {
 
   const cmsChild = spawnZone('cms', cmsDir, cmsPort, dev, env)
   const consumerChild = spawnZone('demo', consumerDir, consumerPort, dev, env)
+  const buildChild = dev ? maybeSpawnBuildWatch(packageRoot) : null
 
   let shuttingDown = false
   const shutdown = (signal: NodeJS.Signals) => {
@@ -37,6 +40,7 @@ export async function run(dev: boolean): Promise<void> {
     console.info(`\nbananacms: received ${signal}, stopping zones...`)
     cmsChild.kill(signal)
     consumerChild.kill(signal)
+    buildChild?.kill(signal)
   }
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))
@@ -46,7 +50,20 @@ export async function run(dev: boolean): Promise<void> {
     waitForExit(consumerChild, 'demo'),
   ])
 
+  buildChild?.kill('SIGTERM')
   process.exit(cmsCode || consumerCode)
+}
+
+function maybeSpawnBuildWatch(packageRoot: string): ChildProcess | null {
+  const tsupBin = resolve(packageRoot, 'node_modules', '.bin', 'tsup')
+  if (!existsSync(tsupBin)) return null
+  const child = spawn(tsupBin, ['--watch', '--silent'], {
+    cwd: packageRoot,
+    stdio: ['inherit', 'pipe', 'pipe'],
+  })
+  prefixStream('build', child.stdout, process.stdout)
+  prefixStream('build', child.stderr, process.stderr)
+  return child
 }
 
 function spawnZone(

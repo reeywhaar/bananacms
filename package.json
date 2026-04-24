@@ -3,19 +3,35 @@
   "version": "0.0.1-alpha.1",
   "description": "Pluggable CMS package powering a Next.js multi-zone setup",
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
   "exports": {
-    ".": "./src/index.ts",
-    "./runtime": "./src/runtime.ts",
-    "./stores": "./src/stores.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./runtime": {
+      "types": "./dist/runtime.d.ts",
+      "default": "./dist/runtime.js"
+    },
+    "./stores": {
+      "types": "./dist/stores.d.ts",
+      "default": "./dist/stores.js"
+    }
   },
   "bin": {
-    "bananacms": "./src/cli/index.ts"
+    "bananacms": "./dist/cli/index.js"
   },
+  "files": [
+    "dist",
+    "seed"
+  ],
   "scripts": {
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "tsc": "tsc -p ./src/tsconfig.json --noEmit && tsc -p ./demo/tsconfig.json --noEmit",
+    "build": "tsup && tsc -p tsconfig.build.json --emitDeclarationOnly --declaration && tsc-alias -p tsconfig.build.json",
+    "build:watch": "tsup --watch",
+    "prepare": "npm run build",
     "demo": "cd demo && node ../src/cli/index.ts",
     "seed:create": "./scripts/create_seed",
     "release": "./scripts/release"
@@ -53,6 +69,8 @@
     "next": "^16.2.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "tsc-alias": "^1.8.10",
+    "tsup": "^8.3.5",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1"
   }

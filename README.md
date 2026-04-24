@@ -82,18 +82,35 @@ Both zones open the same SQLite DB (POSIX file locking; safe for multi-process).
 
 ## Installation
 
+### As a consumer dependency
+
+`@reeywhaar/bananacms` is published to GitHub Packages. In your consumer project, add an `.npmrc` that routes the `@reeywhaar` scope:
+
+```
+@reeywhaar:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+GitHub Packages requires authentication even for public packages. Create a personal access token with the `read:packages` scope at https://github.com/settings/tokens and export it as `GITHUB_TOKEN` before installing:
+
 ```bash
-git clone <this repo>
+npm install @reeywhaar/bananacms
+```
+
+Then follow [Writing a consumer](#writing-a-consumer) to wire up `src/cms.ts` and `next.config.ts`.
+
+### For local development of this repo
+
+```bash
+git clone git@github.com:Reeywhaar/bananacms.git
 cd bananacms
 npm install
 
-# Link bananacms into the demo consumer.
+# Link the package into the demo consumer.
 cd demo && npm install && cd ..
 ```
 
-The second `npm install` creates `demo/node_modules/@reeywhaar/bananacms` as a symlink to
-the repo root via the `"@reeywhaar/bananacms": "file:.."` dependency in
-[demo/package.json](demo/package.json).
+The second `npm install` creates `demo/node_modules/@reeywhaar/bananacms` as a symlink to the repo root via the `"@reeywhaar/bananacms": "file:.."` dependency in [demo/package.json](demo/package.json).
 
 ## Environment
 

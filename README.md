@@ -135,18 +135,21 @@ cp demo/.env.example demo/.env
 
 ## Quick start
 
-From the repo root:
+From the repo root, after [Installation](#for-local-development-of-this-repo) and copying `demo/.env.example` → `demo/.env`:
 
 ```bash
-# Set up the dev database.
-npm run demo:migrate
+# Seed the dev DB from the committed snapshot in seed/database.sql.
+# (For an empty schema with no data, swap `db:seed` for `migrate`.)
+npm run demo -- db:seed
 
 # Create an admin user.
-npm run demo:db:set-user -- admin hunter2
+npm run demo -- db:set-user admin hunter2
 
 # Start both zones.
-npm run demo:dev
+npm run demo -- dev
 ```
+
+`npm run demo` is a thin wrapper for `cd demo && node ../src/cli/index.ts`; everything after `--` is passed to the CLI.
 
 You should see:
 

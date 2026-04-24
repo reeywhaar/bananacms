@@ -1,6 +1,12 @@
 import { NextConfig } from 'next'
-import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import { dirname } from 'node:path'
+
+// Derive the workspace root from the actual location of next/ so Turbopack
+// works in both the monorepo (next at /workspace/node_modules/next) and the
+// installed-package case (next at the consumer's node_modules/next).
+const nextPkgJson = createRequire(import.meta.url).resolve('next/package.json')
+const turbopackRoot = dirname(dirname(dirname(nextPkgJson)))
 
 const cfg: NextConfig = {
   allowedDevOrigins: [
@@ -17,8 +23,7 @@ const cfg: NextConfig = {
     incomingRequests: false,
   },
   turbopack: {
-    // One level above src/, so Turbopack can reach /workspace/node_modules.
-    root: dirname(dirname(fileURLToPath(import.meta.url))),
+    root: turbopackRoot,
   },
   experimental: {
     serverActions: {

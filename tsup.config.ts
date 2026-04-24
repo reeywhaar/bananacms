@@ -15,7 +15,6 @@ export default defineConfig({
   async onSuccess() {
     await cp('src/lib/migrations', 'dist/lib/migrations', { recursive: true })
     await cp('src/screens/Manage/globals.css', 'dist/screens/Manage/globals.css')
-    await cp('src/proxy.js', 'dist/proxy.js')
 
     // Rewrite .ts/.tsx extensions in relative-import specifiers to .js.
     // Source files intentionally use .ts so Node can run them raw in dev; tsup
@@ -23,10 +22,51 @@ export default defineConfig({
     // patched here to produce valid Node ESM under dist/.
     const importRe =
       /(\b(?:from|import)\s*\(?\s*["'])(\.{1,2}\/[^"']*?)\.tsx?(["'])/g
+
+    // Undo esbuild's export hoisting: it rewrites `export const x = …` as
+    // `const x = …; export { x };`. Next.js's proxy/route static analysis
+    // only recognises the inline form, so reverse it. Idempotent — if a
+    // file doesn't match the hoisted pattern exactly, it's left alone.
+    const groupExportRe = /^\s*export\s*\{\s*([^}]+?)\s*\}\s*;?\s*$/m
+    const entryRe = /^(\w+)(?:\s+as\s+(\w+))?$/
+
     for await (const path of glob('dist/**/*.js')) {
-      const src = await readFile(path, 'utf8')
-      const patched = src.replace(importRe, (_, pre, spec, post) => `${pre}${spec}.js${post}`)
-      if (patched !== src) await writeFile(path, patched)
+      let src = await readFile(path, 'utf8')
+      const original = src
+      src = src.replace(importRe, (_, pre, spec, post) => `${pre}${spec}.js${post}`)
+
+      const m = src.match(groupExportRe)
+      if (m) {
+        const entries = m[1].split(',').map((s) => s.trim()).filter(Boolean)
+        const parsed = entries.map((e) => e.match(entryRe))
+        if (parsed.every(Boolean)) {
+          let patched = src.slice(0, m.index) + src.slice(m.index + m[0].length)
+          let ok = true
+          for (const match of parsed) {
+            const local = match![1]
+            const exported = match![2] ?? local
+            if (exported === 'default') {
+              const re = new RegExp(`^(\\s*)var\\s+${local}\\s*=\\s*`, 'm')
+              if (!re.test(patched)) { ok = false; break }
+              patched = patched.replace(re, '$1export default ')
+            } else if (exported === local) {
+              const re = new RegExp(
+                `^(\\s*)((?:async\\s+function\\*?|function\\*?|class|const|let|var))\\s+${local}\\b`,
+                'm',
+              )
+              if (!re.test(patched)) { ok = false; break }
+              patched = patched.replace(re, `$1export $2 ${local}`)
+            } else {
+              // Renamed non-default export — leave whole block intact.
+              ok = false
+              break
+            }
+          }
+          if (ok) src = patched
+        }
+      }
+
+      if (src !== original) await writeFile(path, src)
     }
   },
 })

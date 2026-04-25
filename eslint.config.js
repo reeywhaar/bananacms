@@ -41,7 +41,8 @@ const eslintConfig = [
           patterns: [
             {
               group: ['**/demo/**', 'bananacms-demo', 'bananacms-demo/*'],
-              message: 'CMS source must not depend on the consumer (demo). Keep the package boundary one-way.',
+              message:
+                'CMS source must not depend on the consumer (demo). Keep the package boundary one-way.',
             },
           ],
         },
@@ -49,7 +50,7 @@ const eslintConfig = [
     },
   },
   {
-    ignores: ['.next/', 'src/.next/', 'demo/.next/'],
+    ignores: ['.next/', 'dist/', 'src/.next/', 'demo/.next/'],
   },
 ]
 

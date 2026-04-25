@@ -40,7 +40,7 @@ export async function run(dev: boolean): Promise<void> {
 
   const cmsChild = spawnZone('cms', cmsDir, cmsPort, dev, env)
   const consumerChild = spawnZone('demo', consumerDir, consumerPort, dev, env)
-  const buildChild = dev ? maybeSpawnBuildWatch(packageRoot) : null
+  const buildChildren = dev ? maybeSpawnBuildWatch(packageRoot) : []
 
   let shuttingDown = false
   const shutdown = (signal: NodeJS.Signals) => {
@@ -49,7 +49,7 @@ export async function run(dev: boolean): Promise<void> {
     console.info(`\nbananacms: received ${signal}, stopping zones...`)
     cmsChild.kill(signal)
     consumerChild.kill(signal)
-    buildChild?.kill(signal)
+    for (const child of buildChildren) child.kill(signal)
   }
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))
@@ -59,20 +59,69 @@ export async function run(dev: boolean): Promise<void> {
     waitForExit(consumerChild, 'demo'),
   ])
 
-  buildChild?.kill('SIGTERM')
+  for (const child of buildChildren) child.kill('SIGTERM')
   process.exit(cmsCode || consumerCode)
 }
 
-function maybeSpawnBuildWatch(packageRoot: string): ChildProcess | null {
+function maybeSpawnBuildWatch(packageRoot: string): ChildProcess[] {
   const tsupBin = resolve(packageRoot, 'node_modules', '.bin', 'tsup')
-  if (!existsSync(tsupBin)) return null
-  const child = spawn(tsupBin, ['--watch', '--silent'], {
+  const tscBin = resolve(packageRoot, 'node_modules', '.bin', 'tsc')
+  const tscAliasBin = resolve(packageRoot, 'node_modules', '.bin', 'tsc-alias')
+  if (!existsSync(tsupBin) || !existsSync(tscBin) || !existsSync(tscAliasBin)) return []
+
+  // tsup emits .js; tsc emits .d.ts; tsc-alias rewrites @cms/* paths in the
+  // emitted .d.ts. Demos and other consumers import the package via its
+  // dist/*.d.ts entry, so without these declarations every CMS export degrades
+  // to `any`.
+  const tsup = spawn(tsupBin, ['--watch', '--silent'], {
     cwd: packageRoot,
     stdio: ['inherit', 'pipe', 'pipe'],
   })
-  prefixStream('build', child.stdout, process.stdout)
-  prefixStream('build', child.stderr, process.stderr)
-  return child
+  prefixStream('build', tsup.stdout, process.stdout)
+  prefixStream('build', tsup.stderr, process.stderr)
+
+  const tsc = spawn(
+    tscBin,
+    [
+      '-p',
+      'tsconfig.build.json',
+      '--emitDeclarationOnly',
+      '--declaration',
+      '--watch',
+      '--preserveWatchOutput',
+    ],
+    { cwd: packageRoot, stdio: ['inherit', 'pipe', 'pipe'] },
+  )
+  prefixStream('types', tsc.stdout, process.stdout)
+  prefixStream('types', tsc.stderr, process.stderr)
+
+  // tsc-alias --watch races with tsc's bulk emit and silently misses files,
+  // leaving @cms/* paths in some d.ts. Run it as a one-shot after each tsc pass
+  // instead — tsc prints "Found N errors" when a pass finishes (initial or
+  // incremental), which is our trigger.
+  let aliasRunning = false
+  let aliasPending = false
+  const runAlias = () => {
+    if (aliasRunning) { aliasPending = true; return }
+    aliasRunning = true
+    const child = spawn(tscAliasBin, ['-p', 'tsconfig.build.json'], {
+      cwd: packageRoot,
+      stdio: ['inherit', 'pipe', 'pipe'],
+    })
+    prefixStream('types', child.stdout, process.stdout)
+    prefixStream('types', child.stderr, process.stderr)
+    child.once('exit', () => {
+      aliasRunning = false
+      if (aliasPending) { aliasPending = false; runAlias() }
+    })
+  }
+  let tscBuf = ''
+  tsc.stdout?.on('data', (chunk: Buffer | string) => {
+    tscBuf += typeof chunk === 'string' ? chunk : chunk.toString()
+    if (/Found \d+ error/.test(tscBuf)) { tscBuf = ''; runAlias() }
+  })
+
+  return [tsup, tsc]
 }
 
 function spawnZone(

@@ -1,6 +1,7 @@
 import { Database } from 'sqlite'
 import { BlockStore } from './BlockStore'
 import { LocalizationStore, Translations } from './LocalizationStore'
+import { AttributeStore, AttributeData } from './AttributeStore'
 import { getShortId } from '@cms/utils/getshortid'
 import { BlockData } from '@cms/lib/blocks/declarations'
 export type CategoryData = {
@@ -16,6 +17,7 @@ export type CategoryPayload = {
   slug: string
   blocks: BlockData[]
   translations: Translations
+  attributes: AttributeData[]
 }
 
 export class CategoryStore {
@@ -51,6 +53,7 @@ export class CategoryStore {
         payload.name,
         payload.slug,
       )
+      await new AttributeStore(this.db).saveByParent('category', id, payload.attributes)
       await new BlockStore(this.db).saveByParent('category', id, payload.blocks)
       await new LocalizationStore(this.db).save('category:' + id + ':', payload.translations)
       await this.db.run('COMMIT')
@@ -71,6 +74,7 @@ export class CategoryStore {
         id,
       )
       await new LocalizationStore(this.db).deleteBlockTranslationsByParentId('category', id)
+      await new AttributeStore(this.db).saveByParent('category', id, payload.attributes)
       await new BlockStore(this.db).saveByParent('category', id, payload.blocks)
       await new LocalizationStore(this.db).save('category:' + id + ':', payload.translations)
       await this.db.run('COMMIT')

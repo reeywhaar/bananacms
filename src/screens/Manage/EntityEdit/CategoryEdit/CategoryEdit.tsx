@@ -3,6 +3,7 @@ import { getServices } from '@cms/services/getServices'
 import { LocalizationStore } from '@cms/services/LocalizationStore'
 import { BlockStore } from '@cms/services/BlockStore'
 import { AssetStore } from '@cms/services/AssetStore'
+import { AttributeStore } from '@cms/services/AttributeStore'
 import { BlockData } from '@cms/lib/blocks/declarations'
 import { notFound } from 'next/navigation'
 import { Client } from './Client'
@@ -23,6 +24,8 @@ export default async function CategoryEdit({ id }: { id?: string }) {
   })()
 
   const translations = id ? await new LocalizationStore(db).getByParentId('category', id) : {}
+
+  const initialAttributes = id ? await new AttributeStore(db).getByParent('category', id) : []
 
   const imageAssetIds: string[] = []
   const collect = (list: BlockData[]): void => {
@@ -52,6 +55,7 @@ export default async function CategoryEdit({ id }: { id?: string }) {
       <Client
         category={category}
         blocks={blocks}
+        initialAttributes={initialAttributes}
         translations={translations}
         assetContents={assetContents}
         assetSizes={assetSizes}

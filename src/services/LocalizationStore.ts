@@ -52,6 +52,13 @@ export class LocalizationStore {
          UNION ALL
          SELECT pb.blockId FROM parent_block pb
            INNER JOIN block_tree bt ON pb.parentTable = 'block' AND pb.parentId = bt.id
+       ),
+       attribute_ids(id) AS (
+         SELECT attributeId FROM parent_attribute
+          WHERE parentTable = ? AND parentId = ?
+         UNION ALL
+         SELECT pa.attributeId FROM parent_attribute pa
+           JOIN block_tree bt ON pa.parentTable = 'block' AND pa.parentId = bt.id
        )
        SELECT l.id, l.key, l.locale, l.text FROM localizations l
        WHERE l.key LIKE ? || ':' || ? || ':%'
@@ -59,7 +66,11 @@ export class LocalizationStore {
            SELECT 'block:' || id || ':text' FROM block_tree
            UNION ALL
            SELECT 'block:' || id || ':alt' FROM block_tree
+           UNION ALL
+           SELECT 'attribute:' || id || ':text' FROM attribute_ids
          )`,
+      parentTable,
+      parentId,
       parentTable,
       parentId,
       parentTable,
@@ -78,10 +89,16 @@ export class LocalizationStore {
            UNION ALL
            SELECT pb.blockId FROM parent_block pb
              INNER JOIN block_tree bt ON pb.parentTable = 'block' AND pb.parentId = bt.id
+         ),
+         attribute_ids(id) AS (
+           SELECT pa.attributeId FROM parent_attribute pa
+             JOIN block_tree bt ON pa.parentTable = 'block' AND pa.parentId = bt.id
          )
          SELECT 'block:' || id || ':text' FROM block_tree
          UNION ALL
          SELECT 'block:' || id || ':alt' FROM block_tree
+         UNION ALL
+         SELECT 'attribute:' || id || ':text' FROM attribute_ids
        )`,
       parentTable,
       parentId,

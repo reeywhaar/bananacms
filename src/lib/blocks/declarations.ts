@@ -1,4 +1,5 @@
 import type { Translations } from '@cms/services/LocalizationStore'
+import type { AttributeData } from '@cms/services/AttributeStore'
 import { valita } from '@cms/utils/valita'
 import type { AssetOutputFormat, AssetResolution } from '@cms/services/AssetStore'
 
@@ -52,6 +53,7 @@ export type BlockData = {
   parent: BlockParent
   type: string
   content: BlockType
+  attributes: AttributeData[]
 }
 
 // ─── Serialized types ────────────────────────────────────────────────────────

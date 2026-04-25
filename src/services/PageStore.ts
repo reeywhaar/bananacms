@@ -1,6 +1,7 @@
 import { Database } from 'sqlite'
 import { BlockStore } from './BlockStore'
 import { LocalizationStore, Translations } from './LocalizationStore'
+import { AttributeStore, AttributeData } from './AttributeStore'
 import { BlockData } from '@cms/lib/blocks/declarations'
 
 export type PageData = {
@@ -12,6 +13,7 @@ export type PagePayload = {
   key: string
   blocks: BlockData[]
   translations: Translations
+  attributes: AttributeData[]
 }
 
 export class PageStore {
@@ -38,6 +40,7 @@ export class PageStore {
     await this.db.run('BEGIN TRANSACTION')
     try {
       await this.db.run('INSERT INTO page (id, key) VALUES (?, ?)', id, payload.key)
+      await new AttributeStore(this.db).saveByParent('page', id, payload.attributes)
       await new BlockStore(this.db).saveByParent('page', id, payload.blocks)
       await new LocalizationStore(this.db).save('page:' + id + ':', payload.translations)
       await this.db.run('COMMIT')
@@ -53,6 +56,7 @@ export class PageStore {
     try {
       await this.db.run('UPDATE page SET key = ? WHERE id = ?', payload.key, id)
       await new LocalizationStore(this.db).deleteBlockTranslationsByParentId('page', id)
+      await new AttributeStore(this.db).saveByParent('page', id, payload.attributes)
       await new BlockStore(this.db).saveByParent('page', id, payload.blocks)
       await new LocalizationStore(this.db).save('page:' + id + ':', payload.translations)
       await this.db.run('COMMIT')

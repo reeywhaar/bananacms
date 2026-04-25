@@ -51,6 +51,25 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
     }
     console.info(`Orphan blocks (no parent): ${totalOrphanBlocks}`)
 
+    const orphanAttributes = await db.all<{ id: string }[]>(
+      `SELECT a.id FROM attribute a
+         LEFT JOIN parent_attribute pa ON pa.attributeId = a.id
+        WHERE pa.attributeId IS NULL
+           OR (pa.parentTable = 'post'     AND NOT EXISTS (SELECT 1 FROM post     WHERE id = pa.parentId))
+           OR (pa.parentTable = 'category' AND NOT EXISTS (SELECT 1 FROM category WHERE id = pa.parentId))
+           OR (pa.parentTable = 'page'     AND NOT EXISTS (SELECT 1 FROM page     WHERE id = pa.parentId))
+           OR (pa.parentTable = 'block'    AND NOT EXISTS (SELECT 1 FROM block    WHERE id = pa.parentId))
+           OR pa.parentTable NOT IN ('post', 'category', 'page', 'block')`,
+    )
+    console.info(`Orphan attributes (no parent): ${orphanAttributes.length}`)
+    for (const row of orphanAttributes) console.info(`  attribute ${row.id}`)
+    if (orphanAttributes.length > 0) {
+      await db.run(
+        `DELETE FROM attribute WHERE id IN (${orphanAttributes.map(() => '?').join(',')})`,
+        ...orphanAttributes.map((r) => r.id),
+      )
+    }
+
     const orphanAssets = await db.all<{ id: string }[]>(
       `SELECT a.id FROM asset a
         WHERE NOT EXISTS (

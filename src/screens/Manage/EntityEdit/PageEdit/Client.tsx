@@ -7,7 +7,9 @@ import { useEvent } from '@cms/hooks/useEvent'
 import { PageData } from '@cms/services/PageStore'
 import { useWithProgress } from '@cms/components/ProgressOverlay/ProgressOverlay'
 import { Translations } from '@cms/services/LocalizationStore'
+import { AttributeData } from '@cms/services/AttributeStore'
 import { BlockEditor } from '../BlockEditor/BlockEditor'
+import { AttributesEditor } from '../AttributesEditor/AttributesEditor'
 import { resolveBlocks, preventFileNavigation } from '../BlockEditor/resolveBlocks'
 import { addPage, editPage, deletePage } from './utils'
 import { routing } from '../../routing'
@@ -19,12 +21,14 @@ import { AssetContent } from '@cms/services/AssetStore'
 export const Client: FC<{
   page?: PageData
   blocks?: BlockData[]
+  initialAttributes?: AttributeData[]
   translations?: Translations
   assetContents?: Record<string, AssetContent | null>
   assetSizes?: Record<string, number>
 }> = ({
   page,
   blocks: initialBlocks = [],
+  initialAttributes = [],
   translations: initialTranslations,
   assetContents = {},
   assetSizes = {},
@@ -33,6 +37,7 @@ export const Client: FC<{
   const [entityId] = useState(() => page?.id ?? v7())
   const [key, setKey] = useState(page?.key || '')
   const [blocks, setBlocks] = useState<BlockData[]>(initialBlocks)
+  const [attributes, setAttributes] = useState<AttributeData[]>(initialAttributes)
   const [translations, setTranslations] = useState<Translations>(initialTranslations ?? {})
   const withProgress = useWithProgress()
   const showToast = useToast()
@@ -41,7 +46,7 @@ export const Client: FC<{
     await withProgress(async () => {
       try {
         const resolvedBlocks = await resolveBlocks(blocks)
-        const payload = { key, blocks: resolvedBlocks, translations }
+        const payload = { key, blocks: resolvedBlocks, translations, attributes }
         if (page) {
           await editPage(page.id, payload)
           setBlocks(resolvedBlocks)
@@ -80,6 +85,12 @@ export const Client: FC<{
           <input value={key} onChange={(e) => setKey(e.target.value)} className="input-xl" />
         </label>
       </div>
+      <AttributesEditor
+        attributes={attributes}
+        onChange={setAttributes}
+        translations={translations}
+        onTranslationsChange={setTranslations}
+      />
       <div className="h-4" />
       <BlockEditor
         blocks={blocks}

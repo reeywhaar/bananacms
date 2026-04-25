@@ -7,6 +7,7 @@ import { PageStore } from '@cms/services/PageStore'
 import { BlockStore } from '@cms/services/BlockStore'
 import { LocalizationStore } from '@cms/services/LocalizationStore'
 import { AssetStore } from '@cms/services/AssetStore'
+import { AttributeStore } from '@cms/services/AttributeStore'
 import { BlockData } from '@cms/lib/blocks/declarations'
 
 export default async function PageEdit({ id }: { id?: string }) {
@@ -23,6 +24,8 @@ export default async function PageEdit({ id }: { id?: string }) {
   })()
 
   const translations = id ? await new LocalizationStore(db).getByParentId('page', id) : {}
+
+  const initialAttributes = id ? await new AttributeStore(db).getByParent('page', id) : []
 
   const imageAssetIds: string[] = []
   const collect = (list: BlockData[]): void => {
@@ -52,6 +55,7 @@ export default async function PageEdit({ id }: { id?: string }) {
       <Client
         page={page}
         blocks={blocks}
+        initialAttributes={initialAttributes}
         translations={translations}
         assetContents={assetContents}
         assetSizes={assetSizes}

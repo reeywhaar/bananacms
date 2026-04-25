@@ -1,6 +1,7 @@
 import { Database } from 'sqlite'
 import { type BlockType, type BlockData, blockParentSchema } from '@cms/lib/blocks/declarations'
 import { LocalizationStore, Translations } from './LocalizationStore'
+import { AttributeStore } from './AttributeStore'
 import { intoResult } from '@cms/utils/result'
 
 export type RawBlockData = {
@@ -107,6 +108,7 @@ export class BlockStore {
         parent.parentId,
         parent.parentTable,
       )
+      await new AttributeStore(this.db).saveByParent('block', block.id, block.attributes)
       if (block.content.type === 'image' && block.content.assetId) {
         await this.db.run(
           'INSERT OR IGNORE INTO parent_asset (assetId, parentId, parentTable) VALUES (?, ?, ?)',
@@ -153,7 +155,9 @@ export class BlockStore {
       return parsed as BlockType
     })()
 
-    return { id: raw.id, parent, type: raw.type, content }
+    const attributes = await new AttributeStore(this.db).getByParent('block', raw.id)
+
+    return { id: raw.id, parent, type: raw.type, content, attributes }
   }
 }
 

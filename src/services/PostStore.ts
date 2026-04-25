@@ -2,6 +2,7 @@ import { Database } from 'sqlite'
 import { BlockStore } from './BlockStore'
 import { LocalizationStore, Translations } from './LocalizationStore'
 import { TagStore } from './TagStore'
+import { AttributeStore, AttributeData } from './AttributeStore'
 import { getShortId } from '@cms/utils/getshortid'
 import { BlockData } from '@cms/lib/blocks/declarations'
 
@@ -24,6 +25,7 @@ export type PostPayload = {
   blocks: BlockData[]
   translations: Translations
   tagIds: string[]
+  attributes: AttributeData[]
 }
 
 const SELECT_POST_WITH_CATEGORY = `
@@ -81,6 +83,7 @@ export class PostStore {
         'category',
         topPosition,
       )
+      await new AttributeStore(this.db).saveByParent('post', id, payload.attributes)
       await new BlockStore(this.db).saveByParent('post', id, payload.blocks)
       await new LocalizationStore(this.db).save('post:' + id + ':', payload.translations)
       await new TagStore(this.db).setParent('post', id, payload.tagIds)
@@ -120,6 +123,7 @@ export class PostStore {
         )
       }
       await new LocalizationStore(this.db).deleteBlockTranslationsByParentId('post', id)
+      await new AttributeStore(this.db).saveByParent('post', id, payload.attributes)
       await new BlockStore(this.db).saveByParent('post', id, payload.blocks)
       await new LocalizationStore(this.db).save('post:' + id + ':', payload.translations)
       await new TagStore(this.db).setParent('post', id, payload.tagIds)

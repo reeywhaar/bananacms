@@ -11,7 +11,12 @@ type LocalizableFieldProps = {
   translationKey: string
   translations: Translations
   onTranslationsChange: (translations: Translations) => void
-  render: (value: string, onChange: (value: string) => void, label: string, placeholder: string) => ReactNode
+  render: (
+    value: string,
+    onChange: (value: string) => void,
+    label: string,
+    placeholder: string,
+  ) => ReactNode
   className?: string
 }
 
@@ -47,7 +52,7 @@ export const LocalizableField: FC<LocalizableFieldProps> = ({
   return (
     <div className={['relative', className].filter(Boolean).join(' ')}>
       {allLocales.length > 1 && (
-        <div className="absolute right-0 top-0 flex items-center gap-1">
+        <div className="absolute right-2 top-[-2px] flex items-center gap-1">
           {allLocales.map((locale) => (
             <button
               key={locale.code}

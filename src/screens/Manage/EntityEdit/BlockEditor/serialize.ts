@@ -86,7 +86,7 @@ function deserializeBlock(
     }
 
     const content: BlockType = { type: 'text', key: serialized.key, text }
-    return { id, parent: { type: 'post', id: '' }, type: 'text', content }
+    return { id, parent: { type: 'post', id: '' }, type: 'text', content, attributes: [] }
   }
 
   if (serialized.type === 'image') {
@@ -99,12 +99,12 @@ function deserializeBlock(
       key: serialized.key,
       text: serialized.text,
     }
-    return { id, parent: { type: 'post', id: '' }, type: 'meta', content }
+    return { id, parent: { type: 'post', id: '' }, type: 'meta', content, attributes: [] }
   }
 
   const children = deserializeBlockList(serialized.blocks, translations, defaultLocale)
   const content: BlockType = { type: 'group', key: serialized.key, blocks: children }
-  return { id, parent: { type: 'post', id: '' }, type: 'group', content }
+  return { id, parent: { type: 'post', id: '' }, type: 'group', content, attributes: [] }
 }
 
 function deserializeImageBlock(
@@ -128,5 +128,5 @@ function deserializeImageBlock(
     alt,
     assetId: serialized.assetId,
   }
-  return { id, parent: { type: 'post', id: '' }, type: 'image', content }
+  return { id, parent: { type: 'post', id: '' }, type: 'image', content, attributes: [] }
 }

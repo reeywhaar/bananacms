@@ -9,6 +9,7 @@ import { CategoryStore } from '@cms/services/CategoryStore'
 import { LocalizationStore } from '@cms/services/LocalizationStore'
 import { AssetStore } from '@cms/services/AssetStore'
 import { TagStore } from '@cms/services/TagStore'
+import { AttributeStore } from '@cms/services/AttributeStore'
 import { BlockData } from '@cms/lib/blocks/declarations'
 
 export default async function PostEdit({ id }: { id?: string }) {
@@ -31,6 +32,8 @@ export default async function PostEdit({ id }: { id?: string }) {
   const tagStore = new TagStore(db)
   const tags = await tagStore.getAll()
   const initialTagIds = id ? (await tagStore.getByParent('post', id)).map((t) => t.id) : []
+
+  const initialAttributes = id ? await new AttributeStore(db).getByParent('post', id) : []
 
   const translations = id ? await new LocalizationStore(db).getByParentId('post', id) : {}
 
@@ -71,6 +74,7 @@ export default async function PostEdit({ id }: { id?: string }) {
         categories={categories}
         tags={tags}
         initialTagIds={initialTagIds}
+        initialAttributes={initialAttributes}
         translations={translations}
         assetContents={assetContents}
         assetSizes={assetSizes}

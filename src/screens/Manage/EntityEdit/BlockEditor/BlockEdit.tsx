@@ -13,6 +13,7 @@ import { Translations } from '@cms/services/LocalizationStore'
 import { AssetContent } from '@cms/services/AssetStore'
 import { LocalizableField } from '../../LocalizableField'
 import { ImageBlockEdit } from './ImageBlockEdit'
+import { AttributesEditor } from '../AttributesEditor/AttributesEditor'
 import { AutosizeTextarea } from '@cms/components/AutosizeTextarea/AutosizeTextarea'
 import { X } from '@deemlol/next-icons'
 import { v7 } from 'uuid'
@@ -219,6 +220,12 @@ const BlockRow: FC<BlockRowProps> = ({
           assetSizes={assetSizes}
         />
       )}
+      <AttributesEditor
+        attributes={block.attributes}
+        onChange={(attrs) => onUpdate({ ...block, attributes: attrs })}
+        translations={translations}
+        onTranslationsChange={onTranslationsChange}
+      />
     </div>
   )
 }
@@ -326,11 +333,14 @@ const GroupBlockEdit: FC<GroupBlockEditProps> = ({
 }
 
 const purgeBlockTranslations = (translations: Translations, block: BlockData): Translations => {
+  const attributePrefixes = block.attributes.map((a) => 'attribute:' + a.id + ':')
   const result: Translations = {}
   for (const [locale, entries] of Object.entries(translations)) {
     const filtered: Record<string, string> = {}
     for (const [key, text] of Object.entries(entries)) {
-      if (!key.startsWith('block:' + block.id + ':')) filtered[key] = text
+      if (key.startsWith('block:' + block.id + ':')) continue
+      if (attributePrefixes.some((p) => key.startsWith(p))) continue
+      filtered[key] = text
     }
     result[locale] = filtered
   }
@@ -345,4 +355,5 @@ const makeBlock = (content: BlockType): BlockData => ({
   parent: { type: 'post', id: '' },
   type: content.type,
   content,
+  attributes: [],
 })

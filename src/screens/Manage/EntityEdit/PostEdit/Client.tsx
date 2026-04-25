@@ -8,10 +8,12 @@ import { PostData } from '@cms/services/PostStore'
 import { useWithProgress } from '@cms/components/ProgressOverlay/ProgressOverlay'
 import { CategoryData } from '@cms/services/CategoryStore'
 import { TagData } from '@cms/services/TagStore'
+import { AttributeData } from '@cms/services/AttributeStore'
 import { Translations } from '@cms/services/LocalizationStore'
 import { LocalizableField } from '../../LocalizableField'
 import { BlockEditor } from '../BlockEditor/BlockEditor'
 import { resolveBlocks, preventFileNavigation } from '../BlockEditor/resolveBlocks'
+import { AttributesEditor } from '../AttributesEditor/AttributesEditor'
 import { TagInput } from './TagInput'
 import { addPost, editPost, deletePost } from './utils'
 import { routing } from '../../routing'
@@ -27,6 +29,7 @@ export const Client: FC<{
   categories: CategoryData[]
   tags: TagData[]
   initialTagIds?: string[]
+  initialAttributes?: AttributeData[]
   translations?: Translations
   assetContents?: Record<string, AssetContent | null>
   assetSizes?: Record<string, number>
@@ -36,6 +39,7 @@ export const Client: FC<{
   categories,
   tags,
   initialTagIds = [],
+  initialAttributes = [],
   translations: initialTranslations,
   assetContents = {},
   assetSizes = {},
@@ -57,6 +61,7 @@ export const Client: FC<{
   const [status, setStatus] = useState<'published' | 'draft'>(post?.status ?? 'draft')
   const [blocks, setBlocks] = useState<BlockData[]>(initialBlocks)
   const [tagIds, setTagIds] = useState<string[]>(initialTagIds)
+  const [attributes, setAttributes] = useState<AttributeData[]>(initialAttributes)
   const [translations, setTranslations] = useState<Translations>(initialTranslations ?? {})
   const withProgress = useWithProgress()
   const showToast = useToast()
@@ -73,6 +78,7 @@ export const Client: FC<{
           blocks: resolvedBlocks,
           translations,
           tagIds,
+          attributes,
         }
         if (post) {
           await editPost(post.id, payload)
@@ -172,6 +178,12 @@ export const Client: FC<{
         </div>
       </div>
       {tags.length > 0 && <TagInput tags={tags} value={tagIds} onChange={setTagIds} />}
+      <AttributesEditor
+        attributes={attributes}
+        onChange={setAttributes}
+        translations={translations}
+        onTranslationsChange={setTranslations}
+      />
       <div className="h-4" />
       <BlockEditor
         blocks={blocks}

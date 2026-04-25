@@ -2,11 +2,13 @@
 
 import { CategoryData } from '@cms/services/CategoryStore'
 import { Translations } from '@cms/services/LocalizationStore'
+import { AttributeData } from '@cms/services/AttributeStore'
 import { useRouter } from 'next/navigation'
 import { LocalizableField } from '../../LocalizableField'
 import { FC, useState } from 'react'
 import { addCategory, editCategory, deleteCategory } from './utils'
 import { BlockEditor } from '../BlockEditor/BlockEditor'
+import { AttributesEditor } from '../AttributesEditor/AttributesEditor'
 import { resolveBlocks, preventFileNavigation } from '../BlockEditor/resolveBlocks'
 import { routing } from '../../routing'
 import { useToast } from '@cms/components/Toast/Toast'
@@ -20,12 +22,14 @@ import { v7 } from 'uuid'
 export const Client: FC<{
   category?: CategoryData
   blocks?: BlockData[]
+  initialAttributes?: AttributeData[]
   translations?: Translations
   assetContents?: Record<string, AssetContent | null>
   assetSizes?: Record<string, number>
 }> = ({
   category,
   blocks: initialBlocks = [],
+  initialAttributes = [],
   translations: initialTranslations,
   assetContents = {},
   assetSizes = {},
@@ -35,6 +39,7 @@ export const Client: FC<{
   const [name, setName] = useState(category?.name || '')
   const [slug, setSlug] = useState(category?.slug || '')
   const [blocks, setBlocks] = useState<BlockData[]>(initialBlocks)
+  const [attributes, setAttributes] = useState<AttributeData[]>(initialAttributes)
   const [translations, setTranslations] = useState<Translations>(initialTranslations ?? {})
   const withProgress = useWithProgress()
   const showToast = useToast()
@@ -43,7 +48,7 @@ export const Client: FC<{
     await withProgress(async () => {
       try {
         const resolvedBlocks = await resolveBlocks(blocks)
-        const payload = { name, slug, blocks: resolvedBlocks, translations }
+        const payload = { name, slug, blocks: resolvedBlocks, translations, attributes }
         if (category) {
           await editCategory(category.id, payload)
           setBlocks(resolvedBlocks)
@@ -114,6 +119,12 @@ export const Client: FC<{
           />
         </label>
       </div>
+      <AttributesEditor
+        attributes={attributes}
+        onChange={setAttributes}
+        translations={translations}
+        onTranslationsChange={setTranslations}
+      />
       <div className="h-4" />
       <BlockEditor
         blocks={blocks}

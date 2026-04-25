@@ -117,6 +117,7 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
         assetId: '',
         pendingFile: file,
       },
+      attributes: block.attributes,
     })
   }
 

@@ -20,12 +20,12 @@ export default async function PageEdit({ id }: { id?: string }) {
 
   const blocks = await (async () => {
     if (!id) return []
-    return new BlockStore(db).getByParent('page', id)
+    return new BlockStore(db).getByParent('page', 'id', id)
   })()
 
   const translations = id ? await new LocalizationStore(db).getByParentId('page', id) : {}
 
-  const initialAttributes = id ? await new AttributeStore(db).getByParent('page', id) : []
+  const initialAttributes = id ? await new AttributeStore(db).getByParent('page', 'id', id) : []
 
   const imageAssetIds: string[] = []
   const collect = (list: BlockData[]): void => {

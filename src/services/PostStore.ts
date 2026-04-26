@@ -5,6 +5,31 @@ import { TagStore } from './TagStore'
 import { AttributeStore, AttributeData } from './AttributeStore'
 import { getShortId } from '@cms/utils/getshortid'
 import { BlockData } from '@cms/lib/blocks/declarations'
+import {
+  GetByParentOptionsBase,
+  assertOneOf,
+  buildGetByParentQuery,
+  sqlOrder,
+} from './getByParentQuery'
+
+export type PostParentTable = 'category'
+export type PostParentColumn = 'id' | 'shortid'
+export type PostOrderField = 'position' | 'name' | 'createdAt' | 'updatedAt' | 'id'
+export type PostGetByParentOptions = GetByParentOptionsBase<PostOrderField> & {
+  status?: 'published' | 'draft'
+}
+
+const POST_PARENT_TABLES: ReadonlySet<string> = new Set<PostParentTable>(['category'])
+const POST_PARENT_COLUMNS: Record<PostParentTable, ReadonlySet<string>> = {
+  category: new Set<PostParentColumn>(['id', 'shortid']),
+}
+const POST_ORDER_FIELDS: Record<PostOrderField, string> = {
+  position: 'pp.position',
+  name: 'p.name',
+  createdAt: 'p.createdAt',
+  updatedAt: 'p.updatedAt',
+  id: 'p.id',
+}
 
 export type PostData = {
   id: string
@@ -47,12 +72,55 @@ export class PostStore {
     return row || null
   }
 
-  async getByCategory(categoryId: string): Promise<PostData[]> {
-    const rows = await this.db.all<PostData[]>(
-      `${SELECT_POST_WITH_CATEGORY} WHERE pp.parentTable = 'category' AND pp.parentId = ? ORDER BY pp.position ASC, p.id ASC`,
-      categoryId,
-    )
-    return rows
+  async getByParent<P extends PostParentTable>(
+    parentTable: P,
+    column: PostParentColumn,
+    id: string,
+    options: PostGetByParentOptions = {},
+  ): Promise<PostData[]> {
+    assertOneOf(parentTable, POST_PARENT_TABLES, 'parentTable')
+    assertOneOf(column, POST_PARENT_COLUMNS[parentTable], `column for parent '${parentTable}'`)
+    if (options.order) assertOneOf(options.order.field, new Set(Object.keys(POST_ORDER_FIELDS)), 'order.field')
+    if (!id) return []
+
+    const selectColumns = options.locale
+      ? `p.id, p.shortid, pp.parentId AS categoryId, p.slug,
+         COALESCE(l.text, p.name) AS name,
+         p.createdAt, p.updatedAt, p.status`
+      : `p.id, p.shortid, pp.parentId AS categoryId, p.slug, p.name,
+         p.createdAt, p.updatedAt, p.status`
+
+    const orderBy = options.order
+      ? `${POST_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}, p.id ASC`
+      : `pp.position ASC, p.id ASC`
+
+    const { sql, params } = buildGetByParentQuery({
+      child: {
+        childTable: 'post',
+        childAlias: 'p',
+        joinTable: 'parent_post',
+        joinAlias: 'pp',
+        joinChildKey: 'postId',
+      },
+      selectColumns,
+      parentTable,
+      parentColumn: column,
+      condition: options.condition ?? 'eq',
+      parentId: id,
+      extraWhere: options.status
+        ? { sql: 'p.status = ?', params: [options.status] }
+        : undefined,
+      orderBy,
+      limit: options.limit,
+      offset: options.offset,
+      localeJoins: options.locale
+        ? {
+            sql: `  LEFT JOIN localizations l ON l.key = 'post:' || p.id || ':name' AND l.locale = ?`,
+            params: [options.locale],
+          }
+        : undefined,
+    })
+    return this.db.all<PostData[]>(sql, ...params)
   }
 
   async getAll(): Promise<PostData[]> {
@@ -132,26 +200,6 @@ export class PostStore {
       await this.db.run('ROLLBACK')
       throw e
     }
-  }
-
-  async getPublicByCategoryId(locale: string, categoryId: string, published?: boolean): Promise<PostData[]> {
-    const conditions = [`pp.parentTable = 'category'`, `pp.parentId = ?`]
-    const params: string[] = [locale, categoryId]
-    if (published !== undefined) {
-      conditions.push(`p.status ${published ? "= 'published'" : "!= 'published'"}`)
-    }
-    return this.db.all<PostData[]>(
-      `SELECT p.id, p.shortid, pp.parentId AS categoryId, p.slug,
-              COALESCE(l.text, p.name) AS name,
-              p.createdAt, p.updatedAt, p.status
-       FROM post p
-       JOIN parent_post pp ON pp.postId = p.id
-       LEFT JOIN localizations l
-         ON l.key = 'post:' || p.id || ':name' AND l.locale = ?
-       WHERE ${conditions.join(' AND ')}
-       ORDER BY pp.position ASC, p.id ASC`,
-      ...params,
-    )
   }
 
   async move(postId: string, afterId: string | null): Promise<void> {

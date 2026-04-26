@@ -1,4 +1,10 @@
 import { Database } from 'sqlite'
+import {
+  GetByParentOptionsBase,
+  assertOneOf,
+  buildGetByParentQuery,
+  sqlOrder,
+} from './getByParentQuery'
 
 export type AttributeData = {
   id: string
@@ -15,19 +21,80 @@ type RawAttributeRow = {
   parentId?: string
 }
 
+export type AttributeParentTable = 'post' | 'category' | 'page' | 'block'
+export type AttributeParentColumn<P extends AttributeParentTable> = P extends 'page'
+  ? 'id' | 'key'
+  : P extends 'block'
+    ? 'id'
+    : 'id' | 'shortid'
+export type AttributeOrderField = 'id' | 'key'
+export type AttributeGetByParentOptions = GetByParentOptionsBase<AttributeOrderField>
+
+const ATTR_PARENT_TABLES: ReadonlySet<string> = new Set<AttributeParentTable>([
+  'post',
+  'category',
+  'page',
+  'block',
+])
+const ATTR_PARENT_COLUMNS: Record<AttributeParentTable, ReadonlySet<string>> = {
+  post: new Set(['id', 'shortid']),
+  category: new Set(['id', 'shortid']),
+  page: new Set(['id', 'key']),
+  block: new Set(['id']),
+}
+const ATTR_ORDER_FIELDS: Record<AttributeOrderField, string> = {
+  id: 'a.id',
+  key: 'a.key',
+}
+
 export class AttributeStore {
   constructor(private db: Database) {}
 
-  async getByParent(parentTable: string, parentId: string): Promise<AttributeData[]> {
-    const rows = await this.db.all<RawAttributeRow[]>(
-      `SELECT a.id, a.key, a.translatable, a.text
-         FROM attribute a
-         JOIN parent_attribute pa ON pa.attributeId = a.id
-        WHERE pa.parentTable = ? AND pa.parentId = ?
-        ORDER BY a.id ASC`,
+  async getByParent<P extends AttributeParentTable>(
+    parentTable: P,
+    column: AttributeParentColumn<P>,
+    id: string,
+    options: AttributeGetByParentOptions = {},
+  ): Promise<AttributeData[]> {
+    assertOneOf(parentTable, ATTR_PARENT_TABLES, 'parentTable')
+    assertOneOf(column, ATTR_PARENT_COLUMNS[parentTable], `column for parent '${parentTable}'`)
+    if (options.order)
+      assertOneOf(options.order.field, new Set(Object.keys(ATTR_ORDER_FIELDS)), 'order.field')
+    if (!id) return []
+
+    const selectColumns = options.locale
+      ? `a.id, a.key, a.translatable,
+         CASE WHEN a.translatable = 1 THEN COALESCE(l.text, a.text) ELSE a.text END AS text`
+      : `a.id, a.key, a.translatable, a.text`
+
+    const orderBy = options.order
+      ? `${ATTR_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}`
+      : `a.id ASC`
+
+    const { sql, params } = buildGetByParentQuery({
+      child: {
+        childTable: 'attribute',
+        childAlias: 'a',
+        joinTable: 'parent_attribute',
+        joinAlias: 'pa',
+        joinChildKey: 'attributeId',
+      },
+      selectColumns,
       parentTable,
-      parentId,
-    )
+      parentColumn: column,
+      condition: options.condition ?? 'eq',
+      parentId: id,
+      orderBy,
+      limit: options.limit,
+      offset: options.offset,
+      localeJoins: options.locale
+        ? {
+            sql: `  LEFT JOIN localizations l ON l.key = 'attribute:' || a.id || ':text' AND l.locale = ?`,
+            params: [options.locale],
+          }
+        : undefined,
+    })
+    const rows = await this.db.all<RawAttributeRow[]>(sql, ...params)
     return rows.map(toAttributeData)
   }
 

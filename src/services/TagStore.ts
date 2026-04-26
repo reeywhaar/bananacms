@@ -1,6 +1,26 @@
 import { Database } from 'sqlite'
 import { LocalizationStore, Translations } from './LocalizationStore'
 import { getShortId } from '@cms/utils/getshortid'
+import {
+  GetByParentOptionsBase,
+  assertOneOf,
+  buildGetByParentQuery,
+  sqlOrder,
+} from './getByParentQuery'
+
+export type TagParentTable = 'post'
+export type TagParentColumn = 'id' | 'shortid'
+export type TagOrderField = 'name' | 'id'
+export type TagGetByParentOptions = GetByParentOptionsBase<TagOrderField>
+
+const TAG_PARENT_TABLES: ReadonlySet<string> = new Set<TagParentTable>(['post'])
+const TAG_PARENT_COLUMNS: Record<TagParentTable, ReadonlySet<string>> = {
+  post: new Set<TagParentColumn>(['id', 'shortid']),
+}
+const TAG_ORDER_FIELDS: Record<TagOrderField, string> = {
+  name: 't.name',
+  id: 't.id',
+}
 
 export type TagData = {
   id: string
@@ -40,17 +60,50 @@ export class TagStore {
     return rows
   }
 
-  async getByParent(parentTable: string, parentId: string): Promise<TagData[]> {
-    const rows = await this.db.all<TagData[]>(
-      `SELECT t.id, t.shortid, t.slug, t.name
-         FROM tag t
-         JOIN parent_tag pt ON pt.tagId = t.id
-        WHERE pt.parentTable = ? AND pt.parentId = ?
-        ORDER BY t.name`,
+  async getByParent<P extends TagParentTable>(
+    parentTable: P,
+    column: TagParentColumn,
+    id: string,
+    options: TagGetByParentOptions = {},
+  ): Promise<TagData[]> {
+    assertOneOf(parentTable, TAG_PARENT_TABLES, 'parentTable')
+    assertOneOf(column, TAG_PARENT_COLUMNS[parentTable], `column for parent '${parentTable}'`)
+    if (options.order)
+      assertOneOf(options.order.field, new Set(Object.keys(TAG_ORDER_FIELDS)), 'order.field')
+    if (!id) return []
+
+    const selectColumns = options.locale
+      ? `t.id, t.shortid, t.slug, COALESCE(l.text, t.name) AS name`
+      : `t.id, t.shortid, t.slug, t.name`
+
+    const orderBy = options.order
+      ? `${TAG_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}`
+      : `t.name ASC`
+
+    const { sql, params } = buildGetByParentQuery({
+      child: {
+        childTable: 'tag',
+        childAlias: 't',
+        joinTable: 'parent_tag',
+        joinAlias: 'pt',
+        joinChildKey: 'tagId',
+      },
+      selectColumns,
       parentTable,
-      parentId,
-    )
-    return rows
+      parentColumn: column,
+      condition: options.condition ?? 'eq',
+      parentId: id,
+      orderBy,
+      limit: options.limit,
+      offset: options.offset,
+      localeJoins: options.locale
+        ? {
+            sql: `  LEFT JOIN localizations l ON l.key = 'tag:' || t.id || ':name' AND l.locale = ?`,
+            params: [options.locale],
+          }
+        : undefined,
+    })
+    return this.db.all<TagData[]>(sql, ...params)
   }
 
   async setParent(parentTable: string, parentId: string, tagIds: string[]): Promise<void> {

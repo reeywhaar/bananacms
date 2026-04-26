@@ -24,16 +24,16 @@ export default async function PostEdit({ id }: { id?: string }) {
 
   const blocks = await (async () => {
     if (!id) return []
-    return new BlockStore(db).getByParent('post', id)
+    return new BlockStore(db).getByParent('post', 'id', id)
   })()
 
   const categories = await new CategoryStore(db).getAll()
 
   const tagStore = new TagStore(db)
   const tags = await tagStore.getAll()
-  const initialTagIds = id ? (await tagStore.getByParent('post', id)).map((t) => t.id) : []
+  const initialTagIds = id ? (await tagStore.getByParent('post', 'id', id)).map((t) => t.id) : []
 
-  const initialAttributes = id ? await new AttributeStore(db).getByParent('post', id) : []
+  const initialAttributes = id ? await new AttributeStore(db).getByParent('post', 'id', id) : []
 
   const translations = id ? await new LocalizationStore(db).getByParentId('post', id) : {}
 

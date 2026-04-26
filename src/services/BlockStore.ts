@@ -3,6 +3,37 @@ import { type BlockType, type BlockData, blockParentSchema } from '@cms/lib/bloc
 import { LocalizationStore, Translations } from './LocalizationStore'
 import { AttributeStore } from './AttributeStore'
 import { intoResult } from '@cms/utils/result'
+import {
+  GetByParentOptionsBase,
+  assertOneOf,
+  buildGetByParentQuery,
+  sqlOrder,
+} from './getByParentQuery'
+
+export type BlockParentTable = 'post' | 'page' | 'category' | 'block'
+export type BlockParentColumn<P extends BlockParentTable> = P extends 'page'
+  ? 'id' | 'key'
+  : P extends 'block'
+    ? 'id'
+    : 'id' | 'shortid'
+export type BlockOrderField = 'id'
+export type BlockGetByParentOptions = GetByParentOptionsBase<BlockOrderField>
+
+const BLOCK_PARENT_TABLES: ReadonlySet<string> = new Set<BlockParentTable>([
+  'post',
+  'page',
+  'category',
+  'block',
+])
+const BLOCK_PARENT_COLUMNS: Record<BlockParentTable, ReadonlySet<string>> = {
+  post: new Set(['id', 'shortid']),
+  page: new Set(['id', 'key']),
+  category: new Set(['id', 'shortid']),
+  block: new Set(['id']),
+}
+const BLOCK_ORDER_FIELDS: Record<BlockOrderField, string> = {
+  id: 'b.id',
+}
 
 export type RawBlockData = {
   id: string
@@ -26,13 +57,51 @@ export class BlockStore {
     return row ? this.toBlockData(row) : null
   }
 
-  async getByParent(parentTable: string, parentId: string): Promise<BlockData[]> {
-    const rows = await this.db.all<RawBlockData[]>(
-      `${SELECT_BLOCK_WITH_PARENT} WHERE pb.parentTable = ? AND pb.parentId = ?`,
+  async getByParent<P extends BlockParentTable>(
+    parentTable: P,
+    column: BlockParentColumn<P>,
+    id: string,
+    options: BlockGetByParentOptions = {},
+  ): Promise<BlockData[]> {
+    assertOneOf(parentTable, BLOCK_PARENT_TABLES, 'parentTable')
+    assertOneOf(column, BLOCK_PARENT_COLUMNS[parentTable], `column for parent '${parentTable}'`)
+    if (options.order)
+      assertOneOf(options.order.field, new Set(Object.keys(BLOCK_ORDER_FIELDS)), 'order.field')
+    if (!id) return []
+
+    const orderBy = options.order
+      ? `${BLOCK_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}`
+      : `b.id ASC`
+
+    const { sql, params } = buildGetByParentQuery({
+      child: {
+        childTable: 'block',
+        childAlias: 'b',
+        joinTable: 'parent_block',
+        joinAlias: 'pb',
+        joinChildKey: 'blockId',
+      },
+      selectColumns: 'b.id, pb.parentId, pb.parentTable, b.type, b.content',
       parentTable,
-      parentId,
+      parentColumn: column,
+      condition: options.condition ?? 'eq',
+      parentId: id,
+      orderBy,
+      limit: options.limit,
+      offset: options.offset,
+    })
+    const rows = await this.db.all<RawBlockData[]>(sql, ...params)
+    const blocks = await Promise.all(rows.map((r) => this.toBlockData(r)))
+    if (!options.locale) return blocks
+
+    const parentIds = Array.from(new Set(rows.map((r) => r.parentId).filter((p): p is string => !!p)))
+    if (parentIds.length === 0) return blocks
+    const translations = await new LocalizationStore(this.db).getByBlockParentIds(
+      parentTable,
+      parentIds,
     )
-    return Promise.all(rows.map((r) => this.toBlockData(r)))
+    const locale = options.locale
+    return blocks.map((b) => applyTranslations(b, translations, locale))
   }
 
   async getAll(): Promise<BlockData[]> {
@@ -158,7 +227,7 @@ export class BlockStore {
       return parsed as BlockType
     })()
 
-    const attributes = await new AttributeStore(this.db).getByParent('block', raw.id)
+    const attributes = await new AttributeStore(this.db).getByParent('block', 'id', raw.id)
 
     return { id: raw.id, parent, type: raw.type, content, attributes }
   }

@@ -8,15 +8,26 @@ import { BlockData } from '@cms/lib/blocks/declarations'
 import { valita } from '@cms/utils/valita'
 import {
   GetByParentOptionsBase,
+  allQueryVariantSchema,
   buildGetByParentQuery,
-  parentDescriptorSchema,
+  columnQueryVariantSchema,
+  parentQueryVariantSchema,
   parseIdentifier,
   sqlOrder,
 } from './getByParentQuery'
 
-const postParentSchema = parentDescriptorSchema(
-  valita.literal('category'),
-  valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
+const postChildColumnSchema = valita.union(
+  valita.literal('id'),
+  valita.literal('shortid'),
+  valita.literal('slug'),
+)
+const postQuerySchema = valita.union(
+  allQueryVariantSchema(),
+  columnQueryVariantSchema(postChildColumnSchema),
+  parentQueryVariantSchema(
+    valita.literal('category'),
+    valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
+  ),
 )
 const postOrderFieldSchema = valita.union(
   valita.literal('position'),
@@ -26,14 +37,17 @@ const postOrderFieldSchema = valita.union(
   valita.literal('id'),
 )
 
-export type PostParent = valita.Infer<typeof postParentSchema>
-export type PostParentTable = PostParent['table']
-export type PostParentColumn = PostParent['column']
+export type PostQuery = valita.Infer<typeof postQuerySchema>
 export type PostOrderField = valita.Infer<typeof postOrderFieldSchema>
-export type PostGetByParentOptions = GetByParentOptionsBase<PostOrderField> & {
+export type PostGetOptions = GetByParentOptionsBase<PostOrderField> & {
   status?: 'published' | 'draft'
 }
 
+const POST_CHILD_COLUMNS: Record<valita.Infer<typeof postChildColumnSchema>, string> = {
+  id: 'p.id',
+  shortid: 'p.shortid',
+  slug: 'p.slug',
+}
 const POST_ORDER_FIELDS: Record<PostOrderField, string> = {
   position: 'pp.position',
   name: 'p.name',
@@ -41,6 +55,9 @@ const POST_ORDER_FIELDS: Record<PostOrderField, string> = {
   updatedAt: 'p.updatedAt',
   id: 'p.id',
 }
+
+const conditionToSql = (c: 'eq' | 'neq' | 'like'): string =>
+  c === 'eq' ? '=' : c === 'neq' ? '!=' : 'LIKE'
 
 export type PostData = {
   id: string
@@ -64,26 +81,13 @@ export type PostPayload = {
   attributes: AttributeData[]
 }
 
-const SELECT_POST_WITH_CATEGORY = `
-  SELECT p.id, p.shortid, pp.parentId AS categoryId, p.slug, p.name,
-         p.createdAt, p.updatedAt, p.status
-    FROM post p
-    LEFT JOIN parent_post pp
-      ON pp.postId = p.id AND pp.parentTable = 'category'
-`
-
 export class PostStore {
   constructor(private db: Database) {}
 
-  async get(id: string): Promise<PostData | null> {
-    const row = await this.db.get<PostData>(`${SELECT_POST_WITH_CATEGORY} WHERE p.id = ?`, id)
-    return row || null
-  }
-
-  async getByParent(parent: PostParent, options: PostGetByParentOptions = {}): Promise<PostData[]> {
-    parseIdentifier(postParentSchema, parent, 'parent')
+  async get(query: PostQuery, options: PostGetOptions = {}): Promise<PostData[]> {
+    parseIdentifier(postQuerySchema, query, 'query')
     if (options.order) parseIdentifier(postOrderFieldSchema, options.order.field, 'order.field')
-    if (!parent.value) return []
+    if (query.type !== 'all' && !query.value) return []
 
     const selectColumns = options.locale
       ? `p.id, p.shortid, pp.parentId AS categoryId, p.slug,
@@ -96,38 +100,66 @@ export class PostStore {
       ? `${POST_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}, p.id ASC`
       : `pp.position ASC, p.id ASC`
 
-    const { sql, params } = buildGetByParentQuery({
-      child: {
-        childTable: 'post',
-        childAlias: 'p',
-        joinTable: 'parent_post',
-        joinAlias: 'pp',
-        joinChildKey: 'postId',
-      },
-      selectColumns,
-      parentTable: parent.table,
-      parentColumn: parent.column,
-      condition: parent.condition ?? 'eq',
-      parentId: parent.value,
-      extraWhere: options.status ? { sql: 'p.status = ?', params: [options.status] } : undefined,
-      orderBy,
-      limit: options.limit,
-      offset: options.offset,
-      localeJoins: options.locale
-        ? {
-            sql: `  LEFT JOIN localizations l ON l.key = 'post:' || p.id || ':name' AND l.locale = ?`,
-            params: [options.locale],
-          }
-        : undefined,
-    })
-    return this.db.all<PostData[]>(sql, ...params)
-  }
+    const localeJoins = options.locale
+      ? {
+          sql: `  LEFT JOIN localizations l ON l.key = 'post:' || p.id || ':name' AND l.locale = ?`,
+          params: [options.locale] as unknown[],
+        }
+      : undefined
 
-  async getAll(): Promise<PostData[]> {
-    const rows = await this.db.all<PostData[]>(
-      `${SELECT_POST_WITH_CATEGORY} ORDER BY pp.position ASC, p.id ASC`,
-    )
-    return rows
+    if (query.type === 'parent') {
+      const { sql, params } = buildGetByParentQuery({
+        child: {
+          childTable: 'post',
+          childAlias: 'p',
+          joinTable: 'parent_post',
+          joinAlias: 'pp',
+          joinChildKey: 'postId',
+        },
+        selectColumns,
+        parentTable: query.table,
+        parentColumn: query.column,
+        condition: query.condition ?? 'eq',
+        parentId: query.value,
+        extraWhere: options.status ? { sql: 'p.status = ?', params: [options.status] } : undefined,
+        orderBy,
+        limit: options.limit,
+        offset: options.offset,
+        localeJoins,
+      })
+      return this.db.all<PostData[]>(sql, ...params)
+    }
+
+    const params: unknown[] = []
+    const lines: string[] = [
+      `SELECT ${selectColumns}`,
+      `  FROM post p`,
+      `  LEFT JOIN parent_post pp ON pp.postId = p.id AND pp.parentTable = 'category'`,
+    ]
+    if (localeJoins) {
+      lines.push(localeJoins.sql)
+      params.push(...localeJoins.params)
+    }
+    const whereClauses: string[] = []
+    if (query.type === 'column') {
+      whereClauses.push(`${POST_CHILD_COLUMNS[query.column]} ${conditionToSql(query.condition ?? 'eq')} ?`)
+      params.push(query.value)
+    }
+    if (options.status) {
+      whereClauses.push('p.status = ?')
+      params.push(options.status)
+    }
+    if (whereClauses.length) lines.push(` WHERE ${whereClauses.join(' AND ')}`)
+    lines.push(` ORDER BY ${orderBy}`)
+    if (options.limit !== undefined) {
+      lines.push(' LIMIT ?')
+      params.push(options.limit)
+      if (options.offset !== undefined) {
+        lines.push(' OFFSET ?')
+        params.push(options.offset)
+      }
+    }
+    return this.db.all<PostData[]>(lines.join('\n'), ...params)
   }
 
   async add(id: string, payload: PostPayload): Promise<void> {

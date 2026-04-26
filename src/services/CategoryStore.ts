@@ -4,6 +4,48 @@ import { LocalizationStore, Translations } from './LocalizationStore'
 import { AttributeStore, AttributeData } from './AttributeStore'
 import { getShortId } from '@cms/utils/getshortid'
 import { BlockData } from '@cms/lib/blocks/declarations'
+import { valita } from '@cms/utils/valita'
+import {
+  GetByParentOptionsBase,
+  allQueryVariantSchema,
+  columnQueryVariantSchema,
+  parseIdentifier,
+  sqlOrder,
+} from './getByParentQuery'
+
+const categoryChildColumnSchema = valita.union(
+  valita.literal('id'),
+  valita.literal('shortid'),
+  valita.literal('slug'),
+)
+const categoryQuerySchema = valita.union(
+  allQueryVariantSchema(),
+  columnQueryVariantSchema(categoryChildColumnSchema),
+)
+const categoryOrderFieldSchema = valita.union(
+  valita.literal('name'),
+  valita.literal('id'),
+  valita.literal('slug'),
+)
+
+export type CategoryQuery = valita.Infer<typeof categoryQuerySchema>
+export type CategoryOrderField = valita.Infer<typeof categoryOrderFieldSchema>
+export type CategoryGetOptions = GetByParentOptionsBase<CategoryOrderField>
+
+const CATEGORY_CHILD_COLUMNS: Record<valita.Infer<typeof categoryChildColumnSchema>, string> = {
+  id: 'c.id',
+  shortid: 'c.shortid',
+  slug: 'c.slug',
+}
+const CATEGORY_ORDER_FIELDS: Record<CategoryOrderField, string> = {
+  name: 'c.name',
+  id: 'c.id',
+  slug: 'c.slug',
+}
+
+const conditionToSql = (c: 'eq' | 'neq' | 'like'): string =>
+  c === 'eq' ? '=' : c === 'neq' ? '!=' : 'LIKE'
+
 export type CategoryData = {
   id: string
   shortid: string
@@ -23,23 +65,49 @@ export type CategoryPayload = {
 export class CategoryStore {
   constructor(private db: Database) {}
 
-  async get(id: string): Promise<CategoryData | null> {
-    const row = await this.db.get<CategoryData>(
-      'SELECT id, shortid, slug, name FROM category WHERE id = ?',
-      id,
-    )
-    return row || null
-  }
+  async get(query: CategoryQuery, options: CategoryGetOptions = {}): Promise<CategoryData[]> {
+    parseIdentifier(categoryQuerySchema, query, 'query')
+    if (options.order)
+      parseIdentifier(categoryOrderFieldSchema, options.order.field, 'order.field')
+    if (query.type === 'column' && !query.value) return []
 
-  async getAll(): Promise<CategoryData[]> {
-    const rows = await this.db.all<CategoryData[]>(
-      `SELECT c.id, c.shortid, c.slug, c.name, COUNT(pp.postId) AS postCount
-         FROM category c
-         LEFT JOIN parent_post pp ON pp.parentTable = 'category' AND pp.parentId = c.id
-         GROUP BY c.id
-         ORDER BY c.id`,
-    )
-    return rows
+    const selectColumns = options.locale
+      ? `c.id, c.shortid, c.slug, COALESCE(l.text, c.name) AS name, COUNT(pp.postId) AS postCount`
+      : `c.id, c.shortid, c.slug, c.name, COUNT(pp.postId) AS postCount`
+
+    const orderBy = options.order
+      ? `${CATEGORY_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}`
+      : `c.id ASC`
+
+    const params: unknown[] = []
+    const lines: string[] = [
+      `SELECT ${selectColumns}`,
+      `  FROM category c`,
+      `  LEFT JOIN parent_post pp ON pp.parentTable = 'category' AND pp.parentId = c.id`,
+    ]
+    if (options.locale) {
+      lines.push(
+        `  LEFT JOIN localizations l ON l.key = 'category:' || c.id || ':name' AND l.locale = ?`,
+      )
+      params.push(options.locale)
+    }
+    if (query.type === 'column') {
+      lines.push(
+        ` WHERE ${CATEGORY_CHILD_COLUMNS[query.column]} ${conditionToSql(query.condition ?? 'eq')} ?`,
+      )
+      params.push(query.value)
+    }
+    lines.push(' GROUP BY c.id')
+    lines.push(` ORDER BY ${orderBy}`)
+    if (options.limit !== undefined) {
+      lines.push(' LIMIT ?')
+      params.push(options.limit)
+      if (options.offset !== undefined) {
+        lines.push(' OFFSET ?')
+        params.push(options.offset)
+      }
+    }
+    return this.db.all<CategoryData[]>(lines.join('\n'), ...params)
   }
 
   async add(id: string, payload: CategoryPayload): Promise<void> {
@@ -84,31 +152,6 @@ export class CategoryStore {
     }
   }
 
-  async getPublicById(locale: string, id: string): Promise<CategoryData | null> {
-    const category = await this.get(id)
-    if (!category) return null
-    const translations = await new LocalizationStore(this.db).getByKeyPrefix('category:' + id + ':')
-    return applyTranslations(category, translations, locale)
-  }
-
-  async getPublicByShortId(locale: string, shortid: string): Promise<CategoryData | null> {
-    const category = await this.db.get<CategoryData>(
-      'SELECT id, shortid, slug, name FROM category WHERE shortid = ?',
-      shortid,
-    )
-    if (!category) return null
-    const translations = await new LocalizationStore(this.db).getByKeyPrefix(
-      'category:' + category.id + ':',
-    )
-    return applyTranslations(category, translations, locale)
-  }
-
-  async getPublicAll(locale: string): Promise<CategoryData[]> {
-    const categories = await this.getAll()
-    const translations = await new LocalizationStore(this.db).getByKeyPrefix('category:')
-    return categories.map((category) => applyTranslations(category, translations, locale))
-  }
-
   async delete(id: string): Promise<void> {
     await this.db.run('DELETE FROM category WHERE id = ?', id)
   }
@@ -117,18 +160,4 @@ export class CategoryStore {
 const validateCategoryPayload = (payload: CategoryPayload) => {
   if (!payload.name) throw new Error('Name is required')
   if (!payload.slug) throw new Error('Slug is required')
-}
-
-const applyTranslations = (
-  category: CategoryData,
-  translations: Translations,
-  locale: string,
-): CategoryData => {
-  const localeMap = translations[locale]
-  if (!localeMap) return category
-  const prefix = 'category:' + category.id + ':'
-  return {
-    ...category,
-    name: localeMap[prefix + 'name'] ?? category.name,
-  }
 }

@@ -12,7 +12,7 @@ import { TagStore } from '@cms/services/TagStore'
 
 export type EntityStore = {
   new (db: Database): {
-    getAll(): Promise<{ id: string; name: string }[]>
+    get(query: { type: 'all' }): Promise<{ id: string; name: string }[]>
   }
 }
 

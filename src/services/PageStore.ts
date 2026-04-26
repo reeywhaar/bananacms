@@ -3,10 +3,42 @@ import { BlockStore } from './BlockStore'
 import { LocalizationStore, Translations } from './LocalizationStore'
 import { AttributeStore, AttributeData } from './AttributeStore'
 import { BlockData } from '@cms/lib/blocks/declarations'
+import { valita } from '@cms/utils/valita'
+import {
+  GetByParentOptionsBase,
+  allQueryVariantSchema,
+  columnQueryVariantSchema,
+  parseIdentifier,
+  sqlOrder,
+} from './getByParentQuery'
+
+const pageChildColumnSchema = valita.union(valita.literal('id'), valita.literal('key'))
+const pageQuerySchema = valita.union(
+  allQueryVariantSchema(),
+  columnQueryVariantSchema(pageChildColumnSchema),
+)
+const pageOrderFieldSchema = valita.union(valita.literal('id'), valita.literal('key'))
+
+export type PageQuery = valita.Infer<typeof pageQuerySchema>
+export type PageOrderField = valita.Infer<typeof pageOrderFieldSchema>
+export type PageGetOptions = GetByParentOptionsBase<PageOrderField>
+
+const PAGE_CHILD_COLUMNS: Record<valita.Infer<typeof pageChildColumnSchema>, string> = {
+  id: 'p.id',
+  key: 'p.key',
+}
+const PAGE_ORDER_FIELDS: Record<PageOrderField, string> = {
+  id: 'p.id',
+  key: 'p.key',
+}
+
+const conditionToSql = (c: 'eq' | 'neq' | 'like'): string =>
+  c === 'eq' ? '=' : c === 'neq' ? '!=' : 'LIKE'
 
 export type PageData = {
   id: string
   key: string
+  name: string
 }
 
 export type PagePayload = {
@@ -19,20 +51,33 @@ export type PagePayload = {
 export class PageStore {
   constructor(private db: Database) {}
 
-  async get(id: string): Promise<PageData | null> {
-    const row = await this.db.get<PageData>('SELECT id, key FROM page WHERE id = ?', id)
-    return row || null
-  }
+  async get(query: PageQuery, options: PageGetOptions = {}): Promise<PageData[]> {
+    parseIdentifier(pageQuerySchema, query, 'query')
+    if (options.order) parseIdentifier(pageOrderFieldSchema, options.order.field, 'order.field')
+    if (query.type === 'column' && !query.value) return []
 
-  async getByKey(key: string): Promise<PageData | null> {
-    const row = await this.db.get<PageData>('SELECT id, key FROM page WHERE key = ?', key)
-    return row || null
-  }
+    const orderBy = options.order
+      ? `${PAGE_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}`
+      : `p.key ASC`
 
-  async getAll(): Promise<(PageData & { name: string })[]> {
-    return this.db.all<(PageData & { name: string })[]>(
-      'SELECT id, key, key AS name FROM page ORDER BY key',
-    )
+    const params: unknown[] = []
+    const lines: string[] = [`SELECT p.id, p.key, p.key AS name FROM page p`]
+    if (query.type === 'column') {
+      lines.push(
+        ` WHERE ${PAGE_CHILD_COLUMNS[query.column]} ${conditionToSql(query.condition ?? 'eq')} ?`,
+      )
+      params.push(query.value)
+    }
+    lines.push(` ORDER BY ${orderBy}`)
+    if (options.limit !== undefined) {
+      lines.push(' LIMIT ?')
+      params.push(options.limit)
+      if (options.offset !== undefined) {
+        lines.push(' OFFSET ?')
+        params.push(options.offset)
+      }
+    }
+    return this.db.all<PageData[]>(lines.join('\n'), ...params)
   }
 
   async add(id: string, payload: PagePayload): Promise<void> {

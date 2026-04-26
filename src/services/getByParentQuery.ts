@@ -21,6 +21,34 @@ export function parentDescriptorSchema<TTable extends string, TColumn extends st
   })
 }
 
+export function parentQueryVariantSchema<TTable extends string, TColumn extends string>(
+  tableSchema: valita.Type<TTable>,
+  columnSchema: valita.Type<TColumn>,
+) {
+  return valita.object({
+    type: valita.literal('parent'),
+    table: tableSchema,
+    column: columnSchema,
+    value: valita.string(),
+    condition: conditionSchema.optional(),
+  })
+}
+
+export function allQueryVariantSchema() {
+  return valita.object({ type: valita.literal('all') })
+}
+
+export function columnQueryVariantSchema<TColumn extends string>(
+  columnSchema: valita.Type<TColumn>,
+) {
+  return valita.object({
+    type: valita.literal('column'),
+    column: columnSchema,
+    value: valita.string(),
+    condition: conditionSchema.optional(),
+  })
+}
+
 export type ParentDescriptor<TTable extends string, TColumn extends string> = {
   table: TTable
   column: TColumn

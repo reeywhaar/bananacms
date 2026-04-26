@@ -6,37 +6,47 @@ import { intoResult } from '@cms/utils/result'
 import { valita } from '@cms/utils/valita'
 import {
   GetByParentOptionsBase,
+  allQueryVariantSchema,
   buildGetByParentQuery,
-  parentDescriptorSchema,
+  columnQueryVariantSchema,
+  parentQueryVariantSchema,
   parseIdentifier,
   sqlOrder,
 } from './getByParentQuery'
 
-const blockParentInputSchema = valita.union(
-  parentDescriptorSchema(
+const blockChildColumnSchema = valita.literal('id')
+const blockQuerySchema = valita.union(
+  allQueryVariantSchema(),
+  columnQueryVariantSchema(blockChildColumnSchema),
+  parentQueryVariantSchema(
     valita.literal('post'),
-    valita.union(valita.literal('id'), valita.literal('shortid')),
+    valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
   ),
-  parentDescriptorSchema(
+  parentQueryVariantSchema(
     valita.literal('page'),
     valita.union(valita.literal('id'), valita.literal('key')),
   ),
-  parentDescriptorSchema(
+  parentQueryVariantSchema(
     valita.literal('category'),
     valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
   ),
-  parentDescriptorSchema(valita.literal('block'), valita.literal('id')),
+  parentQueryVariantSchema(valita.literal('block'), valita.literal('id')),
 )
 const blockOrderFieldSchema = valita.literal('id')
 
-export type BlockParent = valita.Infer<typeof blockParentInputSchema>
-export type BlockParentTable = BlockParent['table']
+export type BlockQuery = valita.Infer<typeof blockQuerySchema>
 export type BlockOrderField = valita.Infer<typeof blockOrderFieldSchema>
-export type BlockGetByParentOptions = GetByParentOptionsBase<BlockOrderField>
+export type BlockGetOptions = GetByParentOptionsBase<BlockOrderField>
 
+const BLOCK_CHILD_COLUMNS: Record<valita.Infer<typeof blockChildColumnSchema>, string> = {
+  id: 'b.id',
+}
 const BLOCK_ORDER_FIELDS: Record<BlockOrderField, string> = {
   id: 'b.id',
 }
+
+const conditionToSql = (c: 'eq' | 'neq' | 'like'): string =>
+  c === 'eq' ? '=' : c === 'neq' ? '!=' : 'LIKE'
 
 export type RawBlockData = {
   id: string
@@ -55,57 +65,88 @@ const SELECT_BLOCK_WITH_PARENT = `
 export class BlockStore {
   constructor(private db: Database) {}
 
-  async get(id: string): Promise<BlockData | null> {
-    const row = await this.db.get<RawBlockData>(`${SELECT_BLOCK_WITH_PARENT} WHERE b.id = ?`, id)
-    return row ? this.toBlockData(row) : null
-  }
-
-  async getByParent(
-    parent: BlockParent,
-    options: BlockGetByParentOptions = {},
-  ): Promise<BlockData[]> {
-    parseIdentifier(blockParentInputSchema, parent, 'parent')
+  async get(query: BlockQuery, options: BlockGetOptions = {}): Promise<BlockData[]> {
+    parseIdentifier(blockQuerySchema, query, 'query')
     if (options.order) parseIdentifier(blockOrderFieldSchema, options.order.field, 'order.field')
-    if (!parent.value) return []
+    if (query.type !== 'all' && !query.value) return []
 
     const orderBy = options.order
       ? `${BLOCK_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}`
       : `b.id ASC`
+    const selectColumns = 'b.id, pb.parentId, pb.parentTable, b.type, b.content'
 
-    const { sql, params } = buildGetByParentQuery({
-      child: {
-        childTable: 'block',
-        childAlias: 'b',
-        joinTable: 'parent_block',
-        joinAlias: 'pb',
-        joinChildKey: 'blockId',
-      },
-      selectColumns: 'b.id, pb.parentId, pb.parentTable, b.type, b.content',
-      parentTable: parent.table,
-      parentColumn: parent.column,
-      condition: parent.condition ?? 'eq',
-      parentId: parent.value,
-      orderBy,
-      limit: options.limit,
-      offset: options.offset,
-    })
-    const rows = await this.db.all<RawBlockData[]>(sql, ...params)
+    let rows: RawBlockData[]
+    if (query.type === 'parent') {
+      const { sql, params } = buildGetByParentQuery({
+        child: {
+          childTable: 'block',
+          childAlias: 'b',
+          joinTable: 'parent_block',
+          joinAlias: 'pb',
+          joinChildKey: 'blockId',
+        },
+        selectColumns,
+        parentTable: query.table,
+        parentColumn: query.column,
+        condition: query.condition ?? 'eq',
+        parentId: query.value,
+        orderBy,
+        limit: options.limit,
+        offset: options.offset,
+      })
+      rows = await this.db.all<RawBlockData[]>(sql, ...params)
+    } else {
+      const params: unknown[] = []
+      const lines: string[] = [
+        `SELECT ${selectColumns}`,
+        `  FROM block b`,
+        `  LEFT JOIN parent_block pb ON pb.blockId = b.id`,
+      ]
+      const whereClauses: string[] = []
+      if (query.type === 'column') {
+        whereClauses.push(
+          `${BLOCK_CHILD_COLUMNS[query.column]} ${conditionToSql(query.condition ?? 'eq')} ?`,
+        )
+        params.push(query.value)
+      }
+      if (whereClauses.length) lines.push(` WHERE ${whereClauses.join(' AND ')}`)
+      lines.push(` ORDER BY ${orderBy}`)
+      if (options.limit !== undefined) {
+        lines.push(' LIMIT ?')
+        params.push(options.limit)
+        if (options.offset !== undefined) {
+          lines.push(' OFFSET ?')
+          params.push(options.offset)
+        }
+      }
+      rows = await this.db.all<RawBlockData[]>(lines.join('\n'), ...params)
+    }
+
     const blocks = await Promise.all(rows.map((r) => this.toBlockData(r)))
     if (!options.locale) return blocks
 
-    const parentIds = Array.from(new Set(rows.map((r) => r.parentId).filter((p): p is string => !!p)))
-    if (parentIds.length === 0) return blocks
-    const translations = await new LocalizationStore(this.db).getByBlockParentIds(
-      parent.table,
-      parentIds,
-    )
+    // Bucket by parentTable so getByBlockParentIds gets a coherent CTE input.
+    const byTable = new Map<string, Set<string>>()
+    for (const r of rows) {
+      if (!r.parentTable || !r.parentId) continue
+      let bucket = byTable.get(r.parentTable)
+      if (!bucket) {
+        bucket = new Set<string>()
+        byTable.set(r.parentTable, bucket)
+      }
+      bucket.add(r.parentId)
+    }
+    const allTranslations: Translations = {}
+    const localizationStore = new LocalizationStore(this.db)
+    for (const [table, ids] of byTable) {
+      const t = await localizationStore.getByBlockParentIds(table, Array.from(ids))
+      for (const [locale, entries] of Object.entries(t)) {
+        if (!allTranslations[locale]) allTranslations[locale] = {}
+        Object.assign(allTranslations[locale], entries)
+      }
+    }
     const locale = options.locale
-    return blocks.map((b) => applyTranslations(b, translations, locale))
-  }
-
-  async getAll(): Promise<BlockData[]> {
-    const rows = await this.db.all<RawBlockData[]>(`${SELECT_BLOCK_WITH_PARENT} ORDER BY b.id`)
-    return Promise.all(rows.map((r) => this.toBlockData(r)))
+    return blocks.map((b) => applyTranslations(b, allTranslations, locale))
   }
 
   async getPublicByParentIds(
@@ -226,7 +267,8 @@ export class BlockStore {
       return parsed as BlockType
     })()
 
-    const attributes = await new AttributeStore(this.db).getByParent({
+    const attributes = await new AttributeStore(this.db).get({
+      type: 'parent',
       table: 'block',
       column: 'id',
       value: raw.id,

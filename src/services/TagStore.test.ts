@@ -11,7 +11,7 @@ const TAG_ALPHA = '019dbcea-d3a4-75e7-b37a-190d51650111'
 const TAG_BRAVO = '019dbcea-d3a4-75e7-b37a-190d51650222'
 const TAG_CHARLIE = '019dbcea-d3a4-75e7-b37a-190d51650333'
 
-describe('TagStore.getByParent', () => {
+describe('TagStore.get', () => {
   let db: Database
 
   beforeEach(async () => {
@@ -33,37 +33,43 @@ describe('TagStore.getByParent', () => {
     await db.close()
   })
 
-  const onPostA = { table: 'post', column: 'id', value: POST_A } as const
+  const onPostA = { type: 'parent', table: 'post', column: 'id', value: POST_A } as const
 
   it('returns tags attached to a post, ordered by name by default', async () => {
-    const tags = await new TagStore(db).getByParent(onPostA)
+    const tags = await new TagStore(db).get(onPostA)
     expect(tags.map((t) => t.name)).toEqual(['Alpha', 'Bravo'])
   })
 
   it('handles many-to-many: same tag returned for both posts', async () => {
-    const a = await new TagStore(db).getByParent(onPostA)
-    const b = await new TagStore(db).getByParent({ table: 'post', column: 'id', value: POST_B })
+    const a = await new TagStore(db).get(onPostA)
+    const b = await new TagStore(db).get({
+      type: 'parent',
+      table: 'post',
+      column: 'id',
+      value: POST_B,
+    })
     expect(a.find((t) => t.id === TAG_BRAVO)).toBeDefined()
     expect(b.find((t) => t.id === TAG_BRAVO)).toBeDefined()
   })
 
-  it('coalesces name via locale', async () => {
+  it('coalesces name via locale (parent variant)', async () => {
     await insertLocalization(db, `tag:${TAG_BRAVO}:name`, 'ru', 'Альфа')
-    const tags = await new TagStore(db).getByParent(onPostA, { locale: 'ru' })
+    const tags = await new TagStore(db).get(onPostA, { locale: 'ru' })
     const bravo = tags.find((t) => t.id === TAG_BRAVO)
     expect(bravo?.name).toBe('Альфа')
   })
 
   it('supports custom order field', async () => {
-    const tags = await new TagStore(db).getByParent(onPostA, {
+    const tags = await new TagStore(db).get(onPostA, {
       order: { field: 'name', order: 'desc' },
     })
     expect(tags.map((t) => t.name)).toEqual(['Bravo', 'Alpha'])
   })
 
   it('looks up by post shortid', async () => {
-    const byId = await new TagStore(db).getByParent(onPostA)
-    const byShortId = await new TagStore(db).getByParent({
+    const byId = await new TagStore(db).get(onPostA)
+    const byShortId = await new TagStore(db).get({
+      type: 'parent',
       table: 'post',
       column: 'shortid',
       value: POST_A.slice(-8),
@@ -73,15 +79,55 @@ describe('TagStore.getByParent', () => {
 
   it('returns [] for an unknown parent value', async () => {
     expect(
-      await new TagStore(db).getByParent({ table: 'post', column: 'id', value: 'no-such-post' }),
+      await new TagStore(db).get({
+        type: 'parent',
+        table: 'post',
+        column: 'id',
+        value: 'no-such-post',
+      }),
     ).toEqual([])
   })
 
   it('throws InvalidIdentifierError for an unknown parent.table', async () => {
     await expect(
-      // @ts-expect-error — runtime check
-      new TagStore(db).getByParent({ table: 'category', column: 'id', value: POST_A }),
+      new TagStore(db).get({
+        type: 'parent',
+        // @ts-expect-error — runtime check
+        table: 'category',
+        column: 'id',
+        value: POST_A,
+      }),
     ).rejects.toThrow(InvalidIdentifierError)
+  })
+
+  it('all variant returns every tag with postCount', async () => {
+    const tags = await new TagStore(db).get({ type: 'all' })
+    // Sorted by name: Alpha, Bravo, Charlie. (TAG_ALPHA holds name='Bravo', etc.)
+    expect(tags.map((t) => t.name)).toEqual(['Alpha', 'Bravo', 'Charlie'])
+    // The 'Alpha' tag is TAG_BRAVO, linked to both POST_A and POST_B.
+    expect(tags.find((t) => t.name === 'Alpha')?.postCount).toBe(2)
+    expect(tags.find((t) => t.name === 'Bravo')?.postCount).toBe(1)
+    expect(tags.find((t) => t.name === 'Charlie')?.postCount).toBe(1)
+  })
+
+  it('all variant coalesces names via locale', async () => {
+    await insertLocalization(db, `tag:${TAG_BRAVO}:name`, 'ru', 'Альфа')
+    const tags = await new TagStore(db).get({ type: 'all' }, { locale: 'ru' })
+    expect(tags.find((t) => t.id === TAG_BRAVO)?.name).toBe('Альфа')
+  })
+
+  it('column variant fetches by shortid', async () => {
+    const tag = (
+      await new TagStore(db).get({ type: 'column', column: 'shortid', value: 'alpha-short' })
+    ).at(0)
+    expect(tag?.id).toBe(TAG_ALPHA)
+  })
+
+  it('column variant fetches by slug', async () => {
+    const tag = (
+      await new TagStore(db).get({ type: 'column', column: 'slug', value: 'charlie' })
+    ).at(0)
+    expect(tag?.id).toBe(TAG_CHARLIE)
   })
 })
 

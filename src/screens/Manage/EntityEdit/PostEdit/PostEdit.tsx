@@ -17,26 +17,34 @@ export default async function PostEdit({ id }: { id?: string }) {
 
   const post = await (async () => {
     if (!id) return undefined
-    return (await new PostStore(db).get(id)) ?? notFound()
+    return (
+      (await new PostStore(db).get({ type: 'column', column: 'id', value: id })).at(0) ?? notFound()
+    )
   })()
 
-  const category = post ? await new CategoryStore(db).get(post.categoryId) : undefined
+  const category = post
+    ? (
+        await new CategoryStore(db).get({ type: 'column', column: 'id', value: post.categoryId })
+      ).at(0)
+    : undefined
 
   const blocks = await (async () => {
     if (!id) return []
-    return new BlockStore(db).getByParent({ table: 'post', column: 'id', value: id })
+    return new BlockStore(db).get({ type: 'parent', table: 'post', column: 'id', value: id })
   })()
 
-  const categories = await new CategoryStore(db).getAll()
+  const categories = await new CategoryStore(db).get({ type: 'all' })
 
   const tagStore = new TagStore(db)
-  const tags = await tagStore.getAll()
+  const tags = await tagStore.get({ type: 'all' })
   const initialTagIds = id
-    ? (await tagStore.getByParent({ table: 'post', column: 'id', value: id })).map((t) => t.id)
+    ? (
+        await tagStore.get({ type: 'parent', table: 'post', column: 'id', value: id })
+      ).map((t) => t.id)
     : []
 
   const initialAttributes = id
-    ? await new AttributeStore(db).getByParent({ table: 'post', column: 'id', value: id })
+    ? await new AttributeStore(db).get({ type: 'parent', table: 'post', column: 'id', value: id })
     : []
 
   const translations = id ? await new LocalizationStore(db).getByParentId('post', id) : {}

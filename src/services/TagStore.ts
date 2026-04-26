@@ -4,28 +4,45 @@ import { getShortId } from '@cms/utils/getshortid'
 import { valita } from '@cms/utils/valita'
 import {
   GetByParentOptionsBase,
+  allQueryVariantSchema,
   buildGetByParentQuery,
-  parentDescriptorSchema,
+  columnQueryVariantSchema,
+  parentQueryVariantSchema,
   parseIdentifier,
   sqlOrder,
 } from './getByParentQuery'
 
-const tagParentSchema = parentDescriptorSchema(
-  valita.literal('post'),
-  valita.union(valita.literal('id'), valita.literal('shortid')),
+const tagChildColumnSchema = valita.union(
+  valita.literal('id'),
+  valita.literal('shortid'),
+  valita.literal('slug'),
+)
+const tagQuerySchema = valita.union(
+  allQueryVariantSchema(),
+  columnQueryVariantSchema(tagChildColumnSchema),
+  parentQueryVariantSchema(
+    valita.literal('post'),
+    valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
+  ),
 )
 const tagOrderFieldSchema = valita.union(valita.literal('name'), valita.literal('id'))
 
-export type TagParent = valita.Infer<typeof tagParentSchema>
-export type TagParentTable = TagParent['table']
-export type TagParentColumn = TagParent['column']
+export type TagQuery = valita.Infer<typeof tagQuerySchema>
 export type TagOrderField = valita.Infer<typeof tagOrderFieldSchema>
-export type TagGetByParentOptions = GetByParentOptionsBase<TagOrderField>
+export type TagGetOptions = GetByParentOptionsBase<TagOrderField>
 
+const TAG_CHILD_COLUMNS: Record<valita.Infer<typeof tagChildColumnSchema>, string> = {
+  id: 't.id',
+  shortid: 't.shortid',
+  slug: 't.slug',
+}
 const TAG_ORDER_FIELDS: Record<TagOrderField, string> = {
   name: 't.name',
   id: 't.id',
 }
+
+const conditionToSql = (c: 'eq' | 'neq' | 'like'): string =>
+  c === 'eq' ? '=' : c === 'neq' ? '!=' : 'LIKE'
 
 export type TagData = {
   id: string
@@ -44,64 +61,82 @@ export type TagPayload = {
 export class TagStore {
   constructor(private db: Database) {}
 
-  async get(id: string): Promise<TagData | null> {
-    const row = await this.db.get<TagData>(
-      'SELECT id, shortid, slug, name FROM tag WHERE id = ?',
-      id,
-    )
-    return row || null
-  }
-
-  async getAll(): Promise<TagData[]> {
-    const rows = await this.db.all<TagData[]>(
-      `SELECT t.id, t.shortid, t.slug, t.name,
-              COUNT(pt.tagId) AS postCount
-         FROM tag t
-         LEFT JOIN parent_tag pt
-           ON pt.tagId = t.id AND pt.parentTable = 'post'
-         GROUP BY t.id
-         ORDER BY t.name`,
-    )
-    return rows
-  }
-
-  async getByParent(parent: TagParent, options: TagGetByParentOptions = {}): Promise<TagData[]> {
-    parseIdentifier(tagParentSchema, parent, 'parent')
+  async get(query: TagQuery, options: TagGetOptions = {}): Promise<TagData[]> {
+    parseIdentifier(tagQuerySchema, query, 'query')
     if (options.order) parseIdentifier(tagOrderFieldSchema, options.order.field, 'order.field')
-    if (!parent.value) return []
+    if (query.type !== 'all' && !query.value) return []
 
-    const selectColumns = options.locale
-      ? `t.id, t.shortid, t.slug, COALESCE(l.text, t.name) AS name`
-      : `t.id, t.shortid, t.slug, t.name`
+    // For `all`, expose postCount via aggregation. For other variants we don't
+    // need the count and want plain row-per-tag results, so the SELECT differs.
+    const isAll = query.type === 'all'
+    const selectColumns = isAll
+      ? options.locale
+        ? `t.id, t.shortid, t.slug, COALESCE(l.text, t.name) AS name,
+           COUNT(pt.tagId) AS postCount`
+        : `t.id, t.shortid, t.slug, t.name, COUNT(pt.tagId) AS postCount`
+      : options.locale
+        ? `t.id, t.shortid, t.slug, COALESCE(l.text, t.name) AS name`
+        : `t.id, t.shortid, t.slug, t.name`
 
     const orderBy = options.order
       ? `${TAG_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}`
       : `t.name ASC`
 
-    const { sql, params } = buildGetByParentQuery({
-      child: {
-        childTable: 'tag',
-        childAlias: 't',
-        joinTable: 'parent_tag',
-        joinAlias: 'pt',
-        joinChildKey: 'tagId',
-      },
-      selectColumns,
-      parentTable: parent.table,
-      parentColumn: parent.column,
-      condition: parent.condition ?? 'eq',
-      parentId: parent.value,
-      orderBy,
-      limit: options.limit,
-      offset: options.offset,
-      localeJoins: options.locale
-        ? {
-            sql: `  LEFT JOIN localizations l ON l.key = 'tag:' || t.id || ':name' AND l.locale = ?`,
-            params: [options.locale],
-          }
-        : undefined,
-    })
-    return this.db.all<TagData[]>(sql, ...params)
+    const localeJoins = options.locale
+      ? {
+          sql: `  LEFT JOIN localizations l ON l.key = 'tag:' || t.id || ':name' AND l.locale = ?`,
+          params: [options.locale] as unknown[],
+        }
+      : undefined
+
+    if (query.type === 'parent') {
+      const { sql, params } = buildGetByParentQuery({
+        child: {
+          childTable: 'tag',
+          childAlias: 't',
+          joinTable: 'parent_tag',
+          joinAlias: 'pt',
+          joinChildKey: 'tagId',
+        },
+        selectColumns,
+        parentTable: query.table,
+        parentColumn: query.column,
+        condition: query.condition ?? 'eq',
+        parentId: query.value,
+        orderBy,
+        limit: options.limit,
+        offset: options.offset,
+        localeJoins,
+      })
+      return this.db.all<TagData[]>(sql, ...params)
+    }
+
+    const params: unknown[] = []
+    const lines: string[] = [`SELECT ${selectColumns}`, `  FROM tag t`]
+    if (isAll) {
+      lines.push(`  LEFT JOIN parent_tag pt ON pt.tagId = t.id AND pt.parentTable = 'post'`)
+    }
+    if (localeJoins) {
+      lines.push(localeJoins.sql)
+      params.push(...localeJoins.params)
+    }
+    if (query.type === 'column') {
+      lines.push(
+        ` WHERE ${TAG_CHILD_COLUMNS[query.column]} ${conditionToSql(query.condition ?? 'eq')} ?`,
+      )
+      params.push(query.value)
+    }
+    if (isAll) lines.push(' GROUP BY t.id')
+    lines.push(` ORDER BY ${orderBy}`)
+    if (options.limit !== undefined) {
+      lines.push(' LIMIT ?')
+      params.push(options.limit)
+      if (options.offset !== undefined) {
+        lines.push(' OFFSET ?')
+        params.push(options.offset)
+      }
+    }
+    return this.db.all<TagData[]>(lines.join('\n'), ...params)
   }
 
   async setParent(parentTable: string, parentId: string, tagIds: string[]): Promise<void> {
@@ -143,31 +178,6 @@ export class TagStore {
     await new LocalizationStore(this.db).save('tag:' + id + ':', payload.translations)
   }
 
-  async getPublicById(locale: string, id: string): Promise<TagData | null> {
-    const tag = await this.get(id)
-    if (!tag) return null
-    const translations = await new LocalizationStore(this.db).getByKeyPrefix('tag:' + id + ':')
-    return applyTranslations(tag, translations, locale)
-  }
-
-  async getPublicByShortId(locale: string, shortid: string): Promise<TagData | null> {
-    const tag = await this.db.get<TagData>(
-      'SELECT id, shortid, slug, name FROM tag WHERE shortid = ?',
-      shortid,
-    )
-    if (!tag) return null
-    const translations = await new LocalizationStore(this.db).getByKeyPrefix(
-      'tag:' + tag.id + ':',
-    )
-    return applyTranslations(tag, translations, locale)
-  }
-
-  async getPublicAll(locale: string): Promise<TagData[]> {
-    const tags = await this.getAll()
-    const translations = await new LocalizationStore(this.db).getByKeyPrefix('tag:')
-    return tags.map((tag) => applyTranslations(tag, translations, locale))
-  }
-
   async delete(id: string): Promise<void> {
     await this.db.run('DELETE FROM tag WHERE id = ?', id)
   }
@@ -176,18 +186,4 @@ export class TagStore {
 const validateTagPayload = (payload: TagPayload) => {
   if (!payload.name) throw new Error('Name is required')
   if (!payload.slug) throw new Error('Slug is required')
-}
-
-const applyTranslations = (
-  tag: TagData,
-  translations: Translations,
-  locale: string,
-): TagData => {
-  const localeMap = translations[locale]
-  if (!localeMap) return tag
-  const prefix = 'tag:' + tag.id + ':'
-  return {
-    ...tag,
-    name: localeMap[prefix + 'name'] ?? tag.name,
-  }
 }

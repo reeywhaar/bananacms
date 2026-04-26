@@ -11,7 +11,7 @@ export default async function EntityList({ params }: { params: Promise<{ entity:
   const entityDescriptor = getEntityDescriptor(entity)
   if (!entityDescriptor) notFound()
   const store = new entityDescriptor.store(services.db)
-  const items = await store.getAll()
+  const items = await store.get({ type: 'all' })
 
   return (
     <WithBreadcrumbs

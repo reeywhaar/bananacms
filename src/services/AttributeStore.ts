@@ -3,7 +3,7 @@ import { valita } from '@cms/utils/valita'
 import {
   GetByParentOptionsBase,
   buildGetByParentQuery,
-  parentDescriptorSchema,
+  parentQueryVariantSchema,
   parseIdentifier,
   sqlOrder,
 } from './getByParentQuery'
@@ -23,27 +23,26 @@ type RawAttributeRow = {
   parentId?: string
 }
 
-const attributeParentSchema = valita.union(
-  parentDescriptorSchema(
+const attributeQuerySchema = valita.union(
+  parentQueryVariantSchema(
     valita.literal('post'),
-    valita.union(valita.literal('id'), valita.literal('shortid')),
+    valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
   ),
-  parentDescriptorSchema(
+  parentQueryVariantSchema(
     valita.literal('category'),
     valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
   ),
-  parentDescriptorSchema(
+  parentQueryVariantSchema(
     valita.literal('page'),
     valita.union(valita.literal('id'), valita.literal('key')),
   ),
-  parentDescriptorSchema(valita.literal('block'), valita.literal('id')),
+  parentQueryVariantSchema(valita.literal('block'), valita.literal('id')),
 )
 const attributeOrderFieldSchema = valita.union(valita.literal('id'), valita.literal('key'))
 
-export type AttributeParent = valita.Infer<typeof attributeParentSchema>
-export type AttributeParentTable = AttributeParent['table']
+export type AttributeQuery = valita.Infer<typeof attributeQuerySchema>
 export type AttributeOrderField = valita.Infer<typeof attributeOrderFieldSchema>
-export type AttributeGetByParentOptions = GetByParentOptionsBase<AttributeOrderField>
+export type AttributeGetOptions = GetByParentOptionsBase<AttributeOrderField>
 
 const ATTR_ORDER_FIELDS: Record<AttributeOrderField, string> = {
   id: 'a.id',
@@ -53,13 +52,13 @@ const ATTR_ORDER_FIELDS: Record<AttributeOrderField, string> = {
 export class AttributeStore {
   constructor(private db: Database) {}
 
-  async getByParent(
-    parent: AttributeParent,
-    options: AttributeGetByParentOptions = {},
+  async get(
+    query: AttributeQuery,
+    options: AttributeGetOptions = {},
   ): Promise<AttributeData[]> {
-    parseIdentifier(attributeParentSchema, parent, 'parent')
+    parseIdentifier(attributeQuerySchema, query, 'query')
     if (options.order) parseIdentifier(attributeOrderFieldSchema, options.order.field, 'order.field')
-    if (!parent.value) return []
+    if (!query.value) return []
 
     const selectColumns = options.locale
       ? `a.id, a.key, a.translatable,
@@ -79,10 +78,10 @@ export class AttributeStore {
         joinChildKey: 'attributeId',
       },
       selectColumns,
-      parentTable: parent.table,
-      parentColumn: parent.column,
-      condition: parent.condition ?? 'eq',
-      parentId: parent.value,
+      parentTable: query.table,
+      parentColumn: query.column,
+      condition: query.condition ?? 'eq',
+      parentId: query.value,
       orderBy,
       limit: options.limit,
       offset: options.offset,
@@ -95,30 +94,6 @@ export class AttributeStore {
     })
     const rows = await this.db.all<RawAttributeRow[]>(sql, ...params)
     return rows.map(toAttributeData)
-  }
-
-  async getByParentIds(
-    parentTable: string,
-    parentIds: string[],
-  ): Promise<Record<string, AttributeData[]>> {
-    if (parentIds.length === 0) return {}
-    const placeholders = parentIds.map(() => '?').join(', ')
-    const rows = await this.db.all<RawAttributeRow[]>(
-      `SELECT a.id, a.key, a.translatable, a.text, pa.parentId AS parentId
-         FROM attribute a
-         JOIN parent_attribute pa ON pa.attributeId = a.id
-        WHERE pa.parentTable = ? AND pa.parentId IN (${placeholders})
-        ORDER BY a.id ASC`,
-      parentTable,
-      ...parentIds,
-    )
-    const result: Record<string, AttributeData[]> = {}
-    for (const row of rows) {
-      const parentId = row.parentId!
-      if (!result[parentId]) result[parentId] = []
-      result[parentId].push(toAttributeData(row))
-    }
-    return result
   }
 
   async saveByParent(

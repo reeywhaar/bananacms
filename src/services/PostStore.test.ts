@@ -150,6 +150,107 @@ describe('PostStore.get', () => {
     })
   })
 
+  describe('parent: tag variant', () => {
+    const TAG_RED = '019dbcf0-0000-7000-0000-000000000001'
+    const TAG_BLUE = '019dbcf0-0000-7000-0000-000000000002'
+
+    beforeEach(async () => {
+      await db.run(
+        'INSERT INTO tag (id, shortid, name, slug) VALUES (?, ?, ?, ?)',
+        TAG_RED,
+        TAG_RED.slice(-8),
+        'Red',
+        'red',
+      )
+      await db.run(
+        'INSERT INTO tag (id, shortid, name, slug) VALUES (?, ?, ?, ?)',
+        TAG_BLUE,
+        TAG_BLUE.slice(-8),
+        'Blue',
+        'blue',
+      )
+      // Apple → red, Banana → red+blue, Cherry → blue
+      await tagPost(db, POST_A, TAG_RED)
+      await tagPost(db, POST_B, TAG_RED)
+      await tagPost(db, POST_B, TAG_BLUE)
+      await tagPost(db, POST_C, TAG_BLUE)
+    })
+
+    it('returns posts that have the tag, by tag id', async () => {
+      const posts = await new PostStore(db).get({
+        type: 'parent',
+        table: 'tag',
+        column: 'id',
+        value: TAG_RED,
+      })
+      expect(posts.map((p) => p.name)).toEqual(['Apple', 'Banana'])
+      expect(posts.at(0)?.categoryId).toBe(CATEGORY_ID)
+    })
+
+    it('looks up by tag shortid and slug', async () => {
+      const byShortid = await new PostStore(db).get({
+        type: 'parent',
+        table: 'tag',
+        column: 'shortid',
+        value: TAG_BLUE.slice(-8),
+      })
+      const bySlug = await new PostStore(db).get({
+        type: 'parent',
+        table: 'tag',
+        column: 'slug',
+        value: 'blue',
+      })
+      expect(byShortid.map((p) => p.id)).toEqual([POST_B, POST_C])
+      expect(bySlug.map((p) => p.id)).toEqual([POST_B, POST_C])
+    })
+
+    it('respects status filter', async () => {
+      const posts = await new PostStore(db).get(
+        { type: 'parent', table: 'tag', column: 'id', value: TAG_RED },
+        { status: 'published' },
+      )
+      expect(posts.map((p) => p.name)).toEqual(['Apple'])
+    })
+
+    it('honors order field with id tiebreaker', async () => {
+      const posts = await new PostStore(db).get(
+        { type: 'parent', table: 'tag', column: 'id', value: TAG_RED },
+        { order: { field: 'name', order: 'desc' } },
+      )
+      expect(posts.map((p) => p.name)).toEqual(['Banana', 'Apple'])
+    })
+
+    it('coalesces names against localizations', async () => {
+      await db.run(
+        "INSERT INTO localizations (id, key, locale, text) VALUES ('l1', ?, 'ru', 'Яблоко')",
+        `post:${POST_A}:name`,
+      )
+      const posts = await new PostStore(db).get(
+        { type: 'parent', table: 'tag', column: 'id', value: TAG_RED },
+        { locale: 'ru' },
+      )
+      expect(posts.find((p) => p.id === POST_A)?.name).toBe('Яблоко')
+    })
+
+    it('applies limit and offset', async () => {
+      const page = await new PostStore(db).get(
+        { type: 'parent', table: 'tag', column: 'id', value: TAG_RED },
+        { limit: 1, offset: 1 },
+      )
+      expect(page.map((p) => p.name)).toEqual(['Banana'])
+    })
+
+    it('returns [] for an empty value', async () => {
+      const posts = await new PostStore(db).get({
+        type: 'parent',
+        table: 'tag',
+        column: 'id',
+        value: '',
+      })
+      expect(posts).toEqual([])
+    })
+  })
+
   describe('validation', () => {
     it('throws InvalidIdentifierError for an unknown parent column', async () => {
       await expect(
@@ -203,5 +304,14 @@ async function insertPost(
     CATEGORY_ID,
     'category',
     position,
+  )
+}
+
+async function tagPost(db: Database, postId: string, tagId: string): Promise<void> {
+  await db.run(
+    'INSERT INTO parent_tag (tagId, parentId, parentTable) VALUES (?, ?, ?)',
+    tagId,
+    postId,
+    'post',
   )
 }

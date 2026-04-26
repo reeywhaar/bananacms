@@ -25,7 +25,7 @@ const postQuerySchema = valita.union(
   allQueryVariantSchema(),
   columnQueryVariantSchema(postChildColumnSchema),
   parentQueryVariantSchema(
-    valita.literal('category'),
+    valita.union(valita.literal('category'), valita.literal('tag')),
     valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
   ),
 )
@@ -108,6 +108,9 @@ export class PostStore {
       : undefined
 
     if (query.type === 'parent') {
+      if (query.table === 'tag') {
+        return this.getByTag(query, options, selectColumns, orderBy, localeJoins)
+      }
       const { sql, params } = buildGetByParentQuery({
         child: {
           childTable: 'post',
@@ -142,7 +145,9 @@ export class PostStore {
     }
     const whereClauses: string[] = []
     if (query.type === 'column') {
-      whereClauses.push(`${POST_CHILD_COLUMNS[query.column]} ${conditionToSql(query.condition ?? 'eq')} ?`)
+      whereClauses.push(
+        `${POST_CHILD_COLUMNS[query.column]} ${conditionToSql(query.condition ?? 'eq')} ?`,
+      )
       params.push(query.value)
     }
     if (options.status) {
@@ -291,6 +296,48 @@ export class PostStore {
 
   async delete(id: string): Promise<void> {
     await this.db.run('DELETE FROM post WHERE id = ?', id)
+  }
+
+  private async getByTag(
+    query: { column: 'id' | 'shortid' | 'slug'; value: string; condition?: 'eq' | 'neq' | 'like' },
+    options: PostGetOptions,
+    selectColumns: string,
+    orderBy: string,
+    localeJoins?: { sql: string; params: unknown[] },
+  ): Promise<PostData[]> {
+    const params: unknown[] = []
+    const lines: string[] = [
+      `SELECT ${selectColumns}`,
+      `  FROM post p`,
+      `  LEFT JOIN parent_post pp ON pp.postId = p.id AND pp.parentTable = 'category'`,
+      `  JOIN parent_tag pt ON pt.parentId = p.id AND pt.parentTable = 'post'`,
+    ]
+    if (query.column !== 'id') {
+      lines.push(`  JOIN tag t ON t.id = pt.tagId`)
+    }
+    if (localeJoins) {
+      lines.push(localeJoins.sql)
+      params.push(...localeJoins.params)
+    }
+    const op = conditionToSql(query.condition ?? 'eq')
+    const tagColumn = query.column === 'id' ? 'pt.tagId' : `t.${query.column}`
+    const whereClauses: string[] = [`${tagColumn} ${op} ?`]
+    params.push(query.value)
+    if (options.status) {
+      whereClauses.push('p.status = ?')
+      params.push(options.status)
+    }
+    lines.push(` WHERE ${whereClauses.join(' AND ')}`)
+    lines.push(` ORDER BY ${orderBy}`)
+    if (options.limit !== undefined) {
+      lines.push(' LIMIT ?')
+      params.push(options.limit)
+      if (options.offset !== undefined) {
+        lines.push(' OFFSET ?')
+        params.push(options.offset)
+      }
+    }
+    return this.db.all<PostData[]>(lines.join('\n'), ...params)
   }
 
   private async topPositionFor(parentTable: string, parentId: string): Promise<number> {

@@ -2,7 +2,7 @@ import { defineConfig } from 'tsup'
 import { cp, readFile, writeFile } from 'node:fs/promises'
 import { glob } from 'node:fs/promises'
 
-export default defineConfig({
+export default defineConfig((options) => ({
   entry: ['src/**/*.ts', 'src/**/*.tsx', '!src/**/*.d.ts', '!src/.next/**'],
   outDir: 'dist',
   format: 'esm',
@@ -10,7 +10,11 @@ export default defineConfig({
   bundle: false,
   dts: false,
   sourcemap: true,
-  clean: true,
+  // Skip clean in --watch: tsc --watch runs alongside tsup and emits .d.ts
+  // into the same dist/. If tsup re-cleans on every rebuild, those
+  // declarations get wiped and consumers' CMS types degrade to `any` until
+  // the next tsc pass catches up.
+  clean: !options.watch,
   tsconfig: './src/tsconfig.json',
   async onSuccess() {
     await cp('src/lib/migrations', 'dist/lib/migrations', { recursive: true })
@@ -69,4 +73,4 @@ export default defineConfig({
       if (src !== original) await writeFile(path, src)
     }
   },
-})
+}))

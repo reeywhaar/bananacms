@@ -33,6 +33,7 @@
     "build:watch": "tsup --watch",
     "prepare": "npm run build",
     "demo": "cd demo && node ../src/cli/index.ts",
+    "clean:next": "rm -rf src/.next demo/.next",
     "seed:create": "./scripts/create_seed",
     "pack:latest": "./scripts/pack_latest",
     "release": "./scripts/release"

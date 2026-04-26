@@ -16,7 +16,7 @@ import {
 
 const postParentSchema = parentDescriptorSchema(
   valita.literal('category'),
-  valita.union(valita.literal('id'), valita.literal('shortid')),
+  valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
 )
 const postOrderFieldSchema = valita.union(
   valita.literal('position'),
@@ -76,10 +76,7 @@ export class PostStore {
   constructor(private db: Database) {}
 
   async get(id: string): Promise<PostData | null> {
-    const row = await this.db.get<PostData>(
-      `${SELECT_POST_WITH_CATEGORY} WHERE p.id = ?`,
-      id,
-    )
+    const row = await this.db.get<PostData>(`${SELECT_POST_WITH_CATEGORY} WHERE p.id = ?`, id)
     return row || null
   }
 
@@ -112,9 +109,7 @@ export class PostStore {
       parentColumn: parent.column,
       condition: parent.condition ?? 'eq',
       parentId: parent.value,
-      extraWhere: options.status
-        ? { sql: 'p.status = ?', params: [options.status] }
-        : undefined,
+      extraWhere: options.status ? { sql: 'p.status = ?', params: [options.status] } : undefined,
       orderBy,
       limit: options.limit,
       offset: options.offset,
@@ -254,11 +249,7 @@ export class PostStore {
         }
       }
 
-      await this.db.run(
-        `UPDATE parent_post SET position = ? WHERE postId = ?`,
-        newPosition,
-        postId,
-      )
+      await this.db.run(`UPDATE parent_post SET position = ? WHERE postId = ?`, newPosition, postId)
       await this.db.run('COMMIT')
     } catch (e) {
       await this.db.run('ROLLBACK')

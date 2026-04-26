@@ -30,7 +30,7 @@ const attributeParentSchema = valita.union(
   ),
   parentDescriptorSchema(
     valita.literal('category'),
-    valita.union(valita.literal('id'), valita.literal('shortid')),
+    valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
   ),
   parentDescriptorSchema(
     valita.literal('page'),

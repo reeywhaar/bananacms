@@ -3,38 +3,37 @@ import { type BlockType, type BlockData, blockParentSchema } from '@cms/lib/bloc
 import { LocalizationStore, Translations } from './LocalizationStore'
 import { AttributeStore } from './AttributeStore'
 import { intoResult } from '@cms/utils/result'
+import { valita } from '@cms/utils/valita'
 import {
   GetByParentOptionsBase,
-  ParentDescriptor,
-  assertOneOf,
   buildGetByParentQuery,
+  parentDescriptorSchema,
+  parseIdentifier,
   sqlOrder,
 } from './getByParentQuery'
 
-export type BlockParentTable = 'post' | 'page' | 'category' | 'block'
-export type BlockParentColumn<P extends BlockParentTable> = P extends 'page'
-  ? 'id' | 'key'
-  : P extends 'block'
-    ? 'id'
-    : 'id' | 'shortid'
-export type BlockParent<P extends BlockParentTable = BlockParentTable> = {
-  [K in P]: ParentDescriptor<K, BlockParentColumn<K>>
-}[P]
-export type BlockOrderField = 'id'
+const blockParentInputSchema = valita.union(
+  parentDescriptorSchema(
+    valita.literal('post'),
+    valita.union(valita.literal('id'), valita.literal('shortid')),
+  ),
+  parentDescriptorSchema(
+    valita.literal('page'),
+    valita.union(valita.literal('id'), valita.literal('key')),
+  ),
+  parentDescriptorSchema(
+    valita.literal('category'),
+    valita.union(valita.literal('id'), valita.literal('shortid')),
+  ),
+  parentDescriptorSchema(valita.literal('block'), valita.literal('id')),
+)
+const blockOrderFieldSchema = valita.literal('id')
+
+export type BlockParent = valita.Infer<typeof blockParentInputSchema>
+export type BlockParentTable = BlockParent['table']
+export type BlockOrderField = valita.Infer<typeof blockOrderFieldSchema>
 export type BlockGetByParentOptions = GetByParentOptionsBase<BlockOrderField>
 
-const BLOCK_PARENT_TABLES: ReadonlySet<string> = new Set<BlockParentTable>([
-  'post',
-  'page',
-  'category',
-  'block',
-])
-const BLOCK_PARENT_COLUMNS: Record<BlockParentTable, ReadonlySet<string>> = {
-  post: new Set(['id', 'shortid']),
-  page: new Set(['id', 'key']),
-  category: new Set(['id', 'shortid']),
-  block: new Set(['id']),
-}
 const BLOCK_ORDER_FIELDS: Record<BlockOrderField, string> = {
   id: 'b.id',
 }
@@ -65,14 +64,8 @@ export class BlockStore {
     parent: BlockParent,
     options: BlockGetByParentOptions = {},
   ): Promise<BlockData[]> {
-    assertOneOf(parent.table, BLOCK_PARENT_TABLES, 'parent.table')
-    assertOneOf(
-      parent.column,
-      BLOCK_PARENT_COLUMNS[parent.table],
-      `parent.column for '${parent.table}'`,
-    )
-    if (options.order)
-      assertOneOf(options.order.field, new Set(Object.keys(BLOCK_ORDER_FIELDS)), 'order.field')
+    parseIdentifier(blockParentInputSchema, parent, 'parent')
+    if (options.order) parseIdentifier(blockOrderFieldSchema, options.order.field, 'order.field')
     if (!parent.value) return []
 
     const orderBy = options.order

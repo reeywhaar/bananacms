@@ -1,9 +1,10 @@
 import { Database } from 'sqlite'
+import { valita } from '@cms/utils/valita'
 import {
   GetByParentOptionsBase,
-  ParentDescriptor,
-  assertOneOf,
   buildGetByParentQuery,
+  parentDescriptorSchema,
+  parseIdentifier,
   sqlOrder,
 } from './getByParentQuery'
 
@@ -22,30 +23,28 @@ type RawAttributeRow = {
   parentId?: string
 }
 
-export type AttributeParentTable = 'post' | 'category' | 'page' | 'block'
-export type AttributeParentColumn<P extends AttributeParentTable> = P extends 'page'
-  ? 'id' | 'key'
-  : P extends 'block'
-    ? 'id'
-    : 'id' | 'shortid'
-export type AttributeParent<P extends AttributeParentTable = AttributeParentTable> = {
-  [K in P]: ParentDescriptor<K, AttributeParentColumn<K>>
-}[P]
-export type AttributeOrderField = 'id' | 'key'
+const attributeParentSchema = valita.union(
+  parentDescriptorSchema(
+    valita.literal('post'),
+    valita.union(valita.literal('id'), valita.literal('shortid')),
+  ),
+  parentDescriptorSchema(
+    valita.literal('category'),
+    valita.union(valita.literal('id'), valita.literal('shortid')),
+  ),
+  parentDescriptorSchema(
+    valita.literal('page'),
+    valita.union(valita.literal('id'), valita.literal('key')),
+  ),
+  parentDescriptorSchema(valita.literal('block'), valita.literal('id')),
+)
+const attributeOrderFieldSchema = valita.union(valita.literal('id'), valita.literal('key'))
+
+export type AttributeParent = valita.Infer<typeof attributeParentSchema>
+export type AttributeParentTable = AttributeParent['table']
+export type AttributeOrderField = valita.Infer<typeof attributeOrderFieldSchema>
 export type AttributeGetByParentOptions = GetByParentOptionsBase<AttributeOrderField>
 
-const ATTR_PARENT_TABLES: ReadonlySet<string> = new Set<AttributeParentTable>([
-  'post',
-  'category',
-  'page',
-  'block',
-])
-const ATTR_PARENT_COLUMNS: Record<AttributeParentTable, ReadonlySet<string>> = {
-  post: new Set(['id', 'shortid']),
-  category: new Set(['id', 'shortid']),
-  page: new Set(['id', 'key']),
-  block: new Set(['id']),
-}
 const ATTR_ORDER_FIELDS: Record<AttributeOrderField, string> = {
   id: 'a.id',
   key: 'a.key',
@@ -58,14 +57,8 @@ export class AttributeStore {
     parent: AttributeParent,
     options: AttributeGetByParentOptions = {},
   ): Promise<AttributeData[]> {
-    assertOneOf(parent.table, ATTR_PARENT_TABLES, 'parent.table')
-    assertOneOf(
-      parent.column,
-      ATTR_PARENT_COLUMNS[parent.table],
-      `parent.column for '${parent.table}'`,
-    )
-    if (options.order)
-      assertOneOf(options.order.field, new Set(Object.keys(ATTR_ORDER_FIELDS)), 'order.field')
+    parseIdentifier(attributeParentSchema, parent, 'parent')
+    if (options.order) parseIdentifier(attributeOrderFieldSchema, options.order.field, 'order.field')
     if (!parent.value) return []
 
     const selectColumns = options.locale

@@ -5,26 +5,35 @@ import { TagStore } from './TagStore'
 import { AttributeStore, AttributeData } from './AttributeStore'
 import { getShortId } from '@cms/utils/getshortid'
 import { BlockData } from '@cms/lib/blocks/declarations'
+import { valita } from '@cms/utils/valita'
 import {
   GetByParentOptionsBase,
-  ParentDescriptor,
-  assertOneOf,
   buildGetByParentQuery,
+  parentDescriptorSchema,
+  parseIdentifier,
   sqlOrder,
 } from './getByParentQuery'
 
-export type PostParentTable = 'category'
-export type PostParentColumn = 'id' | 'shortid'
-export type PostOrderField = 'position' | 'name' | 'createdAt' | 'updatedAt' | 'id'
-export type PostParent = ParentDescriptor<PostParentTable, PostParentColumn>
+const postParentSchema = parentDescriptorSchema(
+  valita.literal('category'),
+  valita.union(valita.literal('id'), valita.literal('shortid')),
+)
+const postOrderFieldSchema = valita.union(
+  valita.literal('position'),
+  valita.literal('name'),
+  valita.literal('createdAt'),
+  valita.literal('updatedAt'),
+  valita.literal('id'),
+)
+
+export type PostParent = valita.Infer<typeof postParentSchema>
+export type PostParentTable = PostParent['table']
+export type PostParentColumn = PostParent['column']
+export type PostOrderField = valita.Infer<typeof postOrderFieldSchema>
 export type PostGetByParentOptions = GetByParentOptionsBase<PostOrderField> & {
   status?: 'published' | 'draft'
 }
 
-const POST_PARENT_TABLES: ReadonlySet<string> = new Set<PostParentTable>(['category'])
-const POST_PARENT_COLUMNS: Record<PostParentTable, ReadonlySet<string>> = {
-  category: new Set<PostParentColumn>(['id', 'shortid']),
-}
 const POST_ORDER_FIELDS: Record<PostOrderField, string> = {
   position: 'pp.position',
   name: 'p.name',
@@ -75,10 +84,8 @@ export class PostStore {
   }
 
   async getByParent(parent: PostParent, options: PostGetByParentOptions = {}): Promise<PostData[]> {
-    assertOneOf(parent.table, POST_PARENT_TABLES, 'parent.table')
-    assertOneOf(parent.column, POST_PARENT_COLUMNS[parent.table], `parent.column for '${parent.table}'`)
-    if (options.order)
-      assertOneOf(options.order.field, new Set(Object.keys(POST_ORDER_FIELDS)), 'order.field')
+    parseIdentifier(postParentSchema, parent, 'parent')
+    if (options.order) parseIdentifier(postOrderFieldSchema, options.order.field, 'order.field')
     if (!parent.value) return []
 
     const selectColumns = options.locale

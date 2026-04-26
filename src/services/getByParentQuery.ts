@@ -1,6 +1,25 @@
+import { valita } from '@cms/utils/valita'
+
 export type SortOrder = 'asc' | 'desc'
 
-export type ParentCondition = 'eq' | 'neq' | 'like'
+export const conditionSchema = valita.union(
+  valita.literal('eq'),
+  valita.literal('neq'),
+  valita.literal('like'),
+)
+export type ParentCondition = valita.Infer<typeof conditionSchema>
+
+export function parentDescriptorSchema<TTable extends string, TColumn extends string>(
+  tableSchema: valita.Type<TTable>,
+  columnSchema: valita.Type<TColumn>,
+) {
+  return valita.object({
+    table: tableSchema,
+    column: columnSchema,
+    value: valita.string(),
+    condition: conditionSchema.optional(),
+  })
+}
 
 export type ParentDescriptor<TTable extends string, TColumn extends string> = {
   table: TTable
@@ -15,6 +34,21 @@ export type GetByParentOptionsBase<TOrderField extends string> = {
 } & ({ limit?: undefined; offset?: undefined } | { limit: number; offset?: number })
 
 export class InvalidIdentifierError extends Error {}
+
+export function parseIdentifier<T>(
+  schema: valita.Type<T>,
+  value: unknown,
+  label: string,
+): T {
+  try {
+    return schema.parse(value)
+  } catch (e) {
+    if (e instanceof valita.ValitaError) {
+      throw new InvalidIdentifierError(`Invalid ${label}: ${e.message}`)
+    }
+    throw e
+  }
+}
 
 export type ChildJoinSpec = {
   childTable: string
@@ -87,16 +121,6 @@ export function buildGetByParentQuery(input: BuildQueryInput): { sql: string; pa
   }
 
   return { sql: lines.join('\n'), params }
-}
-
-export function assertOneOf(
-  value: string,
-  allowed: ReadonlySet<string>,
-  label: string,
-): void {
-  if (!allowed.has(value)) {
-    throw new InvalidIdentifierError(`Invalid ${label}: ${value}`)
-  }
 }
 
 export function sqlOrder(order: SortOrder): 'ASC' | 'DESC' {

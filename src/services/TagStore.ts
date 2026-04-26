@@ -1,24 +1,27 @@
 import { Database } from 'sqlite'
 import { LocalizationStore, Translations } from './LocalizationStore'
 import { getShortId } from '@cms/utils/getshortid'
+import { valita } from '@cms/utils/valita'
 import {
   GetByParentOptionsBase,
-  ParentDescriptor,
-  assertOneOf,
   buildGetByParentQuery,
+  parentDescriptorSchema,
+  parseIdentifier,
   sqlOrder,
 } from './getByParentQuery'
 
-export type TagParentTable = 'post'
-export type TagParentColumn = 'id' | 'shortid'
-export type TagParent = ParentDescriptor<TagParentTable, TagParentColumn>
-export type TagOrderField = 'name' | 'id'
+const tagParentSchema = parentDescriptorSchema(
+  valita.literal('post'),
+  valita.union(valita.literal('id'), valita.literal('shortid')),
+)
+const tagOrderFieldSchema = valita.union(valita.literal('name'), valita.literal('id'))
+
+export type TagParent = valita.Infer<typeof tagParentSchema>
+export type TagParentTable = TagParent['table']
+export type TagParentColumn = TagParent['column']
+export type TagOrderField = valita.Infer<typeof tagOrderFieldSchema>
 export type TagGetByParentOptions = GetByParentOptionsBase<TagOrderField>
 
-const TAG_PARENT_TABLES: ReadonlySet<string> = new Set<TagParentTable>(['post'])
-const TAG_PARENT_COLUMNS: Record<TagParentTable, ReadonlySet<string>> = {
-  post: new Set<TagParentColumn>(['id', 'shortid']),
-}
 const TAG_ORDER_FIELDS: Record<TagOrderField, string> = {
   name: 't.name',
   id: 't.id',
@@ -63,10 +66,8 @@ export class TagStore {
   }
 
   async getByParent(parent: TagParent, options: TagGetByParentOptions = {}): Promise<TagData[]> {
-    assertOneOf(parent.table, TAG_PARENT_TABLES, 'parent.table')
-    assertOneOf(parent.column, TAG_PARENT_COLUMNS[parent.table], `parent.column for '${parent.table}'`)
-    if (options.order)
-      assertOneOf(options.order.field, new Set(Object.keys(TAG_ORDER_FIELDS)), 'order.field')
+    parseIdentifier(tagParentSchema, parent, 'parent')
+    if (options.order) parseIdentifier(tagOrderFieldSchema, options.order.field, 'order.field')
     if (!parent.value) return []
 
     const selectColumns = options.locale

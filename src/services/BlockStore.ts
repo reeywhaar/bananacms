@@ -109,7 +109,10 @@ export class BlockStore {
         parent.parentTable,
       )
       await new AttributeStore(this.db).saveByParent('block', block.id, block.attributes)
-      if (block.content.type === 'image' && block.content.assetId) {
+      if (
+        (block.content.type === 'image' || block.content.type === 'asset') &&
+        block.content.assetId
+      ) {
         await this.db.run(
           'INSERT OR IGNORE INTO parent_asset (assetId, parentId, parentTable) VALUES (?, ?, ?)',
           block.content.assetId,

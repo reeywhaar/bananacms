@@ -23,6 +23,13 @@ export async function resolveBlocks(blocks: BlockData[]): Promise<BlockData[]> {
         } = block.content
         return { ...block, content: { ...rest, assetId: id } }
       }
+      if (block.content.type === 'asset' && block.content.pendingFile) {
+        const formData = new FormData()
+        formData.append('file', block.content.pendingFile)
+        const { id } = await uploadAsset(formData)
+        const { pendingFile: _pf, ...rest } = block.content
+        return { ...block, content: { ...rest, assetId: id } }
+      }
       if (block.content.type === 'group') {
         const resolvedChildren = await resolveBlocks(block.content.blocks)
         return { ...block, content: { ...block.content, blocks: resolvedChildren } }

@@ -6,6 +6,7 @@ import {
   BlockTypeGroup,
   BlockTypeImage,
   BlockTypeMeta,
+  BlockTypeAsset,
   BlockData,
   BlockType,
 } from '@cms/lib/blocks/declarations'
@@ -13,6 +14,7 @@ import { Translations } from '@cms/services/LocalizationStore'
 import { AssetContent } from '@cms/services/AssetStore'
 import { LocalizableField } from '../../LocalizableField'
 import { ImageBlockEdit } from './ImageBlockEdit'
+import { AssetBlockEdit } from './AssetBlockEdit'
 import { AttributesEditor } from '../AttributesEditor/AttributesEditor'
 import { AutosizeTextarea } from '@cms/components/AutosizeTextarea/AutosizeTextarea'
 import { X } from '@deemlol/next-icons'
@@ -69,6 +71,11 @@ export const BlockEdit: FC<BlockEditProps> = ({
     onChange([...blocks, block])
   }
 
+  const addAssetBlock = () => {
+    const block = makeBlock({ type: 'asset', key: '', name: '', assetId: '' })
+    onChange([...blocks, block])
+  }
+
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     if (e.defaultPrevented) return
     if (!Array.from(e.dataTransfer.types).includes('Files')) return
@@ -83,21 +90,27 @@ export const BlockEdit: FC<BlockEditProps> = ({
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     setDragging(false)
     if (e.defaultPrevented) return
-    const files = Array.from(e.dataTransfer.files).filter((f) =>
-      f.type.startsWith('image/'),
-    )
+    const files = Array.from(e.dataTransfer.files)
     if (files.length === 0) return
     e.preventDefault()
     e.stopPropagation()
     const newBlocks = files.map((file) =>
-      makeBlock({
-        type: 'image',
-        key: '',
-        name: file.name,
-        alt: '',
-        assetId: '',
-        pendingFile: file,
-      }),
+      file.type.startsWith('image/')
+        ? makeBlock({
+            type: 'image',
+            key: '',
+            name: file.name,
+            alt: '',
+            assetId: '',
+            pendingFile: file,
+          })
+        : makeBlock({
+            type: 'asset',
+            key: '',
+            name: file.name,
+            assetId: '',
+            pendingFile: file,
+          }),
     )
     onChange([...blocks, ...newBlocks])
   }
@@ -128,11 +141,14 @@ export const BlockEdit: FC<BlockEditProps> = ({
         <button type="button" className="button-sm" onClick={addImageBlock}>
           + Image
         </button>
-        <button type="button" className="button-sm" onClick={addGroupBlock}>
-          + Group
+        <button type="button" className="button-sm" onClick={addAssetBlock}>
+          + Asset
         </button>
         <button type="button" className="button-sm" onClick={addMetaBlock}>
           + Meta
+        </button>
+        <button type="button" className="button-sm" onClick={addGroupBlock}>
+          + Group
         </button>
       </div>
     </div>
@@ -210,6 +226,12 @@ const BlockRow: FC<BlockRowProps> = ({
           block={block as BlockData & { content: BlockTypeMeta }}
           onChange={onUpdate}
         />
+      ) : block.content.type === 'asset' ? (
+        <AssetBlockEdit
+          block={block as BlockData & { content: BlockTypeAsset }}
+          size={assetSizes[(block.content as BlockTypeAsset).assetId] ?? null}
+          onChange={onUpdate}
+        />
       ) : (
         <GroupBlockEdit
           block={block as BlockData & { content: BlockTypeGroup }}
@@ -260,11 +282,7 @@ const TextBlockEdit: FC<TextBlockEditProps> = ({
         render={(value, onChange, label, placeholder) => (
           <label className="label">
             <span>{label}</span>
-            <AutosizeTextarea
-              value={value}
-              onChange={onChange}
-              placeholder={placeholder}
-            />
+            <AutosizeTextarea value={value} onChange={onChange} placeholder={placeholder} />
           </label>
         )}
       />
@@ -286,10 +304,7 @@ const MetaBlockEdit: FC<MetaBlockEditProps> = ({ block, onChange }) => {
     <div className="flex flex-col gap-2">
       <label className="label">
         <span>Text</span>
-        <AutosizeTextarea
-          value={block.content.text}
-          onChange={(text) => update({ text })}
-        />
+        <AutosizeTextarea value={block.content.text} onChange={(text) => update({ text })} />
       </label>
     </div>
   )

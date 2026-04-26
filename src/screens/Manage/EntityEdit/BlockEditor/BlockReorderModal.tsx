@@ -372,7 +372,7 @@ function getPreview(content: BlockType): string {
     const text = content.text.replace(/\s+/g, ' ').trim()
     return text.length > 50 ? text.slice(0, 50) + '…' : text
   }
-  if (content.type === 'image') {
+  if (content.type === 'image' || content.type === 'asset') {
     return content.name || '(no name)'
   }
   return `(${content.blocks.length} items)`

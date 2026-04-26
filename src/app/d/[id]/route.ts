@@ -27,6 +27,7 @@ export const GET = createRouteHandler<{ params: Promise<{ id: string }> }>(
         return new NextResponse(stream, {
           headers: {
             'Content-Type': asset.mime,
+            'Content-Disposition': contentDisposition(asset.filename),
             'Cache-Control': 'public, max-age=31536000, immutable',
           },
         })
@@ -46,8 +47,15 @@ export const GET = createRouteHandler<{ params: Promise<{ id: string }> }>(
     return new NextResponse(new Uint8Array(asset.data), {
       headers: {
         'Content-Type': asset.mime,
+        'Content-Disposition': contentDisposition(asset.filename),
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
     })
   },
 )
+
+const contentDisposition = (filename: string): string => {
+  const ascii = filename.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_')
+  const encoded = encodeURIComponent(filename)
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encoded}`
+}

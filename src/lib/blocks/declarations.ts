@@ -35,7 +35,20 @@ export type BlockTypeMeta = {
   text: string
 }
 
-export type BlockType = BlockTypeText | BlockTypeGroup | BlockTypeImage | BlockTypeMeta
+export type BlockTypeAsset = {
+  type: 'asset'
+  key: string
+  name: string
+  assetId: string
+  pendingFile?: File
+}
+
+export type BlockType =
+  | BlockTypeText
+  | BlockTypeGroup
+  | BlockTypeImage
+  | BlockTypeMeta
+  | BlockTypeAsset
 
 export const blockParentSchema = valita.object({
   type: valita.union(
@@ -84,11 +97,19 @@ export type SerializedMetaBlock = {
   text: string
 }
 
+export type SerializedAssetBlock = {
+  type: 'asset'
+  key: string
+  name: string
+  assetId: string
+}
+
 export type SerializedBlock =
   | SerializedTextBlock
   | SerializedGroupBlock
   | SerializedImageBlock
   | SerializedMetaBlock
+  | SerializedAssetBlock
 
 // ─── Matcher ─────────────────────────────────────────────────────────────────
 
@@ -191,11 +212,24 @@ class MetaBlockMatcher implements Matcher {
   }
 }
 
+class AssetBlockMatcher implements Matcher {
+  serialize(block: BlockData): SerializedBlock | null {
+    if (block.content.type !== 'asset') return null
+    return {
+      type: 'asset',
+      key: block.content.key,
+      name: block.content.name,
+      assetId: block.content.assetId,
+    }
+  }
+}
+
 export const matchers: Matcher[] = [
   new TextBlockMatcher(),
   new GroupBlockMatcher(),
   new ImageBlockMatcher(),
   new MetaBlockMatcher(),
+  new AssetBlockMatcher(),
 ]
 
 // ─── Serialization schema ─────────────────────────────────────────────────────
@@ -222,5 +256,11 @@ export const serializedBlockSchema: valita.Type<SerializedBlock> = valita.union(
     type: valita.literal('meta'),
     key: valita.string(),
     text: valita.string(),
+  }),
+  valita.object({
+    type: valita.literal('asset'),
+    key: valita.string(),
+    name: valita.string(),
+    assetId: valita.string(),
   }),
 )

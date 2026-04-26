@@ -7,6 +7,7 @@ import {
   SerializedTextBlock,
   SerializedGroupBlock,
   SerializedImageBlock,
+  SerializedAssetBlock,
   matchers,
   serializedBlockSchema,
 } from '@cms/lib/blocks/declarations'
@@ -14,7 +15,13 @@ import { v7 } from 'uuid'
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-export type { SerializedTextBlock, SerializedGroupBlock, SerializedImageBlock, SerializedBlock }
+export type {
+  SerializedTextBlock,
+  SerializedGroupBlock,
+  SerializedImageBlock,
+  SerializedAssetBlock,
+  SerializedBlock,
+}
 
 export function serializeBlocks(
   blocks: BlockData[],
@@ -100,6 +107,16 @@ function deserializeBlock(
       text: serialized.text,
     }
     return { id, parent: { type: 'post', id: '' }, type: 'meta', content, attributes: [] }
+  }
+
+  if (serialized.type === 'asset') {
+    const content: BlockType = {
+      type: 'asset',
+      key: serialized.key,
+      name: serialized.name,
+      assetId: serialized.assetId,
+    }
+    return { id, parent: { type: 'post', id: '' }, type: 'asset', content, attributes: [] }
   }
 
   const children = deserializeBlockList(serialized.blocks, translations, defaultLocale)

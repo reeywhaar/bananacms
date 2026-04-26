@@ -8,8 +8,8 @@ export async function run(dev: boolean): Promise<void> {
   const packageRoot = fileURLToPath(new URL('../../', import.meta.url))
   const consumerDir = process.cwd()
 
-  const cmsPort = 3001
-  const consumerPort = 3000
+  const consumerPort = parsePort(process.env.SERVER_PORT, 3000)
+  const cmsPort = consumerPort + 1
   const host = process.env.BANANACMS_HOST ?? 'localhost'
 
   const publicUrl = `http://${host}:${consumerPort}`
@@ -35,11 +35,11 @@ export async function run(dev: boolean): Promise<void> {
 
   const mode = dev ? 'development' : 'production'
   console.info(`bananacms [${mode}]`)
-  console.info(`  CMS zone:      ${cmsInternalUrl}`)
-  console.info(`  Consumer zone: ${publicUrl}`)
+  console.info(`  Pub zone: ${publicUrl}`)
+  console.info(`  CMS zone: ${cmsInternalUrl}`)
 
   const cmsChild = spawnZone('cms', cmsDir, cmsPort, dev, env)
-  const consumerChild = spawnZone('demo', consumerDir, consumerPort, dev, env)
+  const consumerChild = spawnZone('pub', consumerDir, consumerPort, dev, env)
   const buildChildren = dev ? maybeSpawnBuildWatch(packageRoot) : []
 
   let shuttingDown = false
@@ -56,7 +56,7 @@ export async function run(dev: boolean): Promise<void> {
 
   const [cmsCode, consumerCode] = await Promise.all([
     waitForExit(cmsChild, 'cms'),
-    waitForExit(consumerChild, 'demo'),
+    waitForExit(consumerChild, 'pub'),
   ])
 
   for (const child of buildChildren) child.kill('SIGTERM')
@@ -102,7 +102,10 @@ function maybeSpawnBuildWatch(packageRoot: string): ChildProcess[] {
   let aliasRunning = false
   let aliasPending = false
   const runAlias = () => {
-    if (aliasRunning) { aliasPending = true; return }
+    if (aliasRunning) {
+      aliasPending = true
+      return
+    }
     aliasRunning = true
     const child = spawn(tscAliasBin, ['-p', 'tsconfig.build.json'], {
       cwd: packageRoot,
@@ -112,13 +115,19 @@ function maybeSpawnBuildWatch(packageRoot: string): ChildProcess[] {
     prefixStream('types', child.stderr, process.stderr)
     child.once('exit', () => {
       aliasRunning = false
-      if (aliasPending) { aliasPending = false; runAlias() }
+      if (aliasPending) {
+        aliasPending = false
+        runAlias()
+      }
     })
   }
   let tscBuf = ''
   tsc.stdout?.on('data', (chunk: Buffer | string) => {
     tscBuf += typeof chunk === 'string' ? chunk : chunk.toString()
-    if (/Found \d+ error/.test(tscBuf)) { tscBuf = ''; runAlias() }
+    if (/Found \d+ error/.test(tscBuf)) {
+      tscBuf = ''
+      runAlias()
+    }
   })
 
   return [tsup, tsc]
@@ -155,6 +164,13 @@ function prefixStream(name: string, src: NodeJS.ReadableStream | null, dst: Node
   src.on('end', () => {
     if (carry) dst.write(`${prefix}${carry}\n`)
   })
+}
+
+function parsePort(raw: string | undefined, fallback: number): number {
+  if (!raw) return fallback
+  const n = Number.parseInt(raw, 10)
+  if (Number.isInteger(n) && n > 0 && n < 65535) return n
+  throw new Error(`Invalid port number: ${raw}`)
 }
 
 function waitForExit(child: ChildProcess, name: string): Promise<number> {

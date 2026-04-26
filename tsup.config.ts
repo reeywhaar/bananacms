@@ -3,7 +3,14 @@ import { cp, readFile, writeFile } from 'node:fs/promises'
 import { glob } from 'node:fs/promises'
 
 export default defineConfig((options) => ({
-  entry: ['src/**/*.ts', 'src/**/*.tsx', '!src/**/*.d.ts', '!src/.next/**'],
+  entry: [
+    'src/**/*.ts',
+    'src/**/*.tsx',
+    '!src/**/*.d.ts',
+    '!src/**/*.test.ts',
+    '!src/test/**',
+    '!src/.next/**',
+  ],
   outDir: 'dist',
   format: 'esm',
   target: 'node24',

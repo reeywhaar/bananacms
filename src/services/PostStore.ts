@@ -7,6 +7,7 @@ import { getShortId } from '@cms/utils/getshortid'
 import { BlockData } from '@cms/lib/blocks/declarations'
 import {
   GetByParentOptionsBase,
+  ParentDescriptor,
   assertOneOf,
   buildGetByParentQuery,
   sqlOrder,
@@ -15,6 +16,7 @@ import {
 export type PostParentTable = 'category'
 export type PostParentColumn = 'id' | 'shortid'
 export type PostOrderField = 'position' | 'name' | 'createdAt' | 'updatedAt' | 'id'
+export type PostParent = ParentDescriptor<PostParentTable, PostParentColumn>
 export type PostGetByParentOptions = GetByParentOptionsBase<PostOrderField> & {
   status?: 'published' | 'draft'
 }
@@ -72,16 +74,12 @@ export class PostStore {
     return row || null
   }
 
-  async getByParent<P extends PostParentTable>(
-    parentTable: P,
-    column: PostParentColumn,
-    id: string,
-    options: PostGetByParentOptions = {},
-  ): Promise<PostData[]> {
-    assertOneOf(parentTable, POST_PARENT_TABLES, 'parentTable')
-    assertOneOf(column, POST_PARENT_COLUMNS[parentTable], `column for parent '${parentTable}'`)
-    if (options.order) assertOneOf(options.order.field, new Set(Object.keys(POST_ORDER_FIELDS)), 'order.field')
-    if (!id) return []
+  async getByParent(parent: PostParent, options: PostGetByParentOptions = {}): Promise<PostData[]> {
+    assertOneOf(parent.table, POST_PARENT_TABLES, 'parent.table')
+    assertOneOf(parent.column, POST_PARENT_COLUMNS[parent.table], `parent.column for '${parent.table}'`)
+    if (options.order)
+      assertOneOf(options.order.field, new Set(Object.keys(POST_ORDER_FIELDS)), 'order.field')
+    if (!parent.value) return []
 
     const selectColumns = options.locale
       ? `p.id, p.shortid, pp.parentId AS categoryId, p.slug,
@@ -103,10 +101,10 @@ export class PostStore {
         joinChildKey: 'postId',
       },
       selectColumns,
-      parentTable,
-      parentColumn: column,
-      condition: options.condition ?? 'eq',
-      parentId: id,
+      parentTable: parent.table,
+      parentColumn: parent.column,
+      condition: parent.condition ?? 'eq',
+      parentId: parent.value,
       extraWhere: options.status
         ? { sql: 'p.status = ?', params: [options.status] }
         : undefined,

@@ -1,7 +1,15 @@
 export type SortOrder = 'asc' | 'desc'
 
+export type ParentCondition = 'eq' | 'neq' | 'like'
+
+export type ParentDescriptor<TTable extends string, TColumn extends string> = {
+  table: TTable
+  column: TColumn
+  value: string
+  condition?: ParentCondition
+}
+
 export type GetByParentOptionsBase<TOrderField extends string> = {
-  condition?: 'eq' | 'neq' | 'like'
   order?: { field: TOrderField; order: SortOrder }
   locale?: string
 } & ({ limit?: undefined; offset?: undefined } | { limit: number; offset?: number })

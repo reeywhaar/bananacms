@@ -1,6 +1,7 @@
 import { Database } from 'sqlite'
 import {
   GetByParentOptionsBase,
+  ParentDescriptor,
   assertOneOf,
   buildGetByParentQuery,
   sqlOrder,
@@ -27,6 +28,9 @@ export type AttributeParentColumn<P extends AttributeParentTable> = P extends 'p
   : P extends 'block'
     ? 'id'
     : 'id' | 'shortid'
+export type AttributeParent<P extends AttributeParentTable = AttributeParentTable> = {
+  [K in P]: ParentDescriptor<K, AttributeParentColumn<K>>
+}[P]
 export type AttributeOrderField = 'id' | 'key'
 export type AttributeGetByParentOptions = GetByParentOptionsBase<AttributeOrderField>
 
@@ -50,17 +54,19 @@ const ATTR_ORDER_FIELDS: Record<AttributeOrderField, string> = {
 export class AttributeStore {
   constructor(private db: Database) {}
 
-  async getByParent<P extends AttributeParentTable>(
-    parentTable: P,
-    column: AttributeParentColumn<P>,
-    id: string,
+  async getByParent(
+    parent: AttributeParent,
     options: AttributeGetByParentOptions = {},
   ): Promise<AttributeData[]> {
-    assertOneOf(parentTable, ATTR_PARENT_TABLES, 'parentTable')
-    assertOneOf(column, ATTR_PARENT_COLUMNS[parentTable], `column for parent '${parentTable}'`)
+    assertOneOf(parent.table, ATTR_PARENT_TABLES, 'parent.table')
+    assertOneOf(
+      parent.column,
+      ATTR_PARENT_COLUMNS[parent.table],
+      `parent.column for '${parent.table}'`,
+    )
     if (options.order)
       assertOneOf(options.order.field, new Set(Object.keys(ATTR_ORDER_FIELDS)), 'order.field')
-    if (!id) return []
+    if (!parent.value) return []
 
     const selectColumns = options.locale
       ? `a.id, a.key, a.translatable,
@@ -80,10 +86,10 @@ export class AttributeStore {
         joinChildKey: 'attributeId',
       },
       selectColumns,
-      parentTable,
-      parentColumn: column,
-      condition: options.condition ?? 'eq',
-      parentId: id,
+      parentTable: parent.table,
+      parentColumn: parent.column,
+      condition: parent.condition ?? 'eq',
+      parentId: parent.value,
       orderBy,
       limit: options.limit,
       offset: options.offset,

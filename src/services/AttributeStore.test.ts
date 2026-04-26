@@ -34,8 +34,10 @@ describe('AttributeStore.getByParent', () => {
     await db.close()
   })
 
+  const onPost = { table: 'post', column: 'id', value: POST_ID } as const
+
   it('returns attributes attached to a parent and converts translatable int → bool', async () => {
-    const attrs = await new AttributeStore(db).getByParent('post', 'id', POST_ID)
+    const attrs = await new AttributeStore(db).getByParent(onPost)
     expect(attrs).toHaveLength(2)
     const author = attrs.find((a) => a.key === 'author')!
     const subtitle = attrs.find((a) => a.key === 'subtitle')!
@@ -49,7 +51,7 @@ describe('AttributeStore.getByParent', () => {
     await insertLocalization(db, `attribute:${ATTR_TRANSLATABLE}:text`, 'ru', 'Привет')
     await insertLocalization(db, `attribute:${ATTR_PLAIN}:text`, 'ru', 'Алиса')
 
-    const attrs = await new AttributeStore(db).getByParent('post', 'id', POST_ID, { locale: 'ru' })
+    const attrs = await new AttributeStore(db).getByParent(onPost, { locale: 'ru' })
     const author = attrs.find((a) => a.key === 'author')!
     const subtitle = attrs.find((a) => a.key === 'subtitle')!
     // translatable=true → coalesces from localizations
@@ -60,7 +62,7 @@ describe('AttributeStore.getByParent', () => {
 
   it('falls back to source text when no localization for the requested locale', async () => {
     await insertLocalization(db, `attribute:${ATTR_TRANSLATABLE}:text`, 'ru', 'Привет')
-    const attrs = await new AttributeStore(db).getByParent('post', 'id', POST_ID, { locale: 'en' })
+    const attrs = await new AttributeStore(db).getByParent(onPost, { locale: 'en' })
     const subtitle = attrs.find((a) => a.key === 'subtitle')!
     expect(subtitle.text).toBe('Welcome')
   })
@@ -70,32 +72,38 @@ describe('AttributeStore.getByParent', () => {
     await insertAttribute(db, attrId, 'lang', false, 'en')
     await attach(db, attrId, 'page', PAGE_ID)
 
-    const attrs = await new AttributeStore(db).getByParent('page', 'key', 'about')
+    const attrs = await new AttributeStore(db).getByParent({
+      table: 'page',
+      column: 'key',
+      value: 'about',
+    })
     expect(attrs.map((a) => a.key)).toEqual(['lang'])
   })
 
   it('orders by the requested column', async () => {
-    const attrs = await new AttributeStore(db).getByParent('post', 'id', POST_ID, {
+    const attrs = await new AttributeStore(db).getByParent(onPost, {
       order: { field: 'key', order: 'asc' },
     })
     expect(attrs.map((a) => a.key)).toEqual(['author', 'subtitle'])
   })
 
-  it('returns [] for an empty id', async () => {
-    expect(await new AttributeStore(db).getByParent('post', 'id', '')).toEqual([])
+  it('returns [] for an empty value', async () => {
+    expect(
+      await new AttributeStore(db).getByParent({ table: 'post', column: 'id', value: '' }),
+    ).toEqual([])
   })
 
-  it('throws InvalidIdentifierError for an unknown parentTable', async () => {
+  it('throws InvalidIdentifierError for an unknown parent.table', async () => {
     await expect(
       // @ts-expect-error — runtime check
-      new AttributeStore(db).getByParent('user', 'id', POST_ID),
+      new AttributeStore(db).getByParent({ table: 'user', column: 'id', value: POST_ID }),
     ).rejects.toThrow(InvalidIdentifierError)
   })
 
   it('rejects column = "key" when parent is a post (only id/shortid)', async () => {
     await expect(
-      // @ts-expect-error — runtime check
-      new AttributeStore(db).getByParent('post', 'key', POST_ID),
+      // @ts-expect-error — runtime check kicks in even when types are bypassed
+      new AttributeStore(db).getByParent({ table: 'post', column: 'key', value: POST_ID }),
     ).rejects.toThrow(InvalidIdentifierError)
   })
 })

@@ -40,8 +40,10 @@ describe('BlockStore.getByParent', () => {
     await db.close()
   })
 
+  const onPost = { table: 'post', column: 'id', value: POST_ID } as const
+
   it('returns blocks attached to a parent post', async () => {
-    const blocks = await new BlockStore(db).getByParent('post', 'id', POST_ID)
+    const blocks = await new BlockStore(db).getByParent(onPost)
     expect(blocks.map((b) => b.id).sort()).toEqual([TEXT_BLOCK, IMAGE_BLOCK].sort())
     const text = blocks.find((b) => b.id === TEXT_BLOCK)!
     expect(text.content).toMatchObject({ type: 'text', text: 'Hello' })
@@ -54,7 +56,7 @@ describe('BlockStore.getByParent', () => {
     await insertBlock(db, CHILD_BLOCK, 'text', { type: 'text', key: 'c1', text: 'Nested' })
     await attach(db, CHILD_BLOCK, 'block', GROUP_BLOCK)
 
-    const blocks = await new BlockStore(db).getByParent('post', 'id', POST_ID)
+    const blocks = await new BlockStore(db).getByParent(onPost)
     const group = blocks.find((b) => b.id === GROUP_BLOCK)!
     expect(group.content.type).toBe('group')
     if (group.content.type !== 'group') throw new Error('unreachable')
@@ -67,14 +69,14 @@ describe('BlockStore.getByParent', () => {
 
   it('coalesces text-block content via locale', async () => {
     await insertLocalization(db, `block:${TEXT_BLOCK}:text`, 'ru', 'Привет')
-    const blocks = await new BlockStore(db).getByParent('post', 'id', POST_ID, { locale: 'ru' })
+    const blocks = await new BlockStore(db).getByParent(onPost, { locale: 'ru' })
     const text = blocks.find((b) => b.id === TEXT_BLOCK)!
     expect(text.content).toMatchObject({ type: 'text', text: 'Привет' })
   })
 
   it('coalesces image-block alt via locale', async () => {
     await insertLocalization(db, `block:${IMAGE_BLOCK}:alt`, 'ru', 'Подпись')
-    const blocks = await new BlockStore(db).getByParent('post', 'id', POST_ID, { locale: 'ru' })
+    const blocks = await new BlockStore(db).getByParent(onPost, { locale: 'ru' })
     const image = blocks.find((b) => b.id === IMAGE_BLOCK)!
     expect(image.content).toMatchObject({ type: 'image', alt: 'Подпись' })
   })
@@ -86,7 +88,7 @@ describe('BlockStore.getByParent', () => {
     await attach(db, CHILD_BLOCK, 'block', GROUP_BLOCK)
     await insertLocalization(db, `block:${CHILD_BLOCK}:text`, 'ru', 'Вложенный')
 
-    const blocks = await new BlockStore(db).getByParent('post', 'id', POST_ID, { locale: 'ru' })
+    const blocks = await new BlockStore(db).getByParent(onPost, { locale: 'ru' })
     const group = blocks.find((b) => b.id === GROUP_BLOCK)!
     if (group.content.type !== 'group') throw new Error('unreachable')
     expect(group.content.blocks[0].content).toMatchObject({ type: 'text', text: 'Вложенный' })
@@ -94,26 +96,26 @@ describe('BlockStore.getByParent', () => {
 
   it('falls back to source text when no localization exists for that locale', async () => {
     await insertLocalization(db, `block:${TEXT_BLOCK}:text`, 'ru', 'Привет')
-    const blocks = await new BlockStore(db).getByParent('post', 'id', POST_ID, { locale: 'en' })
+    const blocks = await new BlockStore(db).getByParent(onPost, { locale: 'en' })
     const text = blocks.find((b) => b.id === TEXT_BLOCK)!
     expect(text.content).toMatchObject({ type: 'text', text: 'Hello' })
   })
 
-  it('returns [] for an empty id', async () => {
-    expect(await new BlockStore(db).getByParent('post', 'id', '')).toEqual([])
+  it('returns [] for an empty value', async () => {
+    expect(await new BlockStore(db).getByParent({ table: 'post', column: 'id', value: '' })).toEqual([])
   })
 
-  it('throws InvalidIdentifierError for an unknown parentTable', async () => {
+  it('throws InvalidIdentifierError for an unknown parent.table', async () => {
     await expect(
       // @ts-expect-error — runtime check kicks in even when types are bypassed
-      new BlockStore(db).getByParent('bogus', 'id', POST_ID),
+      new BlockStore(db).getByParent({ table: 'bogus', column: 'id', value: POST_ID }),
     ).rejects.toThrow(InvalidIdentifierError)
   })
 
   it('rejects column = "shortid" when parent is a block (only "id" is allowed)', async () => {
     await expect(
-      // @ts-expect-error — block parents only allow column='id'
-      new BlockStore(db).getByParent('block', 'shortid', GROUP_BLOCK),
+      // @ts-expect-error — block parents only allow column='id'; runtime check enforces it too
+      new BlockStore(db).getByParent({ table: 'block', column: 'shortid', value: GROUP_BLOCK }),
     ).rejects.toThrow(InvalidIdentifierError)
   })
 
@@ -132,7 +134,11 @@ describe('BlockStore.getByParent', () => {
     })
     await attach(db, '019dbcea-d3a4-75e7-b37a-190d51650b05', 'category', CATEGORY_ID)
 
-    const blocks = await new BlockStore(db).getByParent('category', 'shortid', 'cat-short')
+    const blocks = await new BlockStore(db).getByParent({
+      table: 'category',
+      column: 'shortid',
+      value: 'cat-short',
+    })
     expect(blocks.map((b) => b.content)).toEqual([
       expect.objectContaining({ type: 'text', text: 'On category' }),
     ])

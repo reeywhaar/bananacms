@@ -3,6 +3,7 @@ import { LocalizationStore, Translations } from './LocalizationStore'
 import { getShortId } from '@cms/utils/getshortid'
 import {
   GetByParentOptionsBase,
+  ParentDescriptor,
   assertOneOf,
   buildGetByParentQuery,
   sqlOrder,
@@ -10,6 +11,7 @@ import {
 
 export type TagParentTable = 'post'
 export type TagParentColumn = 'id' | 'shortid'
+export type TagParent = ParentDescriptor<TagParentTable, TagParentColumn>
 export type TagOrderField = 'name' | 'id'
 export type TagGetByParentOptions = GetByParentOptionsBase<TagOrderField>
 
@@ -60,17 +62,12 @@ export class TagStore {
     return rows
   }
 
-  async getByParent<P extends TagParentTable>(
-    parentTable: P,
-    column: TagParentColumn,
-    id: string,
-    options: TagGetByParentOptions = {},
-  ): Promise<TagData[]> {
-    assertOneOf(parentTable, TAG_PARENT_TABLES, 'parentTable')
-    assertOneOf(column, TAG_PARENT_COLUMNS[parentTable], `column for parent '${parentTable}'`)
+  async getByParent(parent: TagParent, options: TagGetByParentOptions = {}): Promise<TagData[]> {
+    assertOneOf(parent.table, TAG_PARENT_TABLES, 'parent.table')
+    assertOneOf(parent.column, TAG_PARENT_COLUMNS[parent.table], `parent.column for '${parent.table}'`)
     if (options.order)
       assertOneOf(options.order.field, new Set(Object.keys(TAG_ORDER_FIELDS)), 'order.field')
-    if (!id) return []
+    if (!parent.value) return []
 
     const selectColumns = options.locale
       ? `t.id, t.shortid, t.slug, COALESCE(l.text, t.name) AS name`
@@ -89,10 +86,10 @@ export class TagStore {
         joinChildKey: 'tagId',
       },
       selectColumns,
-      parentTable,
-      parentColumn: column,
-      condition: options.condition ?? 'eq',
-      parentId: id,
+      parentTable: parent.table,
+      parentColumn: parent.column,
+      condition: parent.condition ?? 'eq',
+      parentId: parent.value,
       orderBy,
       limit: options.limit,
       offset: options.offset,

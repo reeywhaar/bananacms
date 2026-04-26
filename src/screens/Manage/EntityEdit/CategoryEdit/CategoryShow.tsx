@@ -14,7 +14,8 @@ export default async function CategoryShow({ id }: { id?: string }) {
   const category = await new CategoryStore(services.db).get(id)
   if (!category) notFound()
 
-  const posts = (await new PostStore(services.db).getByParent('category', 'id', id)) ?? []
+  const posts =
+    (await new PostStore(services.db).getByParent({ table: 'category', column: 'id', value: id })) ?? []
 
   const items = posts.map((post) => ({
     id: post.id,

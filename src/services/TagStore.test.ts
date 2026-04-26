@@ -33,46 +33,54 @@ describe('TagStore.getByParent', () => {
     await db.close()
   })
 
+  const onPostA = { table: 'post', column: 'id', value: POST_A } as const
+
   it('returns tags attached to a post, ordered by name by default', async () => {
-    const tags = await new TagStore(db).getByParent('post', 'id', POST_A)
+    const tags = await new TagStore(db).getByParent(onPostA)
     expect(tags.map((t) => t.name)).toEqual(['Alpha', 'Bravo'])
   })
 
   it('handles many-to-many: same tag returned for both posts', async () => {
-    const a = await new TagStore(db).getByParent('post', 'id', POST_A)
-    const b = await new TagStore(db).getByParent('post', 'id', POST_B)
+    const a = await new TagStore(db).getByParent(onPostA)
+    const b = await new TagStore(db).getByParent({ table: 'post', column: 'id', value: POST_B })
     expect(a.find((t) => t.id === TAG_BRAVO)).toBeDefined()
     expect(b.find((t) => t.id === TAG_BRAVO)).toBeDefined()
   })
 
   it('coalesces name via locale', async () => {
     await insertLocalization(db, `tag:${TAG_BRAVO}:name`, 'ru', 'Альфа')
-    const tags = await new TagStore(db).getByParent('post', 'id', POST_A, { locale: 'ru' })
+    const tags = await new TagStore(db).getByParent(onPostA, { locale: 'ru' })
     const bravo = tags.find((t) => t.id === TAG_BRAVO)
     expect(bravo?.name).toBe('Альфа')
   })
 
   it('supports custom order field', async () => {
-    const tags = await new TagStore(db).getByParent('post', 'id', POST_A, {
+    const tags = await new TagStore(db).getByParent(onPostA, {
       order: { field: 'name', order: 'desc' },
     })
     expect(tags.map((t) => t.name)).toEqual(['Bravo', 'Alpha'])
   })
 
   it('looks up by post shortid', async () => {
-    const byId = await new TagStore(db).getByParent('post', 'id', POST_A)
-    const byShortId = await new TagStore(db).getByParent('post', 'shortid', POST_A.slice(-8))
+    const byId = await new TagStore(db).getByParent(onPostA)
+    const byShortId = await new TagStore(db).getByParent({
+      table: 'post',
+      column: 'shortid',
+      value: POST_A.slice(-8),
+    })
     expect(byShortId.map((t) => t.id)).toEqual(byId.map((t) => t.id))
   })
 
-  it('returns [] for an unknown parent id', async () => {
-    expect(await new TagStore(db).getByParent('post', 'id', 'no-such-post')).toEqual([])
+  it('returns [] for an unknown parent value', async () => {
+    expect(
+      await new TagStore(db).getByParent({ table: 'post', column: 'id', value: 'no-such-post' }),
+    ).toEqual([])
   })
 
-  it('throws InvalidIdentifierError for an unknown parentTable', async () => {
+  it('throws InvalidIdentifierError for an unknown parent.table', async () => {
     await expect(
       // @ts-expect-error — runtime check
-      new TagStore(db).getByParent('category', 'id', POST_A),
+      new TagStore(db).getByParent({ table: 'category', column: 'id', value: POST_A }),
     ).rejects.toThrow(InvalidIdentifierError)
   })
 })

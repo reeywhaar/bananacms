@@ -33,10 +33,13 @@ const getData = cache(async ({ params }: Props) => {
   const section = await categoryStore.getPublicByShortId(locale, id)
   if (!section) notFound()
   if (section.slug !== p.slug) redirect(routing.category(section.shortid, section.slug))
-  const posts = await postStore.getByParent('category', 'id', section.id, {
-    locale,
-    status: services.authData.loggedIn ? undefined : 'published',
-  })
+  const posts = await postStore.getByParent(
+    { table: 'category', column: 'id', value: section.id },
+    {
+      locale,
+      status: services.authData.loggedIn ? undefined : 'published',
+    },
+  )
   if (!posts.length) notFound()
   const blocks = await blockStore.getPublicByParentIds(
     locale,

@@ -32,29 +32,31 @@ describe('PostStore.getByParent', () => {
     await db.close()
   })
 
+  const inCategory = { table: 'category', column: 'id', value: CATEGORY_ID } as const
+
   it('returns all posts in a category, ordered by parent_post.position', async () => {
-    const posts = await new PostStore(db).getByParent('category', 'id', CATEGORY_ID)
+    const posts = await new PostStore(db).getByParent(inCategory)
     expect(posts.map((p) => p.name)).toEqual(['Apple', 'Banana', 'Cherry'])
     expect(posts[0].categoryId).toBe(CATEGORY_ID)
   })
 
   it('looks up by parent shortid when column = "shortid"', async () => {
-    const byId = await new PostStore(db).getByParent('category', 'id', CATEGORY_ID)
-    const byShortId = await new PostStore(db).getByParent('category', 'shortid', CATEGORY_SHORTID)
+    const byId = await new PostStore(db).getByParent(inCategory)
+    const byShortId = await new PostStore(db).getByParent({
+      table: 'category',
+      column: 'shortid',
+      value: CATEGORY_SHORTID,
+    })
     expect(byShortId.map((p) => p.id)).toEqual(byId.map((p) => p.id))
   })
 
   it('filters out drafts when status = "published"', async () => {
-    const posts = await new PostStore(db).getByParent('category', 'id', CATEGORY_ID, {
-      status: 'published',
-    })
+    const posts = await new PostStore(db).getByParent(inCategory, { status: 'published' })
     expect(posts.map((p) => p.name)).toEqual(['Apple', 'Cherry'])
   })
 
   it('returns only drafts when status = "draft"', async () => {
-    const posts = await new PostStore(db).getByParent('category', 'id', CATEGORY_ID, {
-      status: 'draft',
-    })
+    const posts = await new PostStore(db).getByParent(inCategory, { status: 'draft' })
     expect(posts.map((p) => p.name)).toEqual(['Banana'])
   })
 
@@ -63,9 +65,7 @@ describe('PostStore.getByParent', () => {
       "INSERT INTO localizations (id, key, locale, text) VALUES ('l1', ?, 'ru', 'Яблоко')",
       `post:${POST_A}:name`,
     )
-    const posts = await new PostStore(db).getByParent('category', 'id', CATEGORY_ID, {
-      locale: 'ru',
-    })
+    const posts = await new PostStore(db).getByParent(inCategory, { locale: 'ru' })
     const apple = posts.find((p) => p.id === POST_A)
     const banana = posts.find((p) => p.id === POST_B)
     expect(apple?.name).toBe('Яблоко')
@@ -73,39 +73,36 @@ describe('PostStore.getByParent', () => {
   })
 
   it('honors custom order field with secondary id tiebreaker', async () => {
-    const posts = await new PostStore(db).getByParent('category', 'id', CATEGORY_ID, {
+    const posts = await new PostStore(db).getByParent(inCategory, {
       order: { field: 'name', order: 'desc' },
     })
     expect(posts.map((p) => p.name)).toEqual(['Cherry', 'Banana', 'Apple'])
   })
 
   it('applies limit and offset', async () => {
-    const page = await new PostStore(db).getByParent('category', 'id', CATEGORY_ID, {
-      limit: 1,
-      offset: 1,
-    })
+    const page = await new PostStore(db).getByParent(inCategory, { limit: 1, offset: 1 })
     expect(page.map((p) => p.name)).toEqual(['Banana'])
   })
 
-  it('returns [] for an empty id', async () => {
-    const posts = await new PostStore(db).getByParent('category', 'id', '')
+  it('returns [] for an empty value', async () => {
+    const posts = await new PostStore(db).getByParent({ table: 'category', column: 'id', value: '' })
     expect(posts).toEqual([])
   })
 
   it('throws InvalidIdentifierError for an unknown column', async () => {
     await expect(
-      new PostStore(db).getByParent(
-        'category',
+      new PostStore(db).getByParent({
+        table: 'category',
         // @ts-expect-error — runtime check kicks in even when types are bypassed
-        'name',
-        CATEGORY_ID,
-      ),
+        column: 'name',
+        value: CATEGORY_ID,
+      }),
     ).rejects.toThrow(InvalidIdentifierError)
   })
 
   it('throws InvalidIdentifierError for an unknown order.field', async () => {
     await expect(
-      new PostStore(db).getByParent('category', 'id', CATEGORY_ID, {
+      new PostStore(db).getByParent(inCategory, {
         // @ts-expect-error — runtime check
         order: { field: 'bogus', order: 'asc' },
       }),

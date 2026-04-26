@@ -5,6 +5,7 @@ import { AttributeStore } from './AttributeStore'
 import { intoResult } from '@cms/utils/result'
 import {
   GetByParentOptionsBase,
+  ParentDescriptor,
   assertOneOf,
   buildGetByParentQuery,
   sqlOrder,
@@ -16,6 +17,9 @@ export type BlockParentColumn<P extends BlockParentTable> = P extends 'page'
   : P extends 'block'
     ? 'id'
     : 'id' | 'shortid'
+export type BlockParent<P extends BlockParentTable = BlockParentTable> = {
+  [K in P]: ParentDescriptor<K, BlockParentColumn<K>>
+}[P]
 export type BlockOrderField = 'id'
 export type BlockGetByParentOptions = GetByParentOptionsBase<BlockOrderField>
 
@@ -57,17 +61,19 @@ export class BlockStore {
     return row ? this.toBlockData(row) : null
   }
 
-  async getByParent<P extends BlockParentTable>(
-    parentTable: P,
-    column: BlockParentColumn<P>,
-    id: string,
+  async getByParent(
+    parent: BlockParent,
     options: BlockGetByParentOptions = {},
   ): Promise<BlockData[]> {
-    assertOneOf(parentTable, BLOCK_PARENT_TABLES, 'parentTable')
-    assertOneOf(column, BLOCK_PARENT_COLUMNS[parentTable], `column for parent '${parentTable}'`)
+    assertOneOf(parent.table, BLOCK_PARENT_TABLES, 'parent.table')
+    assertOneOf(
+      parent.column,
+      BLOCK_PARENT_COLUMNS[parent.table],
+      `parent.column for '${parent.table}'`,
+    )
     if (options.order)
       assertOneOf(options.order.field, new Set(Object.keys(BLOCK_ORDER_FIELDS)), 'order.field')
-    if (!id) return []
+    if (!parent.value) return []
 
     const orderBy = options.order
       ? `${BLOCK_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}`
@@ -82,10 +88,10 @@ export class BlockStore {
         joinChildKey: 'blockId',
       },
       selectColumns: 'b.id, pb.parentId, pb.parentTable, b.type, b.content',
-      parentTable,
-      parentColumn: column,
-      condition: options.condition ?? 'eq',
-      parentId: id,
+      parentTable: parent.table,
+      parentColumn: parent.column,
+      condition: parent.condition ?? 'eq',
+      parentId: parent.value,
       orderBy,
       limit: options.limit,
       offset: options.offset,
@@ -97,7 +103,7 @@ export class BlockStore {
     const parentIds = Array.from(new Set(rows.map((r) => r.parentId).filter((p): p is string => !!p)))
     if (parentIds.length === 0) return blocks
     const translations = await new LocalizationStore(this.db).getByBlockParentIds(
-      parentTable,
+      parent.table,
       parentIds,
     )
     const locale = options.locale
@@ -227,7 +233,11 @@ export class BlockStore {
       return parsed as BlockType
     })()
 
-    const attributes = await new AttributeStore(this.db).getByParent('block', 'id', raw.id)
+    const attributes = await new AttributeStore(this.db).getByParent({
+      table: 'block',
+      column: 'id',
+      value: raw.id,
+    })
 
     return { id: raw.id, parent, type: raw.type, content, attributes }
   }

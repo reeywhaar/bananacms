@@ -12,9 +12,7 @@ export default async function MainPage() {
   const t = await getTranslations('main')
   const pageStore = new PageStore(services.db)
   const blockStore = new BlockStore(services.db)
-  const page = (
-    await pageStore.get({ type: 'column', column: 'key', value: 'Main Page' })
-  ).at(0)
+  const page = await pageStore.query().byKey('Main Page').first()
   if (!page) notFound()
   const blocks = (await blockStore.getPublicByParentIds('ru', 'page', [page.id]))[page.id]
   const descriptionBlock = findAndMap(blocks, (b) =>

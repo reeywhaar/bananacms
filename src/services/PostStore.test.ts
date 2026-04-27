@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { Database } from 'sqlite'
 import { PostStore } from './PostStore'
-import { InvalidIdentifierError } from './getByParentQuery'
-import { createTestDb } from '../test/db'
+import { createTestDb, type TestDb } from '../test/db'
+import { post as postTable, parentPost, parentTag, tag, localizations, category } from '@cms/lib/db/schema'
 
 const CATEGORY_ID = '019dbce5-5aac-763a-ac29-509b1a86750f'
 const CATEGORY_SHORTID = '1a86750f'
@@ -11,63 +10,65 @@ const POST_A = '019dbcea-d3a4-75e7-b37a-190d5165077a'
 const POST_B = '019dbcea-d3a4-75e7-b37a-190d5165077b'
 const POST_C = '019dbcea-d3a4-75e7-b37a-190d5165077c'
 
-describe('PostStore.get', () => {
-  let db: Database
+describe('PostStore.query', () => {
+  let testDb: TestDb
 
   beforeEach(async () => {
-    db = await createTestDb()
-    await db.run(
-      'INSERT INTO category (id, shortid, name, slug) VALUES (?, ?, ?, ?)',
-      CATEGORY_ID,
-      CATEGORY_SHORTID,
-      'Birds',
-      'birds',
-    )
-    await insertPost(db, POST_A, 'Apple', 'apple', 'published', 1)
-    await insertPost(db, POST_B, 'Banana', 'banana', 'draft', 2)
-    await insertPost(db, POST_C, 'Cherry', 'cherry', 'published', 3)
+    testDb = await createTestDb()
+    await testDb.db
+      .insert(category)
+      .values({ id: CATEGORY_ID, shortid: CATEGORY_SHORTID, name: 'Birds', slug: 'birds' })
+      .run()
+    await insertPost(testDb, POST_A, 'Apple', 'apple', 'published', 1)
+    await insertPost(testDb, POST_B, 'Banana', 'banana', 'draft', 2)
+    await insertPost(testDb, POST_C, 'Cherry', 'cherry', 'published', 3)
   })
 
   afterEach(async () => {
-    await db.close()
+    testDb.client.close()
   })
 
-  const inCategory = { type: 'parent', table: 'category', column: 'id', value: CATEGORY_ID } as const
-
-  describe('parent variant', () => {
+  describe('inCategory', () => {
     it('returns all posts in a category, ordered by parent_post.position', async () => {
-      const posts = await new PostStore(db).get(inCategory)
+      const posts = await new PostStore(testDb.db).query().inCategory({ id: CATEGORY_ID }).all()
       expect(posts.map((p) => p.name)).toEqual(['Apple', 'Banana', 'Cherry'])
       expect(posts.at(0)?.categoryId).toBe(CATEGORY_ID)
     })
 
-    it('looks up by parent shortid when column = "shortid"', async () => {
-      const byId = await new PostStore(db).get(inCategory)
-      const byShortId = await new PostStore(db).get({
-        type: 'parent',
-        table: 'category',
-        column: 'shortid',
-        value: CATEGORY_SHORTID,
-      })
-      expect(byShortId.map((p) => p.id)).toEqual(byId.map((p) => p.id))
+    it('looks up by category slug', async () => {
+      const byId = await new PostStore(testDb.db).query().inCategory({ id: CATEGORY_ID }).all()
+      const bySlug = await new PostStore(testDb.db).query().inCategory({ slug: 'birds' }).all()
+      expect(bySlug.map((p) => p.id)).toEqual(byId.map((p) => p.id))
     })
 
-    it('filters out drafts when status = "published"', async () => {
-      const posts = await new PostStore(db).get(inCategory, { status: 'published' })
+    it('filters out drafts when .published()', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .inCategory({ id: CATEGORY_ID })
+        .published()
+        .all()
       expect(posts.map((p) => p.name)).toEqual(['Apple', 'Cherry'])
     })
 
-    it('returns only drafts when status = "draft"', async () => {
-      const posts = await new PostStore(db).get(inCategory, { status: 'draft' })
+    it('returns only drafts when .draft()', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .inCategory({ id: CATEGORY_ID })
+        .draft()
+        .all()
       expect(posts.map((p) => p.name)).toEqual(['Banana'])
     })
 
     it('coalesces the name field against localizations when locale is set', async () => {
-      await db.run(
-        "INSERT INTO localizations (id, key, locale, text) VALUES ('l1', ?, 'ru', 'Яблоко')",
-        `post:${POST_A}:name`,
-      )
-      const posts = await new PostStore(db).get(inCategory, { locale: 'ru' })
+      await testDb.db
+        .insert(localizations)
+        .values({ id: 'l1', key: `post:${POST_A}:name`, locale: 'ru', text: 'Яблоко' })
+        .run()
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .inCategory({ id: CATEGORY_ID })
+        .locale('ru')
+        .all()
       const apple = posts.find((p) => p.id === POST_A)
       const banana = posts.find((p) => p.id === POST_B)
       expect(apple?.name).toBe('Яблоко')
@@ -75,243 +76,177 @@ describe('PostStore.get', () => {
     })
 
     it('honors custom order field with secondary id tiebreaker', async () => {
-      const posts = await new PostStore(db).get(inCategory, {
-        order: { field: 'name', order: 'desc' },
-      })
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .inCategory({ id: CATEGORY_ID })
+        .orderBy('name', 'desc')
+        .all()
       expect(posts.map((p) => p.name)).toEqual(['Cherry', 'Banana', 'Apple'])
     })
 
     it('applies limit and offset', async () => {
-      const page = await new PostStore(db).get(inCategory, { limit: 1, offset: 1 })
+      const page = await new PostStore(testDb.db)
+        .query()
+        .inCategory({ id: CATEGORY_ID })
+        .limit(1)
+        .offset(1)
+        .all()
       expect(page.map((p) => p.name)).toEqual(['Banana'])
-    })
-
-    it('returns [] for an empty value', async () => {
-      const posts = await new PostStore(db).get({
-        type: 'parent',
-        table: 'category',
-        column: 'id',
-        value: '',
-      })
-      expect(posts).toEqual([])
     })
   })
 
-  describe('all variant', () => {
+  describe('all', () => {
     it('returns every post ordered by parent_post.position', async () => {
-      const posts = await new PostStore(db).get({ type: 'all' })
+      const posts = await new PostStore(testDb.db).query().all()
       expect(posts.map((p) => p.name)).toEqual(['Apple', 'Banana', 'Cherry'])
     })
 
-    it('coalesces names via locale option', async () => {
-      await db.run(
-        "INSERT INTO localizations (id, key, locale, text) VALUES ('l1', ?, 'ru', 'Яблоко')",
-        `post:${POST_A}:name`,
-      )
-      const posts = await new PostStore(db).get({ type: 'all' }, { locale: 'ru' })
+    it('coalesces names via locale', async () => {
+      await testDb.db
+        .insert(localizations)
+        .values({ id: 'l1', key: `post:${POST_A}:name`, locale: 'ru', text: 'Яблоко' })
+        .run()
+      const posts = await new PostStore(testDb.db).query().locale('ru').all()
       expect(posts.find((p) => p.id === POST_A)?.name).toBe('Яблоко')
     })
 
     it('respects status filter', async () => {
-      const posts = await new PostStore(db).get({ type: 'all' }, { status: 'draft' })
+      const posts = await new PostStore(testDb.db).query().draft().all()
       expect(posts.map((p) => p.name)).toEqual(['Banana'])
     })
   })
 
-  describe('column variant', () => {
-    it('fetches a single post by id', async () => {
-      const post = (
-        await new PostStore(db).get({ type: 'column', column: 'id', value: POST_A })
-      ).at(0)
+  describe('column', () => {
+    it('byId fetches a single post', async () => {
+      const post = await new PostStore(testDb.db).query().byId(POST_A).first()
       expect(post?.name).toBe('Apple')
     })
 
-    it('fetches by shortid', async () => {
-      const post = (
-        await new PostStore(db).get({
-          type: 'column',
-          column: 'shortid',
-          value: POST_A.slice(-8),
-        })
-      ).at(0)
+    it('byShortId fetches a single post', async () => {
+      const post = await new PostStore(testDb.db).query().byShortId(POST_A.slice(-8)).first()
       expect(post?.id).toBe(POST_A)
     })
 
-    it('fetches by slug', async () => {
-      const post = (
-        await new PostStore(db).get({ type: 'column', column: 'slug', value: 'banana' })
-      ).at(0)
+    it('bySlug fetches a single post', async () => {
+      const post = await new PostStore(testDb.db).query().bySlug('banana').first()
       expect(post?.id).toBe(POST_B)
-    })
-
-    it('returns [] for an empty value', async () => {
-      const posts = await new PostStore(db).get({ type: 'column', column: 'id', value: '' })
-      expect(posts).toEqual([])
     })
   })
 
-  describe('parent: tag variant', () => {
+  describe('tags', () => {
     const TAG_RED = '019dbcf0-0000-7000-0000-000000000001'
     const TAG_BLUE = '019dbcf0-0000-7000-0000-000000000002'
 
     beforeEach(async () => {
-      await db.run(
-        'INSERT INTO tag (id, shortid, name, slug) VALUES (?, ?, ?, ?)',
-        TAG_RED,
-        TAG_RED.slice(-8),
-        'Red',
-        'red',
-      )
-      await db.run(
-        'INSERT INTO tag (id, shortid, name, slug) VALUES (?, ?, ?, ?)',
-        TAG_BLUE,
-        TAG_BLUE.slice(-8),
-        'Blue',
-        'blue',
-      )
+      await testDb.db
+        .insert(tag)
+        .values({ id: TAG_RED, shortid: TAG_RED.slice(-8), name: 'Red', slug: 'red' })
+        .run()
+      await testDb.db
+        .insert(tag)
+        .values({ id: TAG_BLUE, shortid: TAG_BLUE.slice(-8), name: 'Blue', slug: 'blue' })
+        .run()
       // Apple → red, Banana → red+blue, Cherry → blue
-      await tagPost(db, POST_A, TAG_RED)
-      await tagPost(db, POST_B, TAG_RED)
-      await tagPost(db, POST_B, TAG_BLUE)
-      await tagPost(db, POST_C, TAG_BLUE)
+      tagPost(testDb, POST_A, TAG_RED)
+      tagPost(testDb, POST_B, TAG_RED)
+      tagPost(testDb, POST_B, TAG_BLUE)
+      tagPost(testDb, POST_C, TAG_BLUE)
     })
 
-    it('returns posts that have the tag, by tag id', async () => {
-      const posts = await new PostStore(db).get({
-        type: 'parent',
-        table: 'tag',
-        column: 'id',
-        value: TAG_RED,
-      })
+    it('withTag by id returns posts that have the tag', async () => {
+      const posts = await new PostStore(testDb.db).query().withTag({ id: TAG_RED }).all()
       expect(posts.map((p) => p.name)).toEqual(['Apple', 'Banana'])
       expect(posts.at(0)?.categoryId).toBe(CATEGORY_ID)
     })
 
-    it('looks up by tag shortid and slug', async () => {
-      const byShortid = await new PostStore(db).get({
-        type: 'parent',
-        table: 'tag',
-        column: 'shortid',
-        value: TAG_BLUE.slice(-8),
-      })
-      const bySlug = await new PostStore(db).get({
-        type: 'parent',
-        table: 'tag',
-        column: 'slug',
-        value: 'blue',
-      })
+    it('withTag by shortid and slug', async () => {
+      const byShortid = await new PostStore(testDb.db)
+        .query()
+        .withTag({ shortid: TAG_BLUE.slice(-8) })
+        .all()
+      const bySlug = await new PostStore(testDb.db).query().withTag({ slug: 'blue' }).all()
       expect(byShortid.map((p) => p.id)).toEqual([POST_B, POST_C])
       expect(bySlug.map((p) => p.id)).toEqual([POST_B, POST_C])
     })
 
+    it('withoutTag excludes posts that have that tag', async () => {
+      // Posts without the 'red' tag → only Cherry
+      const posts = await new PostStore(testDb.db).query().withoutTag({ slug: 'red' }).all()
+      expect(posts.map((p) => p.name)).toEqual(['Cherry'])
+    })
+
     it('respects status filter', async () => {
-      const posts = await new PostStore(db).get(
-        { type: 'parent', table: 'tag', column: 'id', value: TAG_RED },
-        { status: 'published' },
-      )
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withTag({ id: TAG_RED })
+        .published()
+        .all()
       expect(posts.map((p) => p.name)).toEqual(['Apple'])
     })
 
-    it('honors order field with id tiebreaker', async () => {
-      const posts = await new PostStore(db).get(
-        { type: 'parent', table: 'tag', column: 'id', value: TAG_RED },
-        { order: { field: 'name', order: 'desc' } },
-      )
+    it('honors order field', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withTag({ id: TAG_RED })
+        .orderBy('name', 'desc')
+        .all()
       expect(posts.map((p) => p.name)).toEqual(['Banana', 'Apple'])
     })
 
     it('coalesces names against localizations', async () => {
-      await db.run(
-        "INSERT INTO localizations (id, key, locale, text) VALUES ('l1', ?, 'ru', 'Яблоко')",
-        `post:${POST_A}:name`,
-      )
-      const posts = await new PostStore(db).get(
-        { type: 'parent', table: 'tag', column: 'id', value: TAG_RED },
-        { locale: 'ru' },
-      )
+      await testDb.db
+        .insert(localizations)
+        .values({ id: 'l1', key: `post:${POST_A}:name`, locale: 'ru', text: 'Яблоко' })
+        .run()
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withTag({ id: TAG_RED })
+        .locale('ru')
+        .all()
       expect(posts.find((p) => p.id === POST_A)?.name).toBe('Яблоко')
     })
 
     it('applies limit and offset', async () => {
-      const page = await new PostStore(db).get(
-        { type: 'parent', table: 'tag', column: 'id', value: TAG_RED },
-        { limit: 1, offset: 1 },
-      )
+      const page = await new PostStore(testDb.db)
+        .query()
+        .withTag({ id: TAG_RED })
+        .limit(1)
+        .offset(1)
+        .all()
       expect(page.map((p) => p.name)).toEqual(['Banana'])
     })
 
-    it('returns [] for an empty value', async () => {
-      const posts = await new PostStore(db).get({
-        type: 'parent',
-        table: 'tag',
-        column: 'id',
-        value: '',
-      })
-      expect(posts).toEqual([])
-    })
-  })
-
-  describe('validation', () => {
-    it('throws InvalidIdentifierError for an unknown parent column', async () => {
-      await expect(
-        new PostStore(db).get({
-          type: 'parent',
-          table: 'category',
-          // @ts-expect-error — runtime check kicks in even when types are bypassed
-          column: 'name',
-          value: CATEGORY_ID,
-        }),
-      ).rejects.toThrow(InvalidIdentifierError)
-    })
-
-    it('throws InvalidIdentifierError for an unknown order.field', async () => {
-      await expect(
-        new PostStore(db).get(inCategory, {
-          // @ts-expect-error — runtime check
-          order: { field: 'bogus', order: 'asc' },
-        }),
-      ).rejects.toThrow(InvalidIdentifierError)
-    })
-
-    it('throws InvalidIdentifierError for an unknown query type', async () => {
-      await expect(
-        // @ts-expect-error — runtime check
-        new PostStore(db).get({ type: 'bogus' }),
-      ).rejects.toThrow(InvalidIdentifierError)
+    it('withAnyTag matches OR across specs', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withAnyTag([{ slug: 'red' }, { slug: 'blue' }])
+        .all()
+      expect(posts.map((p) => p.id).sort()).toEqual([POST_A, POST_B, POST_C].sort())
     })
   })
 })
 
 async function insertPost(
-  db: Database,
+  testDb: TestDb,
   id: string,
   name: string,
   slug: string,
   status: 'published' | 'draft',
   position: number,
 ): Promise<void> {
-  await db.run(
-    'INSERT INTO post (id, shortid, name, slug, status) VALUES (?, ?, ?, ?, ?)',
-    id,
-    id.slice(-8),
-    name,
-    slug,
-    status,
-  )
-  await db.run(
-    'INSERT INTO parent_post (postId, parentId, parentTable, position) VALUES (?, ?, ?, ?)',
-    id,
-    CATEGORY_ID,
-    'category',
-    position,
-  )
+  await testDb.db
+    .insert(postTable)
+    .values({ id, shortid: id.slice(-8), name, slug, status })
+    .run()
+  await testDb.db
+    .insert(parentPost)
+    .values({ postId: id, parentId: CATEGORY_ID, parentTable: 'category', position })
+    .run()
 }
 
-async function tagPost(db: Database, postId: string, tagId: string): Promise<void> {
-  await db.run(
-    'INSERT INTO parent_tag (tagId, parentId, parentTable) VALUES (?, ?, ?)',
-    tagId,
-    postId,
-    'post',
-  )
+async function tagPost(testDb: TestDb, postId: string, tagId: string): Promise<void> {
+  await testDb.db
+    .insert(parentTag)
+    .values({ tagId, parentId: postId, parentTable: 'post' })
+    .run()
 }

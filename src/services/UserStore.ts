@@ -1,5 +1,7 @@
-import { Database } from 'sqlite'
+import { eq, sql } from 'drizzle-orm'
 import { v7 } from 'uuid'
+import { type Db } from '@cms/lib/db/client'
+import { user } from '@cms/lib/db/schema'
 
 export interface UserRow {
   id: string
@@ -8,32 +10,39 @@ export interface UserRow {
 }
 
 export class UserStore {
-  constructor(private db: Database) {}
+  constructor(private db: Db) {}
 
   async findByName(name: string): Promise<UserRow | undefined> {
-    return this.db.get<UserRow>(
-      'SELECT id, name, password_hash FROM user WHERE name = ?',
-      name,
-    )
+    return this.db
+      .select({ id: user.id, name: user.name, password_hash: user.password_hash })
+      .from(user)
+      .where(eq(user.name, name))
+      .get()
   }
 
   async findById(id: string): Promise<UserRow | undefined> {
-    return this.db.get<UserRow>('SELECT id, name, password_hash FROM user WHERE id = ?', id)
+    return this.db
+      .select({ id: user.id, name: user.name, password_hash: user.password_hash })
+      .from(user)
+      .where(eq(user.id, id))
+      .get()
   }
 
   async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
-    await this.db.run('UPDATE user SET password_hash = ? WHERE id = ?', passwordHash, id)
+    await this.db.update(user).set({ password_hash: passwordHash }).where(eq(user.id, id))
   }
 
   async upsertByName(name: string, passwordHash: string): Promise<{ id: string }> {
-    const row = await this.db.get<{ id: string }>(
-      'INSERT INTO user (id, name, password_hash) VALUES (?, ?, ?) ' +
-        'ON CONFLICT(name) DO UPDATE SET password_hash = excluded.password_hash ' +
-        'RETURNING id',
-      v7(),
-      name,
-      passwordHash,
-    )
+    const id = v7()
+    const row = await this.db
+      .insert(user)
+      .values({ id, name, password_hash: passwordHash })
+      .onConflictDoUpdate({
+        target: user.name,
+        set: { password_hash: sql`excluded.password_hash` },
+      })
+      .returning({ id: user.id })
+      .get()
     if (!row) throw new Error('upsertByName: no row returned')
     return { id: row.id }
   }

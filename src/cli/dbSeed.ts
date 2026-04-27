@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { open } from 'sqlite'
-import sqlite3 from 'sqlite3'
+import { openDb } from '@cms/lib/db/client'
 
 export async function run(): Promise<void> {
   const dbPath = requireEnv('DB_PATH')
@@ -12,22 +11,23 @@ export async function run(): Promise<void> {
     process.exit(1)
   }
 
-  const db = await open({ filename: dbPath, driver: sqlite3.Database })
+  const { client } = openDb(dbPath)
 
   try {
-    const row = await db.get<{ n: number }>(
+    const result = await client.execute(
       `SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`,
     )
-    if (row && row.n > 0) {
-      console.info(`Database already has ${row.n} table(s); skipping seed.`)
+    const n = Number(result.rows[0]?.n ?? 0)
+    if (n > 0) {
+      console.info(`Database already has ${n} table(s); skipping seed.`)
       return
     }
 
     const sql = fs.readFileSync(seedPath, 'utf-8')
-    await db.exec(sql)
+    await client.executeMultiple(sql)
     console.info(`Seeded database from ${seedPath}`)
   } finally {
-    await db.close()
+    client.close()
   }
 }
 

@@ -1,43 +1,48 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { open } from 'sqlite'
-import sqlite3 from 'sqlite3'
 import sharp from 'sharp'
+import { openDb } from '@cms/lib/db/client'
 
 export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
   const dbPath = requireEnv('DB_PATH')
   const assetsDir = process.env.ASSETS_DIRECTORY
 
-  const db = await open({ filename: dbPath, driver: sqlite3.Database })
+  const { client } = openDb(dbPath)
 
-  const rows = await db.all<{ id: string }[]>(
-    `SELECT id FROM asset
-      WHERE mime LIKE 'image/%'
-        AND (json_extract(content, '$.width') IS NULL
-          OR json_extract(content, '$.height') IS NULL)`,
-  )
+  const rows = (
+    await client.execute(`
+      SELECT id FROM asset
+        WHERE mime LIKE 'image/%'
+          AND (json_extract(content, '$.width') IS NULL
+            OR json_extract(content, '$.height') IS NULL)
+    `)
+  ).rows.map((r) => String(r.id))
 
   console.info(`Found ${rows.length} image asset(s) missing dimensions.`)
 
   let updated = 0
   let failed = 0
 
-  for (const row of rows) {
+  for (const id of rows) {
     try {
       let buf: Buffer | null = null
       if (assetsDir) {
         try {
-          buf = await readFile(join(assetsDir, row.id))
+          buf = await readFile(join(assetsDir, id))
         } catch {
           // fall through to DB blob
         }
       }
       if (!buf) {
-        const r = await db.get<{ data: Buffer | null }>('SELECT data FROM asset WHERE id = ?', row.id)
-        buf = r?.data ?? null
+        const r = await client.execute({
+          sql: 'SELECT data FROM asset WHERE id = ?',
+          args: [id],
+        })
+        const data = r.rows[0]?.data
+        buf = data instanceof Uint8Array ? Buffer.from(data) : null
       }
       if (!buf) {
-        console.warn(`  skip ${row.id}: no data available`)
+        console.warn(`  skip ${id}: no data available`)
         failed++
         continue
       }
@@ -46,31 +51,29 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
       const width = meta.autoOrient?.width ?? meta.width
       const height = meta.autoOrient?.height ?? meta.height
       if (!width || !height) {
-        console.warn(`  skip ${row.id}: sharp returned no dimensions`)
+        console.warn(`  skip ${id}: sharp returned no dimensions`)
         failed++
         continue
       }
 
-      console.info(`  ${row.id}: ${width} × ${height}`)
+      console.info(`  ${id}: ${width} × ${height}`)
       if (!dryRun) {
-        await db.run(
-          `UPDATE asset
-              SET content = json_set(COALESCE(content, '{}'), '$.width', ?, '$.height', ?)
-            WHERE id = ?`,
-          width,
-          height,
-          row.id,
-        )
+        await client.execute({
+          sql: `UPDATE asset
+                  SET content = json_set(COALESCE(content, '{}'), '$.width', ?, '$.height', ?)
+                WHERE id = ?`,
+          args: [width, height, id],
+        })
       }
       updated++
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
-      console.warn(`  fail ${row.id}: ${message}`)
+      console.warn(`  fail ${id}: ${message}`)
       failed++
     }
   }
 
-  await db.close()
+  client.close()
   console.info(`${dryRun ? '[dry-run] ' : ''}Updated ${updated}, failed ${failed}.`)
 }
 

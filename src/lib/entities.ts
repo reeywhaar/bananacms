@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import type { Database } from 'sqlite'
+import type { Db } from '@cms/lib/db/client'
 import CategoryEdit from '@cms/screens/Manage/EntityEdit/CategoryEdit/CategoryEdit'
 import CategoryShow from '@cms/screens/Manage/EntityEdit/CategoryEdit/CategoryShow'
 import PostEdit from '@cms/screens/Manage/EntityEdit/PostEdit/PostEdit'
@@ -10,9 +10,11 @@ import { PostStore } from '@cms/services/PostStore'
 import { PageStore } from '@cms/services/PageStore'
 import { TagStore } from '@cms/services/TagStore'
 
+export type EntityListItem = { id: string; name: string }
+
 export type EntityStore = {
-  new (db: Database): {
-    get(query: { type: 'all' }): Promise<{ id: string; name: string }[]>
+  new (db: Db): {
+    query(): { all(): Promise<EntityListItem[]> }
   }
 }
 

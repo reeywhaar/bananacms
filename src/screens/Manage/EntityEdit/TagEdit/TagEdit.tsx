@@ -11,14 +11,10 @@ export default async function TagEdit({ id }: { id?: string }) {
 
   const tag = await (async () => {
     if (!id) return undefined
-    return (
-      (await new TagStore(db).get({ type: 'column', column: 'id', value: id })).at(0) ?? notFound()
-    )
+    return (await new TagStore(db).query().byId(id).first()) ?? notFound()
   })()
 
-  const translations = id
-    ? await new LocalizationStore(db).getByKeyPrefix('tag:' + id + ':')
-    : {}
+  const translations = id ? new LocalizationStore(db).getByKeyPrefix('tag:' + id + ':') : {}
 
   return (
     <WithBreadcrumbs

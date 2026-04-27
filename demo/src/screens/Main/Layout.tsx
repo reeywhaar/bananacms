@@ -35,7 +35,7 @@ export default async function Layout({ children }: { children: ReactNode }) {
   const categoryStore = new CategoryStore(services.db)
   const blockStore = new BlockStore(services.db)
   const categories = await Promise.all(
-    (await categoryStore.get({ type: 'all' }, { locale: langContext.currentLocale })).map(async (c) => {
+    (await categoryStore.query().locale(langContext.currentLocale).all()).map(async (c) => {
       const blocks = (
         await blockStore.getPublicByParentIds(langContext.currentLocale, 'category', [c.id])
       )[c.id]

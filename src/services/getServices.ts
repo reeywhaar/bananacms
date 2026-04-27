@@ -4,8 +4,6 @@ import { ApiDispatcher } from '@cms/lib/api/Dispatcher'
 import { AuthTokenStore } from './AuthTokenStore'
 import { UserStore } from './UserStore'
 import { globalSetup, requestSetup } from '@cms/utils/globalSetup'
-import { open } from 'sqlite'
-import sqlite3 from 'sqlite3'
 import { invariant } from '@cms/utils/invariant'
 import { cookies, headers } from 'next/headers'
 import { createRootLogger } from '@cms/lib/logger/root'
@@ -13,6 +11,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { v4 as uuid } from 'uuid'
 import { isCMSInitialized, getCMS } from '@cms/config'
+import { openDb, runMigrations, type Db } from '@cms/lib/db/client'
 
 // Build the migrations path at runtime via path.resolve so bundlers don't
 // statically analyze it as an asset module reference.
@@ -23,10 +22,6 @@ const resolveDbPath = (): string => {
   return process.env.DB_PATH ?? invariant('DB_PATH environment variable is not set')
 }
 
-// Resolve a stable (traceId, sessionId) pair for the current request. Falls
-// back to fresh UUIDs when Next doesn't supply them (dev without a custom
-// server / multi-zone rewrites arriving without these headers). Cached on the
-// headers instance so repeat getServices() calls within one request share IDs.
 const REQUEST_IDS = new WeakMap<object, { traceId: string; sessionId: string }>()
 
 const resolveRequestIds = async (): Promise<{ traceId: string; sessionId: string }> => {
@@ -52,15 +47,10 @@ export interface AuthData {
 export const getServices = async () => {
   const { traceId, sessionId } = await resolveRequestIds()
   return requestSetup(sessionId, 'services', async () => {
-    const db = await globalSetup('services', async () => {
-      const db = await open({
-        filename: resolveDbPath(),
-        driver: sqlite3.Database,
-      })
-      await db.run('PRAGMA foreign_keys = ON')
-      await db.run('PRAGMA recursive_triggers = ON')
+    const db: Db = await globalSetup('services', async () => {
+      const { client, db } = openDb(resolveDbPath())
       if (process.env.NODE_ENV !== 'production') {
-        await db.migrate({ migrationsPath: MIGRATIONS_PATH })
+        await runMigrations(client, MIGRATIONS_PATH)
       }
       return db
     })

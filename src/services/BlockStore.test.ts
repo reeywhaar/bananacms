@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { Database } from 'sqlite'
 import { BlockStore } from './BlockStore'
-import { InvalidIdentifierError } from './getByParentQuery'
-import { createTestDb } from '../test/db'
+import { createTestDb, type TestDb } from '../test/db'
+import { post, block, parentBlock, localizations, category } from '@cms/lib/db/schema'
 
 const POST_ID = '019dbcea-d3a4-75e7-b37a-190d5165aaaa'
 const CATEGORY_ID = '019dbce5-5aac-763a-ac29-509b1a86bbbb'
@@ -12,38 +11,38 @@ const IMAGE_BLOCK = '019dbcea-d3a4-75e7-b37a-190d51650b02'
 const GROUP_BLOCK = '019dbcea-d3a4-75e7-b37a-190d51650b03'
 const CHILD_BLOCK = '019dbcea-d3a4-75e7-b37a-190d51650b04'
 
-describe('BlockStore.get', () => {
-  let db: Database
+describe('BlockStore.query', () => {
+  let testDb: TestDb
 
   beforeEach(async () => {
-    db = await createTestDb()
-    await db.run(
-      'INSERT INTO post (id, shortid, name, slug, status) VALUES (?, ?, ?, ?, ?)',
-      POST_ID,
-      POST_ID.slice(-8),
-      'Host Post',
-      'host-post',
-      'published',
-    )
-    await insertBlock(db, TEXT_BLOCK, 'text', { type: 'text', key: 't1', text: 'Hello' })
-    await attach(db, TEXT_BLOCK, 'post', POST_ID)
-    await insertBlock(db, IMAGE_BLOCK, 'image', {
+    testDb = await createTestDb()
+    await testDb.db
+      .insert(post)
+      .values({
+        id: POST_ID,
+        shortid: POST_ID.slice(-8),
+        name: 'Host Post',
+        slug: 'host-post',
+        status: 'published',
+      })
+      .run()
+    await insertBlock(testDb, TEXT_BLOCK, 'text', { type: 'text', key: 't1', text: 'Hello' })
+    await attach(testDb, TEXT_BLOCK, 'post', POST_ID)
+    await insertBlock(testDb, IMAGE_BLOCK, 'image', {
       type: 'image',
       key: 'i1',
       assetId: 'asset-1',
       alt: 'Alt text',
     })
-    await attach(db, IMAGE_BLOCK, 'post', POST_ID)
+    await attach(testDb, IMAGE_BLOCK, 'post', POST_ID)
   })
 
   afterEach(async () => {
-    await db.close()
+    testDb.client.close()
   })
 
-  const onPost = { type: 'parent', table: 'post', column: 'id', value: POST_ID } as const
-
   it('returns blocks attached to a parent post', async () => {
-    const blocks = await new BlockStore(db).get(onPost)
+    const blocks = await new BlockStore(testDb.db).query().parentedBy({ table: 'post', id: POST_ID }).all()
     expect(blocks.map((b) => b.id).sort()).toEqual([TEXT_BLOCK, IMAGE_BLOCK].sort())
     const text = blocks.find((b) => b.id === TEXT_BLOCK)!
     expect(text.content).toMatchObject({ type: 'text', text: 'Hello' })
@@ -51,12 +50,12 @@ describe('BlockStore.get', () => {
   })
 
   it('hydrates nested children for group blocks', async () => {
-    await insertBlock(db, GROUP_BLOCK, 'group', { type: 'group', key: 'g1' })
-    await attach(db, GROUP_BLOCK, 'post', POST_ID)
-    await insertBlock(db, CHILD_BLOCK, 'text', { type: 'text', key: 'c1', text: 'Nested' })
-    await attach(db, CHILD_BLOCK, 'block', GROUP_BLOCK)
+    await insertBlock(testDb, GROUP_BLOCK, 'group', { type: 'group', key: 'g1' })
+    await attach(testDb, GROUP_BLOCK, 'post', POST_ID)
+    await insertBlock(testDb, CHILD_BLOCK, 'text', { type: 'text', key: 'c1', text: 'Nested' })
+    await attach(testDb, CHILD_BLOCK, 'block', GROUP_BLOCK)
 
-    const blocks = await new BlockStore(db).get(onPost)
+    const blocks = await new BlockStore(testDb.db).query().parentedBy({ table: 'post', id: POST_ID }).all()
     const group = blocks.find((b) => b.id === GROUP_BLOCK)!
     expect(group.content.type).toBe('group')
     if (group.content.type !== 'group') throw new Error('unreachable')
@@ -68,27 +67,39 @@ describe('BlockStore.get', () => {
   })
 
   it('coalesces text-block content via locale', async () => {
-    await insertLocalization(db, `block:${TEXT_BLOCK}:text`, 'ru', 'Привет')
-    const blocks = await new BlockStore(db).get(onPost, { locale: 'ru' })
+    await insertLocalization(testDb, `block:${TEXT_BLOCK}:text`, 'ru', 'Привет')
+    const blocks = await new BlockStore(testDb.db)
+      .query()
+      .parentedBy({ table: 'post', id: POST_ID })
+      .locale('ru')
+      .all()
     const text = blocks.find((b) => b.id === TEXT_BLOCK)!
     expect(text.content).toMatchObject({ type: 'text', text: 'Привет' })
   })
 
   it('coalesces image-block alt via locale', async () => {
-    await insertLocalization(db, `block:${IMAGE_BLOCK}:alt`, 'ru', 'Подпись')
-    const blocks = await new BlockStore(db).get(onPost, { locale: 'ru' })
+    await insertLocalization(testDb, `block:${IMAGE_BLOCK}:alt`, 'ru', 'Подпись')
+    const blocks = await new BlockStore(testDb.db)
+      .query()
+      .parentedBy({ table: 'post', id: POST_ID })
+      .locale('ru')
+      .all()
     const image = blocks.find((b) => b.id === IMAGE_BLOCK)!
     expect(image.content).toMatchObject({ type: 'image', alt: 'Подпись' })
   })
 
   it('recurses translations through group blocks', async () => {
-    await insertBlock(db, GROUP_BLOCK, 'group', { type: 'group', key: 'g1' })
-    await attach(db, GROUP_BLOCK, 'post', POST_ID)
-    await insertBlock(db, CHILD_BLOCK, 'text', { type: 'text', key: 'c1', text: 'Nested' })
-    await attach(db, CHILD_BLOCK, 'block', GROUP_BLOCK)
-    await insertLocalization(db, `block:${CHILD_BLOCK}:text`, 'ru', 'Вложенный')
+    await insertBlock(testDb, GROUP_BLOCK, 'group', { type: 'group', key: 'g1' })
+    await attach(testDb, GROUP_BLOCK, 'post', POST_ID)
+    await insertBlock(testDb, CHILD_BLOCK, 'text', { type: 'text', key: 'c1', text: 'Nested' })
+    await attach(testDb, CHILD_BLOCK, 'block', GROUP_BLOCK)
+    await insertLocalization(testDb, `block:${CHILD_BLOCK}:text`, 'ru', 'Вложенный')
 
-    const blocks = await new BlockStore(db).get(onPost, { locale: 'ru' })
+    const blocks = await new BlockStore(testDb.db)
+      .query()
+      .parentedBy({ table: 'post', id: POST_ID })
+      .locale('ru')
+      .all()
     const group = blocks.find((b) => b.id === GROUP_BLOCK)!
     if (group.content.type !== 'group') throw new Error('unreachable')
     expect(group.content.blocks.at(0)?.content).toMatchObject({
@@ -98,112 +109,71 @@ describe('BlockStore.get', () => {
   })
 
   it('falls back to source text when no localization exists for that locale', async () => {
-    await insertLocalization(db, `block:${TEXT_BLOCK}:text`, 'ru', 'Привет')
-    const blocks = await new BlockStore(db).get(onPost, { locale: 'en' })
+    await insertLocalization(testDb, `block:${TEXT_BLOCK}:text`, 'ru', 'Привет')
+    const blocks = await new BlockStore(testDb.db)
+      .query()
+      .parentedBy({ table: 'post', id: POST_ID })
+      .locale('en')
+      .all()
     const text = blocks.find((b) => b.id === TEXT_BLOCK)!
     expect(text.content).toMatchObject({ type: 'text', text: 'Hello' })
   })
 
-  it('returns [] for an empty value', async () => {
-    expect(
-      await new BlockStore(db).get({ type: 'parent', table: 'post', column: 'id', value: '' }),
-    ).toEqual([])
-  })
-
-  it('throws InvalidIdentifierError for an unknown parent.table', async () => {
-    await expect(
-      new BlockStore(db).get({
-        type: 'parent',
-        // @ts-expect-error — runtime check kicks in even when types are bypassed
-        table: 'bogus',
-        column: 'id',
-        value: POST_ID,
-      }),
-    ).rejects.toThrow(InvalidIdentifierError)
-  })
-
-  it('rejects column = "shortid" when parent is a block (only "id" is allowed)', async () => {
-    await expect(
-      // @ts-expect-error — block parents only allow column='id'; runtime check enforces it too
-      new BlockStore(db).get({ type: 'parent', table: 'block', column: 'shortid', value: GROUP_BLOCK }),
-    ).rejects.toThrow(InvalidIdentifierError)
-  })
-
   it('looks up blocks by category shortid', async () => {
-    await db.run(
-      'INSERT INTO category (id, shortid, name, slug) VALUES (?, ?, ?, ?)',
-      CATEGORY_ID,
-      'cat-short',
-      'Cats',
-      'cats',
-    )
-    await insertBlock(db, '019dbcea-d3a4-75e7-b37a-190d51650b05', 'text', {
+    await testDb.db
+      .insert(category)
+      .values({ id: CATEGORY_ID, shortid: 'cat-shrt', name: 'Cats', slug: 'cats' })
+      .run()
+    await insertBlock(testDb, '019dbcea-d3a4-75e7-b37a-190d51650b05', 'text', {
       type: 'text',
       key: 't2',
       text: 'On category',
     })
-    await attach(db, '019dbcea-d3a4-75e7-b37a-190d51650b05', 'category', CATEGORY_ID)
+    await attach(testDb, '019dbcea-d3a4-75e7-b37a-190d51650b05', 'category', CATEGORY_ID)
 
-    const blocks = await new BlockStore(db).get({
-      type: 'parent',
-      table: 'category',
-      column: 'shortid',
-      value: 'cat-short',
-    })
+    const blocks = await new BlockStore(testDb.db)
+      .query()
+      .parentedBy({ table: 'category', shortid: 'cat-shrt' })
+      .all()
     expect(blocks.map((b) => b.content)).toEqual([
       expect.objectContaining({ type: 'text', text: 'On category' }),
     ])
   })
 
   it('all variant returns every block', async () => {
-    const blocks = await new BlockStore(db).get({ type: 'all' })
+    const blocks = await new BlockStore(testDb.db).query().all()
     expect(blocks.map((b) => b.id).sort()).toEqual([TEXT_BLOCK, IMAGE_BLOCK].sort())
   })
 
-  it('column variant fetches a single block by id', async () => {
-    const blocks = await new BlockStore(db).get({
-      type: 'column',
-      column: 'id',
-      value: TEXT_BLOCK,
-    })
-    expect(blocks.at(0)?.content).toMatchObject({ type: 'text', text: 'Hello' })
+  it('byId fetches a single block', async () => {
+    const block = await new BlockStore(testDb.db).query().byId(TEXT_BLOCK).first()
+    expect(block?.content).toMatchObject({ type: 'text', text: 'Hello' })
   })
 })
 
 async function insertBlock(
-  db: Database,
+  testDb: TestDb,
   id: string,
   type: string,
   content: object,
 ): Promise<void> {
-  await db.run('INSERT INTO block (id, type, content) VALUES (?, ?, ?)', id, type, JSON.stringify(content))
+  testDb.db.insert(block).values({ id, type, content: JSON.stringify(content) }).run()
 }
 
 async function attach(
-  db: Database,
+  testDb: TestDb,
   blockId: string,
   parentTable: string,
   parentId: string,
 ): Promise<void> {
-  await db.run(
-    'INSERT INTO parent_block (blockId, parentId, parentTable) VALUES (?, ?, ?)',
-    blockId,
-    parentId,
-    parentTable,
-  )
+  await testDb.db.insert(parentBlock).values({ blockId, parentId, parentTable }).run()
 }
 
 async function insertLocalization(
-  db: Database,
+  testDb: TestDb,
   key: string,
   locale: string,
   text: string,
 ): Promise<void> {
-  await db.run(
-    'INSERT INTO localizations (id, key, locale, text) VALUES (?, ?, ?, ?)',
-    `loc-${key}-${locale}`,
-    key,
-    locale,
-    text,
-  )
+  await testDb.db.insert(localizations).values({ id: `loc-${key}-${locale}`, key, locale, text }).run()
 }

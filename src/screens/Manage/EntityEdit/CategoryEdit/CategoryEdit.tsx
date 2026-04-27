@@ -15,26 +15,18 @@ export default async function CategoryEdit({ id }: { id?: string }) {
 
   const category = await (async () => {
     if (!id) return undefined
-    return (
-      (await new CategoryStore(db).get({ type: 'column', column: 'id', value: id })).at(0) ??
-      notFound()
-    )
+    return (await new CategoryStore(db).query().byId(id).first()) ?? notFound()
   })()
 
   const blocks = await (async () => {
     if (!id) return []
-    return new BlockStore(db).get({ type: 'parent', table: 'category', column: 'id', value: id })
+    return new BlockStore(db).query().parentedBy({ table: 'category', id }).all()
   })()
 
-  const translations = id ? await new LocalizationStore(db).getByParentId('category', id) : {}
+  const translations = id ? new LocalizationStore(db).getByParentId('category', id) : {}
 
   const initialAttributes = id
-    ? await new AttributeStore(db).get({
-        type: 'parent',
-        table: 'category',
-        column: 'id',
-        value: id,
-      })
+    ? await new AttributeStore(db).query().parentedBy({ table: 'category', id }).all()
     : []
 
   const imageAssetIds: string[] = []

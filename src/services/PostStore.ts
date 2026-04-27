@@ -1,63 +1,13 @@
-import { Database } from 'sqlite'
+import { and, asc, eq, sql } from 'drizzle-orm'
+import { type Db } from '@cms/lib/db/client'
+import { post, parentPost } from '@cms/lib/db/schema'
+import { getShortId } from '@cms/utils/getshortid'
+import { BlockData } from '@cms/lib/blocks/declarations'
 import { BlockStore } from './BlockStore'
 import { LocalizationStore, Translations } from './LocalizationStore'
 import { TagStore } from './TagStore'
 import { AttributeStore, AttributeData } from './AttributeStore'
-import { getShortId } from '@cms/utils/getshortid'
-import { BlockData } from '@cms/lib/blocks/declarations'
-import { valita } from '@cms/utils/valita'
-import {
-  GetByParentOptionsBase,
-  allQueryVariantSchema,
-  buildGetByParentQuery,
-  columnQueryVariantSchema,
-  parentQueryVariantSchema,
-  parseIdentifier,
-  sqlOrder,
-} from './getByParentQuery'
-
-const postChildColumnSchema = valita.union(
-  valita.literal('id'),
-  valita.literal('shortid'),
-  valita.literal('slug'),
-)
-const postQuerySchema = valita.union(
-  allQueryVariantSchema(),
-  columnQueryVariantSchema(postChildColumnSchema),
-  parentQueryVariantSchema(
-    valita.union(valita.literal('category'), valita.literal('tag')),
-    valita.union(valita.literal('id'), valita.literal('shortid'), valita.literal('slug')),
-  ),
-)
-const postOrderFieldSchema = valita.union(
-  valita.literal('position'),
-  valita.literal('name'),
-  valita.literal('createdAt'),
-  valita.literal('updatedAt'),
-  valita.literal('id'),
-)
-
-export type PostQuery = valita.Infer<typeof postQuerySchema>
-export type PostOrderField = valita.Infer<typeof postOrderFieldSchema>
-export type PostGetOptions = GetByParentOptionsBase<PostOrderField> & {
-  status?: 'published' | 'draft'
-}
-
-const POST_CHILD_COLUMNS: Record<valita.Infer<typeof postChildColumnSchema>, string> = {
-  id: 'p.id',
-  shortid: 'p.shortid',
-  slug: 'p.slug',
-}
-const POST_ORDER_FIELDS: Record<PostOrderField, string> = {
-  position: 'pp.position',
-  name: 'p.name',
-  createdAt: 'p.createdAt',
-  updatedAt: 'p.updatedAt',
-  id: 'p.id',
-}
-
-const conditionToSql = (c: 'eq' | 'neq' | 'like'): string =>
-  c === 'eq' ? '=' : c === 'neq' ? '!=' : 'LIKE'
+import { PostQuery } from './PostQuery'
 
 export type PostData = {
   id: string
@@ -81,181 +31,103 @@ export type PostPayload = {
   attributes: AttributeData[]
 }
 
+const POSITION_EPSILON = 1e-6
+
 export class PostStore {
-  constructor(private db: Database) {}
+  constructor(private db: Db) {}
 
-  async get(query: PostQuery, options: PostGetOptions = {}): Promise<PostData[]> {
-    parseIdentifier(postQuerySchema, query, 'query')
-    if (options.order) parseIdentifier(postOrderFieldSchema, options.order.field, 'order.field')
-    if (query.type !== 'all' && !query.value) return []
-
-    const selectColumns = options.locale
-      ? `p.id, p.shortid, pp.parentId AS categoryId, p.slug,
-         COALESCE(l.text, p.name) AS name,
-         p.createdAt, p.updatedAt, p.status`
-      : `p.id, p.shortid, pp.parentId AS categoryId, p.slug, p.name,
-         p.createdAt, p.updatedAt, p.status`
-
-    const orderBy = options.order
-      ? `${POST_ORDER_FIELDS[options.order.field]} ${sqlOrder(options.order.order)}, p.id ASC`
-      : `pp.position ASC, p.id ASC`
-
-    const localeJoins = options.locale
-      ? {
-          sql: `  LEFT JOIN localizations l ON l.key = 'post:' || p.id || ':name' AND l.locale = ?`,
-          params: [options.locale] as unknown[],
-        }
-      : undefined
-
-    if (query.type === 'parent') {
-      if (query.table === 'tag') {
-        return this.getByTag(query, options, selectColumns, orderBy, localeJoins)
-      }
-      const { sql, params } = buildGetByParentQuery({
-        child: {
-          childTable: 'post',
-          childAlias: 'p',
-          joinTable: 'parent_post',
-          joinAlias: 'pp',
-          joinChildKey: 'postId',
-        },
-        selectColumns,
-        parentTable: query.table,
-        parentColumn: query.column,
-        condition: query.condition ?? 'eq',
-        parentId: query.value,
-        extraWhere: options.status ? { sql: 'p.status = ?', params: [options.status] } : undefined,
-        orderBy,
-        limit: options.limit,
-        offset: options.offset,
-        localeJoins,
-      })
-      return this.db.all<PostData[]>(sql, ...params)
-    }
-
-    const params: unknown[] = []
-    const lines: string[] = [
-      `SELECT ${selectColumns}`,
-      `  FROM post p`,
-      `  LEFT JOIN parent_post pp ON pp.postId = p.id AND pp.parentTable = 'category'`,
-    ]
-    if (localeJoins) {
-      lines.push(localeJoins.sql)
-      params.push(...localeJoins.params)
-    }
-    const whereClauses: string[] = []
-    if (query.type === 'column') {
-      whereClauses.push(
-        `${POST_CHILD_COLUMNS[query.column]} ${conditionToSql(query.condition ?? 'eq')} ?`,
-      )
-      params.push(query.value)
-    }
-    if (options.status) {
-      whereClauses.push('p.status = ?')
-      params.push(options.status)
-    }
-    if (whereClauses.length) lines.push(` WHERE ${whereClauses.join(' AND ')}`)
-    lines.push(` ORDER BY ${orderBy}`)
-    if (options.limit !== undefined) {
-      lines.push(' LIMIT ?')
-      params.push(options.limit)
-      if (options.offset !== undefined) {
-        lines.push(' OFFSET ?')
-        params.push(options.offset)
-      }
-    }
-    return this.db.all<PostData[]>(lines.join('\n'), ...params)
+  query(): PostQuery {
+    return PostQuery.for(this.db)
   }
 
   async add(id: string, payload: PostPayload): Promise<void> {
     validatePostPayload(payload)
     if (!payload.categoryId) throw new Error('Category is required')
-    await this.db.run('BEGIN TRANSACTION')
-    try {
-      await this.db.run(
-        'INSERT INTO post (id, shortid, name, slug, status) VALUES (?, ?, ?, ?, ?)',
+    await this.db.transaction(async (tx) => {
+      await tx.insert(post).values({
         id,
-        getShortId(id),
-        payload.name,
-        payload.slug,
-        payload.status,
-      )
-      const topPosition = await this.topPositionFor('category', payload.categoryId)
-      await this.db.run(
-        'INSERT INTO parent_post (postId, parentId, parentTable, position) VALUES (?, ?, ?, ?)',
-        id,
-        payload.categoryId,
-        'category',
-        topPosition,
-      )
-      await new AttributeStore(this.db).saveByParent('post', id, payload.attributes)
-      await new BlockStore(this.db).saveByParent('post', id, payload.blocks)
-      await new LocalizationStore(this.db).save('post:' + id + ':', payload.translations)
-      await new TagStore(this.db).setParent('post', id, payload.tagIds)
-      await this.db.run('COMMIT')
-    } catch (e) {
-      await this.db.run('ROLLBACK')
-      throw e
-    }
+        shortid: getShortId(id),
+        name: payload.name,
+        slug: payload.slug,
+        status: payload.status,
+      })
+      const topPosition = await topPositionFor(tx, 'category', payload.categoryId)
+      await tx.insert(parentPost).values({
+        postId: id,
+        parentId: payload.categoryId,
+        parentTable: 'category',
+        position: topPosition,
+      })
+      await new AttributeStore(tx).saveByParent('post', id, payload.attributes)
+      await new BlockStore(tx).saveByParent('post', id, payload.blocks)
+      await new LocalizationStore(tx).save('post:' + id + ':', payload.translations)
+      await new TagStore(tx).setParent('post', id, payload.tagIds)
+    })
   }
 
   async update(id: string, payload: PostPayload): Promise<void> {
     validatePostPayload(payload)
-    await this.db.run('BEGIN TRANSACTION')
-    try {
-      await this.db.run(
-        "UPDATE post SET name = ?, slug = ?, status = ?, updatedAt = datetime('now') WHERE id = ?",
-        payload.name,
-        payload.slug,
-        payload.status,
-        id,
-      )
-      const existingParent = await this.db.get<{ parentId: string; parentTable: string }>(
-        `SELECT parentId, parentTable FROM parent_post WHERE postId = ?`,
-        id,
-      )
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(post)
+        .set({
+          name: payload.name,
+          slug: payload.slug,
+          status: payload.status,
+          updatedAt: sql`(datetime('now'))`,
+        })
+        .where(eq(post.id, id))
+      const existingParent = await tx
+        .select({ parentId: parentPost.parentId, parentTable: parentPost.parentTable })
+        .from(parentPost)
+        .where(eq(parentPost.postId, id))
+        .get()
       const categoryChanged =
         !existingParent ||
         existingParent.parentTable !== 'category' ||
         existingParent.parentId !== payload.categoryId
       if (categoryChanged) {
-        const topPosition = await this.topPositionFor('category', payload.categoryId)
-        await this.db.run(
-          `UPDATE parent_post SET parentId = ?, parentTable = 'category', position = ? WHERE postId = ?`,
-          payload.categoryId,
-          topPosition,
-          id,
-        )
+        const topPosition = await topPositionFor(tx, 'category', payload.categoryId)
+        await tx
+          .update(parentPost)
+          .set({
+            parentId: payload.categoryId,
+            parentTable: 'category',
+            position: topPosition,
+          })
+          .where(eq(parentPost.postId, id))
       }
-      await new LocalizationStore(this.db).deleteBlockTranslationsByParentId('post', id)
-      await new AttributeStore(this.db).saveByParent('post', id, payload.attributes)
-      await new BlockStore(this.db).saveByParent('post', id, payload.blocks)
-      await new LocalizationStore(this.db).save('post:' + id + ':', payload.translations)
-      await new TagStore(this.db).setParent('post', id, payload.tagIds)
-      await this.db.run('COMMIT')
-    } catch (e) {
-      await this.db.run('ROLLBACK')
-      throw e
-    }
+      await new LocalizationStore(tx).deleteBlockTranslationsByParentId('post', id)
+      await new AttributeStore(tx).saveByParent('post', id, payload.attributes)
+      await new BlockStore(tx).saveByParent('post', id, payload.blocks)
+      await new LocalizationStore(tx).save('post:' + id + ':', payload.translations)
+      await new TagStore(tx).setParent('post', id, payload.tagIds)
+    })
   }
 
   async move(postId: string, afterId: string | null): Promise<void> {
-    await this.db.run('BEGIN TRANSACTION')
-    try {
-      const current = await this.db.get<{ parentTable: string; parentId: string }>(
-        `SELECT parentTable, parentId FROM parent_post WHERE postId = ?`,
-        postId,
-      )
+    await this.db.transaction(async (tx) => {
+      const current = await tx
+        .select({ parentTable: parentPost.parentTable, parentId: parentPost.parentId })
+        .from(parentPost)
+        .where(eq(parentPost.postId, postId))
+        .get()
       if (!current) throw new Error('Post has no parent')
 
-      const siblings = await this.db.all<{ postId: string; position: number }[]>(
-        `SELECT postId, position FROM parent_post
-         WHERE parentTable = ? AND parentId = ? AND postId != ?
-         ORDER BY position ASC, postId ASC`,
-        current.parentTable,
-        current.parentId,
-        postId,
-      )
+      const fetchSiblings = () =>
+        tx
+          .select({ postId: parentPost.postId, position: parentPost.position })
+          .from(parentPost)
+          .where(
+            and(
+              eq(parentPost.parentTable, current.parentTable),
+              eq(parentPost.parentId, current.parentId),
+              sql`${parentPost.postId} != ${postId}`,
+            ),
+          )
+          .orderBy(asc(parentPost.position), asc(parentPost.postId))
+
+      const siblings = await fetchSiblings()
 
       let newPosition: number
       if (afterId === null) {
@@ -268,15 +140,8 @@ export class PostStore {
         if (!next) {
           newPosition = anchor.position + 1
         } else if (next.position - anchor.position < POSITION_EPSILON) {
-          await this.rebalance(current.parentTable, current.parentId)
-          const rebalanced = await this.db.all<{ postId: string; position: number }[]>(
-            `SELECT postId, position FROM parent_post
-             WHERE parentTable = ? AND parentId = ? AND postId != ?
-             ORDER BY position ASC, postId ASC`,
-            current.parentTable,
-            current.parentId,
-            postId,
-          )
+          await rebalance(tx, current.parentTable, current.parentId)
+          const rebalanced = await fetchSiblings()
           const idx = rebalanced.findIndex((s) => s.postId === afterId)
           const a = rebalanced[idx]
           const n = rebalanced[idx + 1]
@@ -286,88 +151,41 @@ export class PostStore {
         }
       }
 
-      await this.db.run(`UPDATE parent_post SET position = ? WHERE postId = ?`, newPosition, postId)
-      await this.db.run('COMMIT')
-    } catch (e) {
-      await this.db.run('ROLLBACK')
-      throw e
-    }
+      await tx
+        .update(parentPost)
+        .set({ position: newPosition })
+        .where(eq(parentPost.postId, postId))
+    })
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.run('DELETE FROM post WHERE id = ?', id)
-  }
-
-  private async getByTag(
-    query: { column: 'id' | 'shortid' | 'slug'; value: string; condition?: 'eq' | 'neq' | 'like' },
-    options: PostGetOptions,
-    selectColumns: string,
-    orderBy: string,
-    localeJoins?: { sql: string; params: unknown[] },
-  ): Promise<PostData[]> {
-    const params: unknown[] = []
-    const lines: string[] = [
-      `SELECT ${selectColumns}`,
-      `  FROM post p`,
-      `  LEFT JOIN parent_post pp ON pp.postId = p.id AND pp.parentTable = 'category'`,
-      `  JOIN parent_tag pt ON pt.parentId = p.id AND pt.parentTable = 'post'`,
-    ]
-    if (query.column !== 'id') {
-      lines.push(`  JOIN tag t ON t.id = pt.tagId`)
-    }
-    if (localeJoins) {
-      lines.push(localeJoins.sql)
-      params.push(...localeJoins.params)
-    }
-    const op = conditionToSql(query.condition ?? 'eq')
-    const tagColumn = query.column === 'id' ? 'pt.tagId' : `t.${query.column}`
-    const whereClauses: string[] = [`${tagColumn} ${op} ?`]
-    params.push(query.value)
-    if (options.status) {
-      whereClauses.push('p.status = ?')
-      params.push(options.status)
-    }
-    lines.push(` WHERE ${whereClauses.join(' AND ')}`)
-    lines.push(` ORDER BY ${orderBy}`)
-    if (options.limit !== undefined) {
-      lines.push(' LIMIT ?')
-      params.push(options.limit)
-      if (options.offset !== undefined) {
-        lines.push(' OFFSET ?')
-        params.push(options.offset)
-      }
-    }
-    return this.db.all<PostData[]>(lines.join('\n'), ...params)
-  }
-
-  private async topPositionFor(parentTable: string, parentId: string): Promise<number> {
-    const row = await this.db.get<{ min: number | null }>(
-      `SELECT MIN(position) AS min FROM parent_post WHERE parentTable = ? AND parentId = ?`,
-      parentTable,
-      parentId,
-    )
-    return row?.min == null ? 1 : row.min - 1
-  }
-
-  private async rebalance(parentTable: string, parentId: string): Promise<void> {
-    const rows = await this.db.all<{ postId: string }[]>(
-      `SELECT postId FROM parent_post
-       WHERE parentTable = ? AND parentId = ?
-       ORDER BY position ASC, postId ASC`,
-      parentTable,
-      parentId,
-    )
-    for (let i = 0; i < rows.length; i++) {
-      await this.db.run(
-        `UPDATE parent_post SET position = ? WHERE postId = ?`,
-        i + 1,
-        rows[i].postId,
-      )
-    }
+    await this.db.delete(post).where(eq(post.id, id))
   }
 }
 
-const POSITION_EPSILON = 1e-6
+async function topPositionFor(tx: Db, parentTable: string, parentId: string): Promise<number> {
+  const row = await tx
+    .select({ min: sql<number | null>`MIN(${parentPost.position})` })
+    .from(parentPost)
+    .where(and(eq(parentPost.parentTable, parentTable), eq(parentPost.parentId, parentId)))
+    .get()
+  const min = row?.min
+  return min == null ? 1 : min - 1
+}
+
+async function rebalance(tx: Db, parentTable: string, parentId: string): Promise<void> {
+  const rows = await tx
+    .select({ postId: parentPost.postId })
+    .from(parentPost)
+    .where(and(eq(parentPost.parentTable, parentTable), eq(parentPost.parentId, parentId)))
+    .orderBy(asc(parentPost.position), asc(parentPost.postId))
+  for (let i = 0; i < rows.length; i++) {
+    await tx
+      .update(parentPost)
+      .set({ position: i + 1 })
+      .where(eq(parentPost.postId, rows[i].postId))
+  }
+}
 
 const validatePostPayload = (payload: PostPayload) => {
   if (!payload.name) throw new Error('Name is required')

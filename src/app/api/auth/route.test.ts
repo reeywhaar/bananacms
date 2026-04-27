@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest, type NextResponse } from 'next/server'
-import { Database } from 'sqlite'
-import { createTestDb } from '@cms/test/db'
+import { createTestDb, type TestDb } from '@cms/test/db'
 import { hashPassword } from '@cms/services/password'
 import { AuthTokenStore } from '@cms/services/AuthTokenStore'
+import { user } from '@cms/lib/db/schema'
 
-let testDb: Database
+let testDb: TestDb
 
 vi.mock('@cms/services/getServices', () => {
   const stubLogger: {
@@ -22,7 +22,7 @@ vi.mock('@cms/services/getServices', () => {
     setContext: () => {},
   }
   return {
-    getServices: async () => ({ db: testDb, rootLogger: stubLogger }),
+    getServices: async () => ({ db: testDb.db, rootLogger: stubLogger }),
   }
 })
 
@@ -34,12 +34,7 @@ const CLIENT_HASH = 'fake-sha256-of-password'
 
 async function seedUser(): Promise<void> {
   const stored = await hashPassword(CLIENT_HASH)
-  await testDb.run(
-    'INSERT INTO user (id, name, password_hash) VALUES (?, ?, ?)',
-    USER_ID,
-    USERNAME,
-    stored,
-  )
+  await testDb.db.insert(user).values({ id: USER_ID, name: USERNAME, password_hash: stored }).run()
 }
 
 function buildPostRequest(body: unknown): NextRequest {
@@ -63,7 +58,7 @@ describe('POST /api/auth', () => {
   })
 
   afterEach(async () => {
-    await testDb.close()
+    testDb.client.close()
   })
 
   it('returns 204 and sets an auth cookie on valid credentials', async () => {
@@ -80,7 +75,7 @@ describe('POST /api/auth', () => {
     expect(cookie?.sameSite).toBe('strict')
     expect(cookie?.path).toBe('/')
 
-    const userId = await new AuthTokenStore(testDb).getUserId(cookie!.value)
+    const userId = await new AuthTokenStore(testDb.db).getUserId(cookie!.value)
     expect(userId).toBe(USER_ID)
   })
 
@@ -142,12 +137,12 @@ describe('DELETE /api/auth', () => {
   })
 
   afterEach(async () => {
-    await testDb.close()
+    testDb.client.close()
   })
 
   it('revokes the token from the auth cookie and clears the cookie', async () => {
     await seedUser()
-    const tokenStore = new AuthTokenStore(testDb)
+    const tokenStore = new AuthTokenStore(testDb.db)
     const { token } = await tokenStore.issue(USER_ID)
 
     const res = (await DELETE(buildDeleteRequest(token), undefined)) as NextResponse

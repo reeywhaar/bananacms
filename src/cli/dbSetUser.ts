@@ -1,9 +1,8 @@
 import { createHash, randomBytes, scrypt, type ScryptOptions } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { open } from 'sqlite'
-import sqlite3 from 'sqlite3'
 import { v7 as uuidv7 } from 'uuid'
+import { openDb } from '@cms/lib/db/client'
 
 const scryptAsync = (password: string, salt: Buffer, keylen: number, options: ScryptOptions) =>
   new Promise<Buffer>((ok, fail) =>
@@ -20,21 +19,22 @@ export async function run({ name, password }: { name: string; password: string }
 
   await mkdir(dirname(resolve(dbPath)), { recursive: true })
 
-  const db = await open({ filename: dbPath, driver: sqlite3.Database })
-  await db.run('PRAGMA foreign_keys = ON')
+  const { client } = openDb(dbPath)
 
   const passwordHash = await hashPassword(sha256hex(password))
 
-  const result = await db.get<{ id: string; changed: number }>(
-    'INSERT INTO user (id, name, password_hash) VALUES (?, ?, ?) ' +
+  const result = await client.execute({
+    sql:
+      'INSERT INTO user (id, name, password_hash) VALUES (?, ?, ?) ' +
       'ON CONFLICT(name) DO UPDATE SET password_hash = excluded.password_hash ' +
       'RETURNING id, (SELECT changes()) AS changed',
-    [uuidv7(), name, passwordHash],
-  )
+    args: [uuidv7(), name, passwordHash],
+  })
+  const row = result.rows[0]
 
-  await db.close()
+  client.close()
 
-  console.info(`bananacms: user "${name}" saved (id=${result?.id}).`)
+  console.info(`bananacms: user "${name}" saved (id=${row?.id}).`)
 }
 
 async function hashPassword(input: string): Promise<string> {

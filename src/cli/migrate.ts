@@ -1,8 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { open } from 'sqlite'
-import sqlite3 from 'sqlite3'
+import { openDb, runMigrations } from '@cms/lib/db/client'
 
 const MIGRATIONS_PATH = fileURLToPath(new URL('../lib/migrations', import.meta.url))
 
@@ -11,25 +10,25 @@ export async function run({ force = false }: { force?: boolean }): Promise<void>
 
   await mkdir(dirname(resolve(dbPath)), { recursive: true })
 
-  const db = await open({ filename: dbPath, driver: sqlite3.Database })
+  const { client } = openDb(dbPath)
 
   // Migrations recreate tables (CREATE new / copy / DROP old / RENAME), which is
   // unsafe with FK enforcement on — DROP cascades ON DELETE actions to referring
   // tables. Standard SQLite practice: disable FKs during migration, verify after.
-  await db.run('PRAGMA foreign_keys = OFF')
+  await client.execute('PRAGMA foreign_keys = OFF')
 
   console.info(`bananacms: running migrations on ${dbPath}${force ? ' (force)' : ''}...`)
-  await db.migrate({ migrationsPath: MIGRATIONS_PATH, force })
+  await runMigrations(client, MIGRATIONS_PATH, { force })
 
-  const violations = await db.all('PRAGMA foreign_key_check')
+  const violations = (await client.execute('PRAGMA foreign_key_check')).rows
   if (violations.length > 0) {
     console.error('Foreign key violations after migration:')
     console.error(violations)
-    await db.close()
+    client.close()
     process.exit(1)
   }
 
-  await db.close()
+  client.close()
   console.info('bananacms: migrations complete.')
 }
 

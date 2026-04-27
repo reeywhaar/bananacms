@@ -1,4 +1,6 @@
-import { Database } from 'sqlite'
+import { eq, inArray, sql } from 'drizzle-orm'
+import { type Db } from '@cms/lib/db/client'
+import { asset } from '@cms/lib/db/schema'
 import { valita } from '@cms/utils/valita'
 
 export type AssetResolution = '@1x' | '@2x' | '@3x'
@@ -67,81 +69,84 @@ export type AssetPayload = {
   content?: AssetContent | null
 }
 
-type AssetRow = {
-  id: string
-  filename: string
-  mime: string
-  data: Buffer
-  content: string | null
-}
-
 export class AssetStore {
-  constructor(private db: Database) {}
+  constructor(private db: Db) {}
 
   async get(id: string): Promise<AssetData | null> {
-    const row = await this.db.get<AssetRow>(
-      'SELECT id, filename, mime, data, content FROM asset WHERE id = ?',
-      id,
-    )
-    if (!row) return null
-    return { ...row, content: parseContent(row.content) }
+    const row = await this.db
+      .select({
+        id: asset.id,
+        filename: asset.filename,
+        mime: asset.mime,
+        data: asset.data,
+        content: asset.content,
+      })
+      .from(asset)
+      .where(eq(asset.id, id))
+      .get()
+    if (!row || row.id == null) return null
+    return {
+      id: row.id,
+      filename: row.filename,
+      mime: row.mime,
+      data: row.data,
+      content: parseContent(row.content),
+    }
   }
 
   async getContent(ids: string[]): Promise<Record<string, AssetContent | null>> {
     if (ids.length === 0) return {}
-    const placeholders = ids.map(() => '?').join(', ')
-    const rows = await this.db.all<{ id: string; content: string | null }[]>(
-      `SELECT id, content FROM asset WHERE id IN (${placeholders})`,
-      ...ids,
-    )
+    const rows = await this.db
+      .select({ id: asset.id, content: asset.content })
+      .from(asset)
+      .where(inArray(asset.id, ids))
     const result: Record<string, AssetContent | null> = {}
-    for (const row of rows) result[row.id] = parseContent(row.content)
+    for (const row of rows) {
+      if (row.id != null) result[row.id] = parseContent(row.content)
+    }
     return result
   }
 
   async getSizes(ids: string[]): Promise<Record<string, number>> {
     if (ids.length === 0) return {}
-    const placeholders = ids.map(() => '?').join(', ')
-    const rows = await this.db.all<{ id: string; size: number }[]>(
-      `SELECT id, length(data) AS size FROM asset WHERE id IN (${placeholders})`,
-      ...ids,
-    )
+    const rows = await this.db
+      .select({ id: asset.id, size: sql<number>`length(${asset.data})` })
+      .from(asset)
+      .where(inArray(asset.id, ids))
     const result: Record<string, number> = {}
-    for (const row of rows) result[row.id] = row.size
+    for (const row of rows) {
+      if (row.id != null) result[row.id] = row.size
+    }
     return result
   }
 
   async add(id: string, payload: AssetPayload): Promise<void> {
-    await this.db.run(
-      'INSERT INTO asset (id, filename, mime, data, content) VALUES (?, ?, ?, ?, ?)',
+    await this.db.insert(asset).values({
       id,
-      payload.filename,
-      payload.mime,
-      payload.data,
-      payload.content ? JSON.stringify(payload.content) : null,
-    )
+      filename: payload.filename,
+      mime: payload.mime,
+      data: payload.data,
+      content: payload.content ? JSON.stringify(payload.content) : null,
+    })
   }
 
   async updateContent(id: string, patch: AssetContentUpdate): Promise<void> {
-    const row = await this.db.get<{ content: string | null }>(
-      'SELECT content FROM asset WHERE id = ?',
-      id,
-    )
+    const row = await this.db
+      .select({ content: asset.content })
+      .from(asset)
+      .where(eq(asset.id, id))
+      .get()
     const existing = row ? parseContent(row.content) : null
     const merged: Record<string, unknown> = { ...(existing ?? {}) }
     for (const [key, value] of Object.entries(patch)) {
       if (value === null) delete merged[key]
       else if (value !== undefined) merged[key] = value
     }
-    await this.db.run(
-      'UPDATE asset SET content = ? WHERE id = ?',
-      JSON.stringify(merged),
-      id,
-    )
+    await this.db.update(asset).set({ content: JSON.stringify(merged) }).where(eq(asset.id, id))
   }
 
   async delete(id: string): Promise<void> {
-    await this.db.run('DELETE FROM asset WHERE id = ?', id)
+    await this.db.delete(asset).where(eq(asset.id, id))
   }
 }
 

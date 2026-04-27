@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ne, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, ne, sql, type SQL } from 'drizzle-orm'
 import { type Db } from '@cms/lib/db/client'
 import {
   block,
@@ -30,7 +30,14 @@ import {
 export type BlockOrderField = 'position' | 'id'
 
 export type BlockParentTable = 'post' | 'page' | 'category' | 'block'
-type ParentSpec = { table: BlockParentTable; id?: string; slug?: string; shortid?: string; key?: string }
+type ParentSpec = {
+  table: BlockParentTable
+  id?: string
+  ids?: string[]
+  slug?: string
+  shortid?: string
+  key?: string
+}
 
 type BlockQueryState = BaseQueryState<BlockOrderField> & {
   hydrate: boolean
@@ -186,6 +193,12 @@ export class BlockQuery extends EntityQuery<BlockData, BlockOrderField, BlockQue
     where.push(eq(parentBlock.parentTable, parentSpec.table))
     if (parentSpec.id !== undefined) {
       where.push(eq(parentBlock.parentId, parentSpec.id))
+    } else if (parentSpec.ids !== undefined) {
+      if (parentSpec.ids.length === 0) {
+        where.push(sql`0`)
+      } else {
+        where.push(inArray(parentBlock.parentId, parentSpec.ids))
+      }
     }
 
     if (

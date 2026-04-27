@@ -52,6 +52,20 @@ describe('PostStore.query', () => {
       expect(bySlug.map((p) => p.id)).toEqual(byId.map((p) => p.id))
     })
 
+    it('inCategory({ ids }) matches any of the listed categories', async () => {
+      // CATEGORY_ID is the only category seeded; pass it via ids.
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .inCategory({ ids: [CATEGORY_ID, 'no-such-cat'] })
+        .all()
+      expect(posts.map((p) => p.name)).toEqual(['Apple', 'Banana', 'Cherry'])
+    })
+
+    it('inCategory({ ids: [] }) returns no posts', async () => {
+      const posts = await new PostStore(testDb.db).query().inCategory({ ids: [] }).all()
+      expect(posts).toEqual([])
+    })
+
     it('filters out drafts when .published()', async () => {
       const posts = await new PostStore(testDb.db)
         .query()

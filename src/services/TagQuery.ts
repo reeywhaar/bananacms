@@ -17,7 +17,13 @@ export type TagData = {
 
 export type TagOrderField = 'name' | 'createdAt' | 'updatedAt' | 'id'
 
-type ParentSpec = { table: 'post'; id?: string; shortid?: string; slug?: string }
+type ParentSpec = {
+  table: 'post'
+  id?: string
+  ids?: string[]
+  shortid?: string
+  slug?: string
+}
 
 type TagQueryState = BaseQueryState<TagOrderField> & {
   taggedTo?: ParentSpec
@@ -143,6 +149,21 @@ export class TagQuery extends EntityQuery<TagData, TagOrderField, TagQueryState>
              AND ${childParentTag}.parentTable = 'post'
              AND ${childParentTag}.parentId = ${taggedTo.id}
         )`)
+      } else if (taggedTo.ids !== undefined) {
+        if (taggedTo.ids.length === 0) {
+          wherePreds.push(sql`0`)
+        } else {
+          const idList = sql.join(
+            taggedTo.ids.map((v) => sql`${v}`),
+            sql.raw(', '),
+          )
+          wherePreds.push(sql`EXISTS (
+            SELECT 1 FROM parent_tag ${childParentTag}
+             WHERE ${childParentTag}.tagId = ${tag.id}
+               AND ${childParentTag}.parentTable = 'post'
+               AND ${childParentTag}.parentId IN (${idList})
+          )`)
+        }
       } else if (taggedTo.shortid !== undefined) {
         wherePreds.push(sql`EXISTS (
           SELECT 1 FROM parent_tag ${childParentTag}

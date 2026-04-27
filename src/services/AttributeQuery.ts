@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
 import { type Db } from '@cms/lib/db/client'
 import {
   attribute,
@@ -28,6 +28,7 @@ type ParentTable = 'post' | 'category' | 'page' | 'block'
 type ParentSpec = {
   table: ParentTable
   id?: string
+  ids?: string[]
   shortid?: string
   slug?: string
   key?: string
@@ -150,6 +151,12 @@ export class AttributeQuery extends EntityQuery<
 
     if (parentSpec.id !== undefined) {
       wherePreds.push(eq(parentAttribute.parentId, parentSpec.id))
+    } else if (parentSpec.ids !== undefined) {
+      if (parentSpec.ids.length === 0) {
+        wherePreds.push(sql`0`)
+      } else {
+        wherePreds.push(inArray(parentAttribute.parentId, parentSpec.ids))
+      }
     } else {
       const parentTbl = parentTableRef(parentSpec.table)
       if (!parentTbl) {
@@ -163,7 +170,7 @@ export class AttributeQuery extends EntityQuery<
       } else if (parentSpec.key !== undefined && parentSpec.table === 'page') {
         wherePreds.push(eq(page.key, parentSpec.key))
       } else {
-        throw new Error('parentedBy spec requires id|shortid|slug|key matching the table')
+        throw new Error('parentedBy spec requires id|ids|shortid|slug|key matching the table')
       }
     }
 

@@ -128,14 +128,22 @@ export class PostQuery extends EntityQuery<PostData, PostOrderField, PostQuerySt
     return this.addPredicate(like(post.name, pattern))
   }
 
-  inCategory(spec: { id?: string; slug?: string }): this {
+  inCategory(spec: { id?: string; ids?: string[]; slug?: string }): this {
     if (spec.id !== undefined) {
       return this.addPredicate(eq(parentPost.parentId, spec.id))
+    }
+    if (spec.ids !== undefined) {
+      if (spec.ids.length === 0) return this.addPredicate(sql`0`)
+      const idList = sql.join(
+        spec.ids.map((v) => sql`${v}`),
+        sql.raw(', '),
+      )
+      return this.addPredicate(sql`${parentPost.parentId} IN (${idList})`)
     }
     if (spec.slug !== undefined) {
       return this.clone({ categorySlug: spec.slug })
     }
-    throw new Error('inCategory requires either id or slug')
+    throw new Error('inCategory requires id, ids, or slug')
   }
 
   withTag(spec: TagSpec): this {

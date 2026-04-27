@@ -21,12 +21,21 @@ export class BlockStore {
     ids: string[],
   ): Promise<Record<string, BlockData[]>> {
     if (ids.length === 0) return {}
+
+    // One batched query for top-level blocks across all parents; BlockQuery
+    // handles group hydration and translations internally (the latter via a
+    // single recursive-CTE call covering every parent id at once).
+    const blocks = await BlockQuery.for(this.db)
+      .locale(locale)
+      .parentedBy({ table: parentTable, ids })
+      .all()
+
     const result: Record<string, BlockData[]> = {}
-    for (const id of ids) {
-      result[id] = await BlockQuery.for(this.db)
-        .locale(locale)
-        .parentedBy({ table: parentTable, id })
-        .all()
+    for (const id of ids) result[id] = []
+    for (const b of blocks) {
+      if (b.parent.type !== parentTable) continue
+      const bucket = result[b.parent.id]
+      if (bucket) bucket.push(b)
     }
     return result
   }

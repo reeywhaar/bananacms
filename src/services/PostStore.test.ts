@@ -381,6 +381,27 @@ describe('PostStore.query', () => {
       expect(posts.map((p) => p.id)).toEqual([POST_B])
     })
   })
+
+  describe('map', () => {
+    it('applies a transformation conditionally inside a chain', async () => {
+      const loggedIn = false
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .inCategory({ id: CATEGORY_ID })
+        .map((q) => (loggedIn ? q : q.published()))
+        .all()
+      expect(posts.map((p) => p.name)).toEqual(['Apple', 'Cherry'])
+    })
+
+    it('is a no-op when the function returns the input query', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .inCategory({ id: CATEGORY_ID })
+        .map((q) => q)
+        .all()
+      expect(posts.map((p) => p.name)).toEqual(['Apple', 'Banana', 'Cherry'])
+    })
+  })
 })
 
 async function attachAttribute(

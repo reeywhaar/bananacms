@@ -42,6 +42,20 @@ export abstract class EntityQuery<
     return this.clone({ order: { field, direction } } as Partial<TState>)
   }
 
+  /**
+   * Apply a transformation to this query. Lets callers branch on conditions
+   * inside a fluent chain without breaking it:
+   *
+   *   postStore.query()
+   *     .inCategory({ id })
+   *     .map((q) => loggedIn ? q : q.published())
+   *     .limit(20)
+   *     .all()
+   */
+  map(fn: (q: this) => this): this {
+    return fn(this)
+  }
+
   abstract all(): Promise<TRow[]>
   abstract count(): Promise<number>
 

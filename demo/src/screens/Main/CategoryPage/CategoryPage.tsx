@@ -33,8 +33,12 @@ const getData = cache(async ({ params }: Props) => {
   const section = await categoryStore.query().byShortId(id).locale(locale).first()
   if (!section) notFound()
   if (section.slug !== p.slug) redirect(routing.category(section.shortid, section.slug))
-  const postQuery = postStore.query().inCategory({ id: section.id }).locale(locale)
-  const posts = await (services.authData.loggedIn ? postQuery.all() : postQuery.published().all())
+  const posts = await postStore
+    .query()
+    .inCategory({ id: section.id })
+    .locale(locale)
+    .map((q) => (services.authData.loggedIn ? q : q.published()))
+    .all()
   if (!posts.length) notFound()
   const blocks = await blockStore.getPublicByParentIds(
     locale,

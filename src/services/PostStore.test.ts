@@ -396,6 +396,25 @@ describe('PostStore.query', () => {
     })
   })
 
+  describe('dict', () => {
+    it('returns rows keyed by id', async () => {
+      const dict = await new PostStore(testDb.db).query().inCategory({ id: CATEGORY_ID }).dict()
+      expect(Object.keys(dict).sort()).toEqual([POST_A, POST_B, POST_C].sort())
+      expect(dict[POST_A]?.name).toBe('Apple')
+      expect(dict[POST_B]?.name).toBe('Banana')
+    })
+
+    it('honors limit/offset like .all()', async () => {
+      const dict = await new PostStore(testDb.db)
+        .query()
+        .inCategory({ id: CATEGORY_ID })
+        .limit(1)
+        .offset(1)
+        .dict()
+      expect(Object.keys(dict)).toEqual([POST_B])
+    })
+  })
+
   describe('map', () => {
     it('applies a transformation conditionally inside a chain', async () => {
       const loggedIn = false

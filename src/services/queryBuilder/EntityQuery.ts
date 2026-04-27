@@ -17,7 +17,7 @@ export type Page<TRow> = {
 }
 
 export abstract class EntityQuery<
-  TRow,
+  TRow extends { id: string },
   TOrderField extends string,
   TState extends BaseQueryState<TOrderField>,
 > {
@@ -62,6 +62,18 @@ export abstract class EntityQuery<
   async first(): Promise<TRow | null> {
     const rows = await this.clone({ limit: 1, offset: 0 } as Partial<TState>).all()
     return rows[0] ?? null
+  }
+
+  /**
+   * Run the query and return rows keyed by `id`. Honors the same limit/offset
+   * /predicates as `.all()`. If two rows share the same id (shouldn't happen
+   * for entity reads), the later one wins.
+   */
+  async dict(): Promise<Record<string, TRow>> {
+    const rows = await this.all()
+    const result: Record<string, TRow> = {}
+    for (const row of rows) result[row.id] = row
+    return result
   }
 
   async paginate(opts: { limit: number; offset?: number }): Promise<Page<TRow>> {

@@ -10,14 +10,22 @@ const MIGRATIONS_PATH = fileURLToPath(new URL('../lib/migrations', import.meta.u
 export type TestDb = {
   client: Client
   db: Db
-  /** Closes the connection AND removes the temp DB file. */
-  close: () => void
+  /** Symbol.dispose lets callers say `using testDb = await createTestDb()`. */
+  [Symbol.dispose](): void
 }
 
 /**
  * libsql opens a fresh `:memory:` DB per connection, so transactions can't
  * see tables on the main connection. We sidestep that by giving each test a
- * private temp file. Cheap on modern OSes; cleaned up via `testDb.close()`.
+ * private temp file. Use with the Disposable pattern:
+ *
+ *   it('...', async () => {
+ *     using testDb = await createTestDb()
+ *     // ... use testDb.db
+ *   })
+ *
+ * The temp file + libsql client are torn down at scope exit; no afterEach
+ * required.
  */
 export async function createTestDb(): Promise<TestDb> {
   const dir = mkdtempSync(join(tmpdir(), 'bananacms-test-'))
@@ -29,7 +37,7 @@ export async function createTestDb(): Promise<TestDb> {
   return {
     client,
     db,
-    close: () => {
+    [Symbol.dispose]() {
       client.close()
       rmSync(dir, { recursive: true, force: true })
     },

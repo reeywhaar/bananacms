@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { TagStore } from './TagStore'
+import { AttributeStore } from './AttributeStore'
+import { BlockStore } from './BlockStore'
 import { createTestDb, type TestDb } from '../test/db'
-import { post, tag, parentTag, localizations } from '@cms/lib/db/schema'
+import { localizations, parentTag, post, tag } from '@cms/lib/db/schema'
 
 const POST_A = '019dbcea-d3a4-75e7-b37a-190d5165aaaa'
 const POST_B = '019dbcea-d3a4-75e7-b37a-190d5165bbbb'
@@ -11,31 +13,16 @@ const TAG_BRAVO = '019dbcea-d3a4-75e7-b37a-190d51650222'
 const TAG_CHARLIE = '019dbcea-d3a4-75e7-b37a-190d51650333'
 
 describe('TagStore.query', () => {
-  let testDb: TestDb
-
-  beforeEach(async () => {
-    testDb = await createTestDb()
-    await insertPost(testDb, POST_A, 'Post A')
-    await insertPost(testDb, POST_B, 'Post B')
-    await insertTag(testDb, TAG_ALPHA, 'alphshrt', 'Bravo', 'bravo')
-    await insertTag(testDb, TAG_BRAVO, 'bravshrt', 'Alpha', 'alpha')
-    await insertTag(testDb, TAG_CHARLIE, 'charshrt', 'Charlie', 'charlie')
-    await link(testDb, TAG_ALPHA, POST_A)
-    await link(testDb, TAG_BRAVO, POST_A)
-    await link(testDb, TAG_BRAVO, POST_B)
-    await link(testDb, TAG_CHARLIE, POST_B)
-  })
-
-  afterEach(async () => {
-    testDb.close()
-  })
-
   it('returns tags attached to a post, ordered by name by default', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     const tags = await new TagStore(testDb.db).query().taggedTo({ table: 'post', id: POST_A }).all()
     expect(tags.map((t) => t.name)).toEqual(['Alpha', 'Bravo'])
   })
 
   it('handles many-to-many: same tag returned for both posts', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     const a = await new TagStore(testDb.db).query().taggedTo({ table: 'post', id: POST_A }).all()
     const b = await new TagStore(testDb.db).query().taggedTo({ table: 'post', id: POST_B }).all()
     expect(a.find((t) => t.id === TAG_BRAVO)).toBeDefined()
@@ -43,17 +30,20 @@ describe('TagStore.query', () => {
   })
 
   it('coalesces name via locale (taggedTo)', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     await insertLocalization(testDb, `tag:${TAG_BRAVO}:name`, 'ru', 'Альфа')
     const tags = await new TagStore(testDb.db)
       .query()
       .taggedTo({ table: 'post', id: POST_A })
       .locale('ru')
       .all()
-    const bravo = tags.find((t) => t.id === TAG_BRAVO)
-    expect(bravo?.name).toBe('Альфа')
+    expect(tags.find((t) => t.id === TAG_BRAVO)?.name).toBe('Альфа')
   })
 
   it('supports custom order field', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     const tags = await new TagStore(testDb.db)
       .query()
       .taggedTo({ table: 'post', id: POST_A })
@@ -63,6 +53,8 @@ describe('TagStore.query', () => {
   })
 
   it('looks up by post shortid', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     const byId = await new TagStore(testDb.db).query().taggedTo({ table: 'post', id: POST_A }).all()
     const byShortId = await new TagStore(testDb.db)
       .query()
@@ -72,6 +64,8 @@ describe('TagStore.query', () => {
   })
 
   it('returns [] for an unknown parent value', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     expect(
       await new TagStore(testDb.db)
         .query()
@@ -81,6 +75,8 @@ describe('TagStore.query', () => {
   })
 
   it('all + withPostCount returns every tag with postCount', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     const tags = await new TagStore(testDb.db).query().withPostCount().all()
     expect(tags.map((t) => t.name)).toEqual(['Alpha', 'Bravo', 'Charlie'])
     expect(tags.find((t) => t.name === 'Alpha')?.postCount).toBe(2)
@@ -89,17 +85,23 @@ describe('TagStore.query', () => {
   })
 
   it('all coalesces names via locale', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     await insertLocalization(testDb, `tag:${TAG_BRAVO}:name`, 'ru', 'Альфа')
     const tags = await new TagStore(testDb.db).query().locale('ru').all()
     expect(tags.find((t) => t.id === TAG_BRAVO)?.name).toBe('Альфа')
   })
 
   it('byShortId fetches a single tag', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     const tag = await new TagStore(testDb.db).query().byShortId('alphshrt').first()
     expect(tag?.id).toBe(TAG_ALPHA)
   })
 
   it('bySlug fetches a single tag', async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
     const tag = await new TagStore(testDb.db).query().bySlug('charlie').first()
     expect(tag?.id).toBe(TAG_CHARLIE)
   })
@@ -108,7 +110,7 @@ describe('TagStore.query', () => {
     const TAG_NEW = '019dbcea-d3a4-75e7-b37a-190d51650999'
 
     it('persists attributes via add() and reads them back via AttributeStore.query', async () => {
-      const { AttributeStore } = await import('./AttributeStore')
+      using testDb = await createTestDb()
       await new TagStore(testDb.db).add(TAG_NEW, {
         name: 'Featured',
         slug: 'featured',
@@ -128,7 +130,7 @@ describe('TagStore.query', () => {
     })
 
     it('replaces attributes on update()', async () => {
-      const { AttributeStore } = await import('./AttributeStore')
+      using testDb = await createTestDb()
       await new TagStore(testDb.db).add(TAG_NEW, {
         name: 'Featured',
         slug: 'featured',
@@ -152,7 +154,7 @@ describe('TagStore.query', () => {
     })
 
     it('cascades attribute deletion when a tag is deleted', async () => {
-      const { AttributeStore } = await import('./AttributeStore')
+      using testDb = await createTestDb()
       await new TagStore(testDb.db).add(TAG_NEW, {
         name: 'Featured',
         slug: 'featured',
@@ -174,7 +176,7 @@ describe('TagStore.query', () => {
     const TAG_NEW = '019dbcea-d3a4-75e7-b37a-190d51650abc'
 
     it('persists blocks via add() and reads them back via BlockStore.query', async () => {
-      const { BlockStore } = await import('./BlockStore')
+      using testDb = await createTestDb()
       await new TagStore(testDb.db).add(TAG_NEW, {
         name: 'Featured',
         slug: 'featured',
@@ -200,7 +202,7 @@ describe('TagStore.query', () => {
     })
 
     it('cascades block deletion when a tag is deleted', async () => {
-      const { BlockStore } = await import('./BlockStore')
+      using testDb = await createTestDb()
       await new TagStore(testDb.db).add(TAG_NEW, {
         name: 'Featured',
         slug: 'featured',
@@ -227,17 +229,28 @@ describe('TagStore.query', () => {
   })
 })
 
+// ─── seed fixtures ───────────────────────────────────────────────────────────
+
+async function seedPostsAndTags(testDb: TestDb): Promise<void> {
+  await insertPost(testDb, POST_A, 'Post A')
+  await insertPost(testDb, POST_B, 'Post B')
+  await insertTag(testDb, TAG_ALPHA, 'alphshrt', 'Bravo', 'bravo')
+  await insertTag(testDb, TAG_BRAVO, 'bravshrt', 'Alpha', 'alpha')
+  await insertTag(testDb, TAG_CHARLIE, 'charshrt', 'Charlie', 'charlie')
+  await link(testDb, TAG_ALPHA, POST_A)
+  await link(testDb, TAG_BRAVO, POST_A)
+  await link(testDb, TAG_BRAVO, POST_B)
+  await link(testDb, TAG_CHARLIE, POST_B)
+}
+
 async function insertPost(testDb: TestDb, id: string, name: string): Promise<void> {
-  await testDb.db
-    .insert(post)
-    .values({
-      id,
-      shortid: id.slice(-8),
-      name,
-      slug: name.toLowerCase().replace(/\s+/g, '-'),
-      status: 'published',
-    })
-    .run()
+  await testDb.db.insert(post).values({
+    id,
+    shortid: id.slice(-8),
+    name,
+    slug: name.toLowerCase().replace(/\s+/g, '-'),
+    status: 'published',
+  })
 }
 
 async function insertTag(
@@ -247,11 +260,11 @@ async function insertTag(
   name: string,
   slug: string,
 ): Promise<void> {
-  await testDb.db.insert(tag).values({ id, shortid, name, slug }).run()
+  await testDb.db.insert(tag).values({ id, shortid, name, slug })
 }
 
 async function link(testDb: TestDb, tagId: string, postId: string): Promise<void> {
-  await testDb.db.insert(parentTag).values({ tagId, parentId: postId, parentTable: 'post' }).run()
+  await testDb.db.insert(parentTag).values({ tagId, parentId: postId, parentTable: 'post' })
 }
 
 async function insertLocalization(
@@ -260,5 +273,5 @@ async function insertLocalization(
   locale: string,
   text: string,
 ): Promise<void> {
-  await testDb.db.insert(localizations).values({ id: `loc-${key}-${locale}`, key, locale, text }).run()
+  await testDb.db.insert(localizations).values({ id: `loc-${key}-${locale}`, key, locale, text })
 }

@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { AttributeStore } from './AttributeStore'
 import { createTestDb, type TestDb } from '../test/db'
 import {
-  post,
-  page,
   attribute,
-  parentAttribute,
   localizations,
+  page,
+  parentAttribute,
+  post,
 } from '@cms/lib/db/schema'
 
 const POST_ID = '019dbcea-d3a4-75e7-b37a-190d5165aaaa'
@@ -16,32 +16,9 @@ const ATTR_PLAIN = '019dbcea-d3a4-75e7-b37a-190d51650a01'
 const ATTR_TRANSLATABLE = '019dbcea-d3a4-75e7-b37a-190d51650a02'
 
 describe('AttributeStore.query', () => {
-  let testDb: TestDb
-
-  beforeEach(async () => {
-    testDb = await createTestDb()
-    await testDb.db
-      .insert(post)
-      .values({
-        id: POST_ID,
-        shortid: POST_ID.slice(-8),
-        name: 'Host Post',
-        slug: 'host-post',
-        status: 'published',
-      })
-      .run()
-    await testDb.db.insert(page).values({ id: PAGE_ID, key: 'about' }).run()
-    await insertAttribute(testDb, ATTR_PLAIN, 'author', false, 'Alice')
-    await attach(testDb, ATTR_PLAIN, 'post', POST_ID)
-    await insertAttribute(testDb, ATTR_TRANSLATABLE, 'subtitle', true, 'Welcome')
-    await attach(testDb, ATTR_TRANSLATABLE, 'post', POST_ID)
-  })
-
-  afterEach(async () => {
-    testDb.close()
-  })
-
   it('returns attributes attached to a parent and converts translatable int → bool', async () => {
+    using testDb = await createTestDb()
+    await seedHostPostAndPage(testDb)
     const attrs = await new AttributeStore(testDb.db)
       .query()
       .parentedBy({ table: 'post', id: POST_ID })
@@ -56,6 +33,8 @@ describe('AttributeStore.query', () => {
   })
 
   it('coalesces text against localizations only when translatable=1', async () => {
+    using testDb = await createTestDb()
+    await seedHostPostAndPage(testDb)
     await insertLocalization(testDb, `attribute:${ATTR_TRANSLATABLE}:text`, 'ru', 'Привет')
     await insertLocalization(testDb, `attribute:${ATTR_PLAIN}:text`, 'ru', 'Алиса')
 
@@ -71,6 +50,8 @@ describe('AttributeStore.query', () => {
   })
 
   it('falls back to source text when no localization for the requested locale', async () => {
+    using testDb = await createTestDb()
+    await seedHostPostAndPage(testDb)
     await insertLocalization(testDb, `attribute:${ATTR_TRANSLATABLE}:text`, 'ru', 'Привет')
     const attrs = await new AttributeStore(testDb.db)
       .query()
@@ -82,6 +63,8 @@ describe('AttributeStore.query', () => {
   })
 
   it('supports a different parent kind (page) with column = "key"', async () => {
+    using testDb = await createTestDb()
+    await seedHostPostAndPage(testDb)
     const attrId = '019dbcea-d3a4-75e7-b37a-190d51650a03'
     await insertAttribute(testDb, attrId, 'lang', false, 'en')
     await attach(testDb, attrId, 'page', PAGE_ID)
@@ -94,6 +77,8 @@ describe('AttributeStore.query', () => {
   })
 
   it('orders by the requested column', async () => {
+    using testDb = await createTestDb()
+    await seedHostPostAndPage(testDb)
     const attrs = await new AttributeStore(testDb.db)
       .query()
       .parentedBy({ table: 'post', id: POST_ID })
@@ -102,6 +87,23 @@ describe('AttributeStore.query', () => {
     expect(attrs.map((a) => a.key)).toEqual(['author', 'subtitle'])
   })
 })
+
+// ─── seed fixtures ───────────────────────────────────────────────────────────
+
+async function seedHostPostAndPage(testDb: TestDb): Promise<void> {
+  await testDb.db.insert(post).values({
+    id: POST_ID,
+    shortid: POST_ID.slice(-8),
+    name: 'Host Post',
+    slug: 'host-post',
+    status: 'published',
+  })
+  await testDb.db.insert(page).values({ id: PAGE_ID, key: 'about' })
+  await insertAttribute(testDb, ATTR_PLAIN, 'author', false, 'Alice')
+  await attach(testDb, ATTR_PLAIN, 'post', POST_ID)
+  await insertAttribute(testDb, ATTR_TRANSLATABLE, 'subtitle', true, 'Welcome')
+  await attach(testDb, ATTR_TRANSLATABLE, 'post', POST_ID)
+}
 
 async function insertAttribute(
   testDb: TestDb,
@@ -113,7 +115,6 @@ async function insertAttribute(
   await testDb.db
     .insert(attribute)
     .values({ id, key, translatable: translatable ? 1 : 0, text })
-    .run()
 }
 
 async function attach(
@@ -122,7 +123,7 @@ async function attach(
   parentTable: string,
   parentId: string,
 ): Promise<void> {
-  await testDb.db.insert(parentAttribute).values({ attributeId, parentId, parentTable }).run()
+  await testDb.db.insert(parentAttribute).values({ attributeId, parentId, parentTable })
 }
 
 async function insertLocalization(
@@ -131,5 +132,5 @@ async function insertLocalization(
   locale: string,
   text: string,
 ): Promise<void> {
-  await testDb.db.insert(localizations).values({ id: `loc-${key}-${locale}`, key, locale, text }).run()
+  await testDb.db.insert(localizations).values({ id: `loc-${key}-${locale}`, key, locale, text })
 }

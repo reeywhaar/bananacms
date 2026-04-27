@@ -27,7 +27,7 @@ describe('TagStore.query', () => {
   })
 
   afterEach(async () => {
-    testDb.client.close()
+    testDb.close()
   })
 
   it('returns tags attached to a post, ordered by name by default', async () => {
@@ -102,6 +102,128 @@ describe('TagStore.query', () => {
   it('bySlug fetches a single tag', async () => {
     const tag = await new TagStore(testDb.db).query().bySlug('charlie').first()
     expect(tag?.id).toBe(TAG_CHARLIE)
+  })
+
+  describe('attributes', () => {
+    const TAG_NEW = '019dbcea-d3a4-75e7-b37a-190d51650999'
+
+    it('persists attributes via add() and reads them back via AttributeStore.query', async () => {
+      const { AttributeStore } = await import('./AttributeStore')
+      await new TagStore(testDb.db).add(TAG_NEW, {
+        name: 'Featured',
+        slug: 'featured',
+        blocks: [],
+        translations: {},
+        attributes: [
+          { id: 'attr-1', key: 'priority', translatable: false, text: 'high' },
+          { id: 'attr-2', key: 'caption', translatable: true, text: 'Featured tag' },
+        ],
+      })
+
+      const attrs = await new AttributeStore(testDb.db)
+        .query()
+        .parentedBy({ table: 'tag', id: TAG_NEW })
+        .all()
+      expect(attrs.map((a) => a.key).sort()).toEqual(['caption', 'priority'])
+    })
+
+    it('replaces attributes on update()', async () => {
+      const { AttributeStore } = await import('./AttributeStore')
+      await new TagStore(testDb.db).add(TAG_NEW, {
+        name: 'Featured',
+        slug: 'featured',
+        blocks: [],
+        translations: {},
+        attributes: [{ id: 'attr-old', key: 'priority', translatable: false, text: 'high' }],
+      })
+      await new TagStore(testDb.db).update(TAG_NEW, {
+        name: 'Featured',
+        slug: 'featured',
+        blocks: [],
+        translations: {},
+        attributes: [{ id: 'attr-new', key: 'mood', translatable: false, text: 'calm' }],
+      })
+
+      const attrs = await new AttributeStore(testDb.db)
+        .query()
+        .parentedBy({ table: 'tag', id: TAG_NEW })
+        .all()
+      expect(attrs.map((a) => a.key)).toEqual(['mood'])
+    })
+
+    it('cascades attribute deletion when a tag is deleted', async () => {
+      const { AttributeStore } = await import('./AttributeStore')
+      await new TagStore(testDb.db).add(TAG_NEW, {
+        name: 'Featured',
+        slug: 'featured',
+        blocks: [],
+        translations: {},
+        attributes: [{ id: 'attr-cascade', key: 'priority', translatable: false, text: 'high' }],
+      })
+      await new TagStore(testDb.db).delete(TAG_NEW)
+
+      const attrs = await new AttributeStore(testDb.db)
+        .query()
+        .parentedBy({ table: 'tag', id: TAG_NEW })
+        .all()
+      expect(attrs).toEqual([])
+    })
+  })
+
+  describe('blocks', () => {
+    const TAG_NEW = '019dbcea-d3a4-75e7-b37a-190d51650abc'
+
+    it('persists blocks via add() and reads them back via BlockStore.query', async () => {
+      const { BlockStore } = await import('./BlockStore')
+      await new TagStore(testDb.db).add(TAG_NEW, {
+        name: 'Featured',
+        slug: 'featured',
+        translations: {},
+        attributes: [],
+        blocks: [
+          {
+            id: 'b-tag-text',
+            parent: { type: 'tag', id: TAG_NEW },
+            type: 'text',
+            content: { type: 'text', key: 'desc', text: 'Featured description' },
+            attributes: [],
+          },
+        ],
+      })
+
+      const blocks = await new BlockStore(testDb.db)
+        .query()
+        .parentedBy({ table: 'tag', id: TAG_NEW })
+        .all()
+      expect(blocks.map((b) => b.id)).toEqual(['b-tag-text'])
+      expect(blocks[0].content).toMatchObject({ type: 'text', text: 'Featured description' })
+    })
+
+    it('cascades block deletion when a tag is deleted', async () => {
+      const { BlockStore } = await import('./BlockStore')
+      await new TagStore(testDb.db).add(TAG_NEW, {
+        name: 'Featured',
+        slug: 'featured',
+        translations: {},
+        attributes: [],
+        blocks: [
+          {
+            id: 'b-cascade',
+            parent: { type: 'tag', id: TAG_NEW },
+            type: 'text',
+            content: { type: 'text', key: 't', text: 'x' },
+            attributes: [],
+          },
+        ],
+      })
+      await new TagStore(testDb.db).delete(TAG_NEW)
+
+      const blocks = await new BlockStore(testDb.db)
+        .query()
+        .parentedBy({ table: 'tag', id: TAG_NEW })
+        .all()
+      expect(blocks).toEqual([])
+    })
   })
 })
 

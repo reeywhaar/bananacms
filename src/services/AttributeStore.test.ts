@@ -38,7 +38,7 @@ describe('AttributeStore.query', () => {
   })
 
   afterEach(async () => {
-    testDb.client.close()
+    testDb.close()
   })
 
   it('returns attributes attached to a parent and converts translatable int → bool', async () => {

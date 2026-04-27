@@ -36,7 +36,7 @@ describe('PostStore.query', () => {
   })
 
   afterEach(async () => {
-    testDb.client.close()
+    testDb.close()
   })
 
   describe('inCategory', () => {

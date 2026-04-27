@@ -6,6 +6,7 @@ import {
   post,
   category,
   page,
+  tag,
   localizations,
 } from '@cms/lib/db/schema'
 import {
@@ -23,7 +24,7 @@ export type AttributeData = {
 
 export type AttributeOrderField = 'key' | 'id'
 
-type ParentTable = 'post' | 'category' | 'page' | 'block'
+type ParentTable = 'post' | 'category' | 'page' | 'block' | 'tag'
 
 type ParentSpec = {
   table: ParentTable
@@ -187,6 +188,7 @@ function parentTableRef(t: ParentTable) {
   if (t === 'post') return post
   if (t === 'category') return category
   if (t === 'page') return page
+  if (t === 'tag') return tag
   return null
 }
 

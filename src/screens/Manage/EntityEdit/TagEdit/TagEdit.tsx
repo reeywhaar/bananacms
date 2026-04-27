@@ -1,6 +1,10 @@
 import { TagStore } from '@cms/services/TagStore'
+import { AttributeStore } from '@cms/services/AttributeStore'
+import { BlockStore } from '@cms/services/BlockStore'
+import { AssetStore } from '@cms/services/AssetStore'
 import { getServices } from '@cms/services/getServices'
 import { LocalizationStore } from '@cms/services/LocalizationStore'
+import { BlockData } from '@cms/lib/blocks/declarations'
 import { notFound } from 'next/navigation'
 import { Client } from './Client'
 import { WithBreadcrumbs } from '../../BreadCrumbs/Breadcrumbs'
@@ -14,7 +18,32 @@ export default async function TagEdit({ id }: { id?: string }) {
     return (await new TagStore(db).query().byId(id).first()) ?? notFound()
   })()
 
-  const translations = id ? new LocalizationStore(db).getByKeyPrefix('tag:' + id + ':') : {}
+  const blocks = id
+    ? await new BlockStore(db).query().parentedBy({ table: 'tag', id }).all()
+    : []
+
+  const translations = id ? await new LocalizationStore(db).getByParentId('tag', id) : {}
+
+  const initialAttributes = id
+    ? await new AttributeStore(db).query().parentedBy({ table: 'tag', id }).all()
+    : []
+
+  const imageAssetIds: string[] = []
+  const collect = (list: BlockData[]): void => {
+    for (const b of list) {
+      if (b.content.type === 'image' && b.content.assetId) imageAssetIds.push(b.content.assetId)
+      if (b.content.type === 'group') collect(b.content.blocks)
+    }
+  }
+  collect(blocks)
+
+  const assetStore = new AssetStore(db)
+  const [assetContents, assetSizes] = imageAssetIds.length
+    ? await Promise.all([
+        assetStore.getContent(imageAssetIds),
+        assetStore.getSizes(imageAssetIds),
+      ])
+    : [{}, {}]
 
   return (
     <WithBreadcrumbs
@@ -24,7 +53,14 @@ export default async function TagEdit({ id }: { id?: string }) {
         { name: tag?.name ?? 'New Tag' },
       ]}
     >
-      <Client tag={tag} translations={translations} />
+      <Client
+        tag={tag}
+        blocks={blocks}
+        translations={translations}
+        initialAttributes={initialAttributes}
+        assetContents={assetContents}
+        assetSizes={assetSizes}
+      />
     </WithBreadcrumbs>
   )
 }

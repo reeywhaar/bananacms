@@ -6,6 +6,7 @@ import {
   post,
   page,
   category,
+  tag,
 } from '@cms/lib/db/schema'
 import {
   type BlockData,
@@ -29,7 +30,7 @@ import {
 
 export type BlockOrderField = 'position' | 'id'
 
-export type BlockParentTable = 'post' | 'page' | 'category' | 'block'
+export type BlockParentTable = 'post' | 'page' | 'category' | 'block' | 'tag'
 type ParentSpec = {
   table: BlockParentTable
   id?: string
@@ -206,6 +207,8 @@ export class BlockQuery extends EntityQuery<BlockData, BlockOrderField, BlockQue
       parentSpec.table !== 'block' &&
       parentSpec.table !== 'page'
     ) {
+      // post / category / tag all have shortid columns
+
       const parentTable = parentTableRef(parentSpec.table)
       if (parentTable) {
         q = (q as unknown as { innerJoin: (t: typeof parentTable, on: SQL) => T }).innerJoin(
@@ -216,7 +219,7 @@ export class BlockQuery extends EntityQuery<BlockData, BlockOrderField, BlockQue
       }
     } else if (
       parentSpec.slug !== undefined &&
-      (parentSpec.table === 'post' || parentSpec.table === 'category')
+      (parentSpec.table === 'post' || parentSpec.table === 'category' || parentSpec.table === 'tag')
     ) {
       const parentTable = parentTableRef(parentSpec.table)
       if (parentTable) {
@@ -286,6 +289,7 @@ export class BlockQuery extends EntityQuery<BlockData, BlockOrderField, BlockQue
 function parentTableRef(t: BlockParentTable) {
   if (t === 'post') return post
   if (t === 'category') return category
+  if (t === 'tag') return tag
   return null
 }
 

@@ -6,6 +6,12 @@ import {
   type BaseQueryState,
   type SortOrder,
 } from './queryBuilder/EntityQuery'
+import {
+  attributeExistsClause,
+  blockExistsClause,
+  type AttributeSpec,
+  type BlockSpec,
+} from './queryBuilder/predicates'
 
 export type TagData = {
   id: string
@@ -61,6 +67,38 @@ export class TagQuery extends EntityQuery<TagData, TagOrderField, TagQueryState>
 
   withPostCount(): this {
     return this.clone({ postCount: true })
+  }
+
+  withAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('tag', tag.id, [spec], 'with'))
+  }
+
+  withoutAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('tag', tag.id, [spec], 'without'))
+  }
+
+  withAnyAttribute(specs: AttributeSpec[]): this {
+    return this.addPredicate(attributeExistsClause('tag', tag.id, specs, 'with', 'any'))
+  }
+
+  withAllAttributes(specs: AttributeSpec[]): this {
+    return this.addPredicate(attributeExistsClause('tag', tag.id, specs, 'with', 'all'))
+  }
+
+  withBlock(spec: BlockSpec): this {
+    return this.addPredicate(blockExistsClause('tag', tag.id, [spec], 'with'))
+  }
+
+  withoutBlock(spec: BlockSpec): this {
+    return this.addPredicate(blockExistsClause('tag', tag.id, [spec], 'without'))
+  }
+
+  withAnyBlock(specs: BlockSpec[]): this {
+    return this.addPredicate(blockExistsClause('tag', tag.id, specs, 'with', 'any'))
+  }
+
+  withAllBlocks(specs: BlockSpec[]): this {
+    return this.addPredicate(blockExistsClause('tag', tag.id, specs, 'with', 'all'))
   }
 
   async all(): Promise<TagData[]> {

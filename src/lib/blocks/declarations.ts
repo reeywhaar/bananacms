@@ -56,6 +56,7 @@ export const blockParentSchema = valita.object({
     valita.literal('post'),
     valita.literal('page'),
     valita.literal('category'),
+    valita.literal('tag'),
   ),
   id: valita.string(),
 })

@@ -38,7 +38,7 @@ describe('BlockStore.query', () => {
   })
 
   afterEach(async () => {
-    testDb.client.close()
+    testDb.close()
   })
 
   it('returns blocks attached to a parent post', async () => {

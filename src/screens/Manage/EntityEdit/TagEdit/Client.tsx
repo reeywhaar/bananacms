@@ -1,9 +1,15 @@
 'use client'
 
 import { TagData } from '@cms/services/TagStore'
+import { AttributeData } from '@cms/services/AttributeStore'
 import { Translations } from '@cms/services/LocalizationStore'
+import { AssetContent } from '@cms/services/AssetStore'
+import { BlockData } from '@cms/lib/blocks/declarations'
 import { useRouter } from 'next/navigation'
 import { LocalizableField } from '../../LocalizableField'
+import { AttributesEditor } from '../AttributesEditor/AttributesEditor'
+import { BlockEditor } from '../BlockEditor/BlockEditor'
+import { resolveBlocks, preventFileNavigation } from '../BlockEditor/resolveBlocks'
 import { FC, useState } from 'react'
 import { addTag, editTag, deleteTag } from './utils'
 import { routing } from '../../routing'
@@ -13,14 +19,27 @@ import { useWithProgress } from '@cms/components/ProgressOverlay/ProgressOverlay
 import { extractErrorMessage } from '@cms/utils/extractErrorMessage'
 import { v7 } from 'uuid'
 
-export const Client: FC<{ tag?: TagData; translations?: Translations }> = ({
+export const Client: FC<{
+  tag?: TagData
+  blocks?: BlockData[]
+  translations?: Translations
+  initialAttributes?: AttributeData[]
+  assetContents?: Record<string, AssetContent | null>
+  assetSizes?: Record<string, number>
+}> = ({
   tag,
+  blocks: initialBlocks = [],
   translations: initialTranslations,
+  initialAttributes = [],
+  assetContents = {},
+  assetSizes = {},
 }) => {
   const router = useRouter()
   const [entityId] = useState(() => tag?.id ?? v7())
   const [name, setName] = useState(tag?.name || '')
   const [slug, setSlug] = useState(tag?.slug || '')
+  const [blocks, setBlocks] = useState<BlockData[]>(initialBlocks)
+  const [attributes, setAttributes] = useState<AttributeData[]>(initialAttributes)
   const [translations, setTranslations] = useState<Translations>(initialTranslations ?? {})
   const withProgress = useWithProgress()
   const showToast = useToast()
@@ -28,13 +47,18 @@ export const Client: FC<{ tag?: TagData; translations?: Translations }> = ({
   const handleSave = useEvent(async () => {
     await withProgress(async () => {
       try {
+        const resolvedBlocks = await resolveBlocks(blocks)
+        const payload = { name, slug, translations, attributes, blocks: resolvedBlocks }
         if (tag) {
-          await editTag(tag.id, { name, slug, translations })
+          await editTag(tag.id, payload)
+          setBlocks(resolvedBlocks)
+          router.refresh()
+          showToast('info', 'Saved!', { timeout: 1000 })
         } else {
-          await addTag(entityId, { name, slug, translations })
+          await addTag(entityId, payload)
+          showToast('info', 'Saved!', { timeout: 1000 })
           router.replace(routing.entityEdit('tag', entityId))
         }
-        showToast('info', 'Saved!', { timeout: 1000 })
       } catch (e) {
         showToast('error', extractErrorMessage(e), { timeout: 3000 })
       }
@@ -51,7 +75,12 @@ export const Client: FC<{ tag?: TagData; translations?: Translations }> = ({
   })
 
   return (
-    <form action={handleSave} className="p-4 flex flex-col gap-4 items-start">
+    <form
+      action={handleSave}
+      className="p-4 flex flex-col gap-4 items-start"
+      onDragOver={preventFileNavigation}
+      onDrop={preventFileNavigation}
+    >
       <LocalizableField
         label="Name"
         value={name}
@@ -85,8 +114,23 @@ export const Client: FC<{ tag?: TagData; translations?: Translations }> = ({
           />
         </label>
       </div>
+      <AttributesEditor
+        attributes={attributes}
+        onChange={setAttributes}
+        translations={translations}
+        onTranslationsChange={setTranslations}
+      />
+      <div className="h-4" />
+      <BlockEditor
+        blocks={blocks}
+        onChange={setBlocks}
+        translations={translations}
+        onTranslationsChange={setTranslations}
+        assetContents={assetContents}
+        assetSizes={assetSizes}
+      />
       <div className="h-8" />
-      <div className="flex w-full justify-end gap-3">
+      <div className="sticky bottom-0 -mx-4 -mb-4 flex w-full justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3 box-content">
         {tag && (
           <button type="button" className="button-danger" onClick={handleDelete}>
             Delete

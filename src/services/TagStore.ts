@@ -2,7 +2,10 @@ import { and, eq, sql } from 'drizzle-orm'
 import { type Db } from '@cms/lib/db/client'
 import { tag, parentTag } from '@cms/lib/db/schema'
 import { getShortId } from '@cms/utils/getshortid'
+import { BlockData } from '@cms/lib/blocks/declarations'
+import { BlockStore } from './BlockStore'
 import { LocalizationStore, Translations } from './LocalizationStore'
+import { AttributeStore, AttributeData } from './AttributeStore'
 import { TagQuery } from './TagQuery'
 
 export type TagData = {
@@ -17,6 +20,8 @@ export type TagPayload = {
   name: string
   slug: string
   translations: Translations
+  attributes: AttributeData[]
+  blocks: BlockData[]
 }
 
 export class TagStore {
@@ -37,26 +42,35 @@ export class TagStore {
 
   async add(id: string, payload: TagPayload): Promise<void> {
     validateTagPayload(payload)
-    await this.db.insert(tag).values({
-      id,
-      shortid: getShortId(id),
-      name: payload.name,
-      slug: payload.slug,
+    await this.db.transaction(async (tx) => {
+      await tx.insert(tag).values({
+        id,
+        shortid: getShortId(id),
+        name: payload.name,
+        slug: payload.slug,
+      })
+      await new AttributeStore(tx).saveByParent('tag', id, payload.attributes)
+      await new BlockStore(tx).saveByParent('tag', id, payload.blocks)
+      await new LocalizationStore(tx).save('tag:' + id + ':', payload.translations)
     })
-    await new LocalizationStore(this.db).save('tag:' + id + ':', payload.translations)
   }
 
   async update(id: string, payload: TagPayload): Promise<void> {
     validateTagPayload(payload)
-    await this.db
-      .update(tag)
-      .set({
-        name: payload.name,
-        slug: payload.slug,
-        updatedAt: sql`(datetime('now'))`,
-      })
-      .where(eq(tag.id, id))
-    await new LocalizationStore(this.db).save('tag:' + id + ':', payload.translations)
+    await this.db.transaction(async (tx) => {
+      await tx
+        .update(tag)
+        .set({
+          name: payload.name,
+          slug: payload.slug,
+          updatedAt: sql`(datetime('now'))`,
+        })
+        .where(eq(tag.id, id))
+      await new LocalizationStore(tx).deleteBlockTranslationsByParentId('tag', id)
+      await new AttributeStore(tx).saveByParent('tag', id, payload.attributes)
+      await new BlockStore(tx).saveByParent('tag', id, payload.blocks)
+      await new LocalizationStore(tx).save('tag:' + id + ':', payload.translations)
+    })
   }
 
   async delete(id: string): Promise<void> {

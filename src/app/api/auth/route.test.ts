@@ -58,7 +58,7 @@ describe('POST /api/auth', () => {
   })
 
   afterEach(async () => {
-    testDb.client.close()
+    testDb.close()
   })
 
   it('returns 204 and sets an auth cookie on valid credentials', async () => {
@@ -137,7 +137,7 @@ describe('DELETE /api/auth', () => {
   })
 
   afterEach(async () => {
-    testDb.client.close()
+    testDb.close()
   })
 
   it('revokes the token from the auth cookie and clears the cookie', async () => {

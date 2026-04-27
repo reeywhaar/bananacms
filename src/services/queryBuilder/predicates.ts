@@ -9,7 +9,7 @@ export type AttributeSpec = {
   valueLike?: string
 }
 
-export type AttributeHostTable = 'post' | 'category' | 'page' | 'block'
+export type AttributeHostTable = 'post' | 'category' | 'page' | 'block' | 'tag'
 
 /**
  * Builds an `EXISTS`/`NOT EXISTS` subquery against `parent_attribute JOIN attribute`,
@@ -167,7 +167,7 @@ function matchPostSpec(spec: PostSpec): SQL {
 
 export type BlockSpec = { id?: string; type?: string }
 
-export type BlockHostTable = 'post' | 'category' | 'page'
+export type BlockHostTable = 'post' | 'category' | 'page' | 'tag'
 
 export function blockExistsClause(
   hostTable: BlockHostTable,

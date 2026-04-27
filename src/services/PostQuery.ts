@@ -6,6 +6,12 @@ import {
   type BaseQueryState,
   type SortOrder,
 } from './queryBuilder/EntityQuery'
+import {
+  attributeExistsClause,
+  blockExistsClause,
+  type AttributeSpec,
+  type BlockSpec,
+} from './queryBuilder/predicates'
 
 export type PostData = {
   id: string
@@ -148,6 +154,38 @@ export class PostQuery extends EntityQuery<PostData, PostOrderField, PostQuerySt
     let q = this as PostQuery
     for (const spec of specs) q = q.addPredicate(tagExistsClause(spec, 'with'))
     return q as this
+  }
+
+  withAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('post', post.id, [spec], 'with'))
+  }
+
+  withoutAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('post', post.id, [spec], 'without'))
+  }
+
+  withAnyAttribute(specs: AttributeSpec[]): this {
+    return this.addPredicate(attributeExistsClause('post', post.id, specs, 'with', 'any'))
+  }
+
+  withAllAttributes(specs: AttributeSpec[]): this {
+    return this.addPredicate(attributeExistsClause('post', post.id, specs, 'with', 'all'))
+  }
+
+  withBlock(spec: BlockSpec): this {
+    return this.addPredicate(blockExistsClause('post', post.id, [spec], 'with'))
+  }
+
+  withoutBlock(spec: BlockSpec): this {
+    return this.addPredicate(blockExistsClause('post', post.id, [spec], 'without'))
+  }
+
+  withAnyBlock(specs: BlockSpec[]): this {
+    return this.addPredicate(blockExistsClause('post', post.id, specs, 'with', 'any'))
+  }
+
+  withAllBlocks(specs: BlockSpec[]): this {
+    return this.addPredicate(blockExistsClause('post', post.id, specs, 'with', 'all'))
   }
 
   async all(): Promise<PostData[]> {

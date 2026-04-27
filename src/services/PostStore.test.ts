@@ -1,7 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { PostStore } from './PostStore'
 import { createTestDb, type TestDb } from '../test/db'
-import { post as postTable, parentPost, parentTag, tag, localizations, category } from '@cms/lib/db/schema'
+import {
+  post as postTable,
+  parentPost,
+  parentTag,
+  tag,
+  localizations,
+  category,
+  attribute,
+  parentAttribute,
+  block,
+  parentBlock,
+} from '@cms/lib/db/schema'
 
 const CATEGORY_ID = '019dbce5-5aac-763a-ac29-509b1a86750f'
 const CATEGORY_SHORTID = '1a86750f'
@@ -224,7 +235,179 @@ describe('PostStore.query', () => {
       expect(posts.map((p) => p.id).sort()).toEqual([POST_A, POST_B, POST_C].sort())
     })
   })
+
+  describe('attributes', () => {
+    beforeEach(async () => {
+      // Apple → author=Alice
+      // Banana → author=Bob, lang=en
+      // Cherry → lang=fr
+      await attachAttribute(testDb, 'a-apple-author', POST_A, 'author', 'Alice')
+      await attachAttribute(testDb, 'a-banana-author', POST_B, 'author', 'Bob')
+      await attachAttribute(testDb, 'a-banana-lang', POST_B, 'lang', 'en')
+      await attachAttribute(testDb, 'a-cherry-lang', POST_C, 'lang', 'fr')
+    })
+
+    it('withAttribute by key matches posts with that key (any value)', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withAttribute({ key: 'author' })
+        .all()
+      expect(posts.map((p) => p.id).sort()).toEqual([POST_A, POST_B].sort())
+    })
+
+    it('withAttribute by key + value matches exact text', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withAttribute({ key: 'author', value: 'Alice' })
+        .all()
+      expect(posts.map((p) => p.id)).toEqual([POST_A])
+    })
+
+    it('withAttribute by key + valueLike matches LIKE pattern', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withAttribute({ key: 'lang', valueLike: 'e%' })
+        .all()
+      expect(posts.map((p) => p.id)).toEqual([POST_B])
+    })
+
+    it('withoutAttribute excludes posts with that key', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withoutAttribute({ key: 'lang' })
+        .all()
+      expect(posts.map((p) => p.id)).toEqual([POST_A])
+    })
+
+    it('withoutAttribute by key + value only excludes exact matches', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withoutAttribute({ key: 'author', value: 'Alice' })
+        .all()
+      expect(posts.map((p) => p.id).sort()).toEqual([POST_B, POST_C].sort())
+    })
+
+    it('withAnyAttribute matches OR across specs', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withAnyAttribute([
+          { key: 'author', value: 'Alice' },
+          { key: 'lang', value: 'fr' },
+        ])
+        .all()
+      expect(posts.map((p) => p.id).sort()).toEqual([POST_A, POST_C].sort())
+    })
+
+    it('withAllAttributes requires every spec to match (one EXISTS each)', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withAllAttributes([
+          { key: 'author', value: 'Bob' },
+          { key: 'lang', value: 'en' },
+        ])
+        .all()
+      expect(posts.map((p) => p.id)).toEqual([POST_B])
+    })
+
+    it('combines with other filters via AND', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withAttribute({ key: 'author' })
+        .published()
+        .all()
+      expect(posts.map((p) => p.id)).toEqual([POST_A])
+    })
+  })
+
+  describe('blocks', () => {
+    beforeEach(async () => {
+      // Apple → text block "hello"
+      // Banana → image block + text block
+      // Cherry → (no blocks)
+      await attachBlock(testDb, 'b-apple-text', POST_A, 'text', {
+        type: 'text',
+        key: 't1',
+        text: 'hello',
+      })
+      await attachBlock(testDb, 'b-banana-img', POST_B, 'image', {
+        type: 'image',
+        key: 'i1',
+        assetId: 'asset-x',
+      })
+      await attachBlock(testDb, 'b-banana-text', POST_B, 'text', {
+        type: 'text',
+        key: 't2',
+        text: 'banana',
+      })
+    })
+
+    it('withBlock by type matches posts that contain a block of that type', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withBlock({ type: 'image' })
+        .all()
+      expect(posts.map((p) => p.id)).toEqual([POST_B])
+    })
+
+    it('withoutBlock excludes posts containing a block of that type', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withoutBlock({ type: 'text' })
+        .all()
+      expect(posts.map((p) => p.id)).toEqual([POST_C])
+    })
+
+    it('withAllBlocks requires every spec to match (AND-of-EXISTS)', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withAllBlocks([{ type: 'image' }, { type: 'text' }])
+        .all()
+      expect(posts.map((p) => p.id)).toEqual([POST_B])
+    })
+
+    it('withAnyBlock matches OR across specs', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withAnyBlock([{ type: 'image' }, { type: 'text' }])
+        .all()
+      expect(posts.map((p) => p.id).sort()).toEqual([POST_A, POST_B].sort())
+    })
+
+    it('withBlock by id matches the exact block', async () => {
+      const posts = await new PostStore(testDb.db)
+        .query()
+        .withBlock({ id: 'b-banana-img' })
+        .all()
+      expect(posts.map((p) => p.id)).toEqual([POST_B])
+    })
+  })
 })
+
+async function attachAttribute(
+  testDb: TestDb,
+  attrId: string,
+  parentId: string,
+  key: string,
+  text: string,
+): Promise<void> {
+  await testDb.db.insert(attribute).values({ id: attrId, key, translatable: 0, text })
+  await testDb.db
+    .insert(parentAttribute)
+    .values({ attributeId: attrId, parentId, parentTable: 'post' })
+}
+
+async function attachBlock(
+  testDb: TestDb,
+  blockId: string,
+  postId: string,
+  type: string,
+  content: object,
+): Promise<void> {
+  await testDb.db.insert(block).values({ id: blockId, type, content: JSON.stringify(content) })
+  await testDb.db
+    .insert(parentBlock)
+    .values({ blockId, parentId: postId, parentTable: 'post' })
+}
 
 async function insertPost(
   testDb: TestDb,

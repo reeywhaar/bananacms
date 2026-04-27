@@ -6,6 +6,14 @@ import {
   type BaseQueryState,
   type SortOrder,
 } from './queryBuilder/EntityQuery'
+import {
+  attributeExistsClause,
+  blockExistsClause,
+  postExistsClause,
+  type AttributeSpec,
+  type BlockSpec,
+  type PostSpec,
+} from './queryBuilder/predicates'
 
 export type CategoryData = {
   id: string
@@ -46,6 +54,58 @@ export class CategoryQuery extends EntityQuery<
 
   nameMatches(pattern: string): this {
     return this.addPredicate(like(category.name, pattern))
+  }
+
+  withAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('category', category.id, [spec], 'with'))
+  }
+
+  withoutAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('category', category.id, [spec], 'without'))
+  }
+
+  withAnyAttribute(specs: AttributeSpec[]): this {
+    return this.addPredicate(
+      attributeExistsClause('category', category.id, specs, 'with', 'any'),
+    )
+  }
+
+  withAllAttributes(specs: AttributeSpec[]): this {
+    return this.addPredicate(
+      attributeExistsClause('category', category.id, specs, 'with', 'all'),
+    )
+  }
+
+  withPost(spec: PostSpec): this {
+    return this.addPredicate(postExistsClause('category', category.id, [spec], 'with'))
+  }
+
+  withoutPost(spec: PostSpec): this {
+    return this.addPredicate(postExistsClause('category', category.id, [spec], 'without'))
+  }
+
+  withAnyPost(specs: PostSpec[]): this {
+    return this.addPredicate(postExistsClause('category', category.id, specs, 'with', 'any'))
+  }
+
+  withAllPosts(specs: PostSpec[]): this {
+    return this.addPredicate(postExistsClause('category', category.id, specs, 'with', 'all'))
+  }
+
+  withBlock(spec: BlockSpec): this {
+    return this.addPredicate(blockExistsClause('category', category.id, [spec], 'with'))
+  }
+
+  withoutBlock(spec: BlockSpec): this {
+    return this.addPredicate(blockExistsClause('category', category.id, [spec], 'without'))
+  }
+
+  withAnyBlock(specs: BlockSpec[]): this {
+    return this.addPredicate(blockExistsClause('category', category.id, specs, 'with', 'any'))
+  }
+
+  withAllBlocks(specs: BlockSpec[]): this {
+    return this.addPredicate(blockExistsClause('category', category.id, specs, 'with', 'all'))
   }
 
   async all(): Promise<CategoryData[]> {

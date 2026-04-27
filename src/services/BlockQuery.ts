@@ -20,6 +20,12 @@ import {
   type BaseQueryState,
   type SortOrder,
 } from './queryBuilder/EntityQuery'
+import {
+  assetExistsClause,
+  attributeExistsClause,
+  type AssetSpec,
+  type AttributeSpec,
+} from './queryBuilder/predicates'
 
 export type BlockOrderField = 'position' | 'id'
 
@@ -66,6 +72,38 @@ export class BlockQuery extends EntityQuery<BlockData, BlockOrderField, BlockQue
 
   flat(): this {
     return this.clone({ hydrate: false })
+  }
+
+  withAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('block', block.id, [spec], 'with'))
+  }
+
+  withoutAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('block', block.id, [spec], 'without'))
+  }
+
+  withAnyAttribute(specs: AttributeSpec[]): this {
+    return this.addPredicate(attributeExistsClause('block', block.id, specs, 'with', 'any'))
+  }
+
+  withAllAttributes(specs: AttributeSpec[]): this {
+    return this.addPredicate(attributeExistsClause('block', block.id, specs, 'with', 'all'))
+  }
+
+  withAsset(spec: AssetSpec = {}): this {
+    return this.addPredicate(assetExistsClause('block', block.id, [spec], 'with'))
+  }
+
+  withoutAsset(spec: AssetSpec = {}): this {
+    return this.addPredicate(assetExistsClause('block', block.id, [spec], 'without'))
+  }
+
+  withAnyAsset(specs: AssetSpec[]): this {
+    return this.addPredicate(assetExistsClause('block', block.id, specs, 'with', 'any'))
+  }
+
+  withAllAssets(specs: AssetSpec[]): this {
+    return this.addPredicate(assetExistsClause('block', block.id, specs, 'with', 'all'))
   }
 
   async all(): Promise<BlockData[]> {

@@ -6,6 +6,12 @@ import {
   type BaseQueryState,
   type SortOrder,
 } from './queryBuilder/EntityQuery'
+import {
+  attributeExistsClause,
+  blockExistsClause,
+  type AttributeSpec,
+  type BlockSpec,
+} from './queryBuilder/predicates'
 
 export type PageData = {
   id: string
@@ -32,6 +38,38 @@ export class PageQuery extends EntityQuery<PageData, PageOrderField, PageQuerySt
 
   byKey(key: string): this {
     return this.addPredicate(eq(page.key, key))
+  }
+
+  withAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('page', page.id, [spec], 'with'))
+  }
+
+  withoutAttribute(spec: AttributeSpec): this {
+    return this.addPredicate(attributeExistsClause('page', page.id, [spec], 'without'))
+  }
+
+  withAnyAttribute(specs: AttributeSpec[]): this {
+    return this.addPredicate(attributeExistsClause('page', page.id, specs, 'with', 'any'))
+  }
+
+  withAllAttributes(specs: AttributeSpec[]): this {
+    return this.addPredicate(attributeExistsClause('page', page.id, specs, 'with', 'all'))
+  }
+
+  withBlock(spec: BlockSpec): this {
+    return this.addPredicate(blockExistsClause('page', page.id, [spec], 'with'))
+  }
+
+  withoutBlock(spec: BlockSpec): this {
+    return this.addPredicate(blockExistsClause('page', page.id, [spec], 'without'))
+  }
+
+  withAnyBlock(specs: BlockSpec[]): this {
+    return this.addPredicate(blockExistsClause('page', page.id, specs, 'with', 'any'))
+  }
+
+  withAllBlocks(specs: BlockSpec[]): this {
+    return this.addPredicate(blockExistsClause('page', page.id, specs, 'with', 'all'))
   }
 
   async all(): Promise<PageData[]> {

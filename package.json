@@ -1,6 +1,6 @@
 {
   "name": "@reeywhaar/bananacms",
-  "version": "0.0.1-alpha.2",
+  "version": "0.0.1-alpha.3",
   "description": "Pluggable CMS package powering a Next.js multi-zone setup",
   "type": "module",
   "main": "./dist/index.js",

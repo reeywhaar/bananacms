@@ -17,7 +17,12 @@ const mainFont = Roboto({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SERVER_URL!),
+  // Read at request time per page; undefined at package-build time when the
+  // env var isn't set yet. Falling back to undefined makes Next.js use
+  // relative URLs in metadata, which is acceptable for the admin UI.
+  metadataBase: process.env.NEXT_PUBLIC_SERVER_URL
+    ? new URL(process.env.NEXT_PUBLIC_SERVER_URL)
+    : undefined,
   title: {
     template: 'Manage | %s',
     default: 'Manage',

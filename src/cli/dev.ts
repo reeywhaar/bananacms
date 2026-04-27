@@ -3,7 +3,10 @@ import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
-export async function run(dev: boolean): Promise<void> {
+export async function run(
+  dev: boolean,
+  opts: { watchCms?: boolean } = {},
+): Promise<void> {
   const cmsDir = fileURLToPath(new URL('../', import.meta.url))
   const packageRoot = fileURLToPath(new URL('../../', import.meta.url))
   const consumerDir = process.cwd()
@@ -40,7 +43,12 @@ export async function run(dev: boolean): Promise<void> {
 
   const cmsChild = spawnZone('cms', cmsDir, cmsPort, dev, env)
   const consumerChild = spawnZone('pub', consumerDir, consumerPort, dev, env)
-  const buildChildren = dev ? maybeSpawnBuildWatch(packageRoot) : []
+  // The CMS source watch (tsup + tsc + tsc-alias) is only relevant when the
+  // package source is local and being modified — i.e. the workspace's own demo.
+  // External consumers install bananacms as a pre-built dependency; rebuilding
+  // its source there is impossible (no devDeps) and undesirable (no source).
+  // Default off; opt in via `--watch-cms` from the workspace demo script.
+  const buildChildren = dev && opts.watchCms ? maybeSpawnBuildWatch(packageRoot) : []
 
   let shuttingDown = false
   const shutdown = (signal: NodeJS.Signals) => {

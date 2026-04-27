@@ -1,12 +1,21 @@
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export async function run(): Promise<void> {
   const cmsDir = fileURLToPath(new URL('../', import.meta.url))
   const consumerDir = process.cwd()
 
-  console.info('bananacms: building CMS zone...')
-  await buildAt(cmsDir)
+  // Published packages ship a prebuilt CMS zone in dist/.next/. Only rebuild
+  // when running from a source tree (workspace dev) — installed consumers
+  // skip the CMS build and just build their own zone.
+  if (existsSync(join(cmsDir, '.next'))) {
+    console.info('bananacms: CMS zone is prebuilt; skipping rebuild.')
+  } else {
+    console.info('bananacms: building CMS zone...')
+    await buildAt(cmsDir)
+  }
 
   console.info('bananacms: building consumer zone...')
   await buildAt(consumerDir)

@@ -17,8 +17,12 @@ if (!command) {
 
 switch (command) {
   case 'dev': {
+    const { values } = parseArgs({
+      args: rest,
+      options: { 'watch-cms': { type: 'boolean', default: false } },
+    })
     const { run } = await import('./dev.ts')
-    await run(true)
+    await run(true, { watchCms: values['watch-cms'] })
     break
   }
   case 'start': {
@@ -101,7 +105,9 @@ function printHelp(): void {
 Usage: bananacms <command> [options]
 
 Commands:
-  dev                             Boot CMS zone + consumer zone in one process (development)
+  dev [--watch-cms]               Boot CMS zone + consumer zone in one process (development).
+                                  Pass --watch-cms when developing the CMS package source itself
+                                  (rebuilds dist/ on change so the consumer sees fresh types).
   start                           Same as dev but in production mode
   build                           Build both zones
   migrate [--force]               Run SQL migrations against DB_PATH

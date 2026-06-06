@@ -66,7 +66,7 @@ export class PostStore {
         slug: payload.slug,
         status: payload.status,
       })
-      const topPosition = await topPositionFor(tx, 'category', payload.categoryId)
+      const topPosition = await globalTopPosition(tx)
       await tx.insert(parentPost).values({
         postId: id,
         parentId: payload.categoryId,
@@ -211,6 +211,15 @@ async function topPositionFor(tx: Db, parentTable: string, parentId: string): Pr
     .select({ min: sql<number | null>`MIN(${parentPost.position})` })
     .from(parentPost)
     .where(and(eq(parentPost.parentTable, parentTable), eq(parentPost.parentId, parentId)))
+    .get()
+  const min = row?.min
+  return min == null ? 1 : min - 1
+}
+
+async function globalTopPosition(tx: Db): Promise<number> {
+  const row = await tx
+    .select({ min: sql<number | null>`MIN(${parentPost.position})` })
+    .from(parentPost)
     .get()
   const min = row?.min
   return min == null ? 1 : min - 1

@@ -645,6 +645,30 @@ describe('PostStore.move', () => {
   })
 })
 
+// ─── PostStore.add ───────────────────────────────────────────────────────────
+
+describe('PostStore.add', () => {
+  it('places the new post above all existing posts across all categories', async () => {
+    using testDb = await createTestDb()
+    await seedPosts(testDb)
+    await seedPostsInCategory2(testDb)
+    // Global order before: Apple(1), Banana(2), Cherry(3), Dragon(4), Elderberry(5)
+    const NEW_POST_ID = '019dbcea-d3a4-75e7-b37a-190d5165077f'
+    await new PostStore(testDb.db).add(NEW_POST_ID, {
+      name: 'Fig',
+      slug: 'fig',
+      categoryId: CATEGORY_ID,
+      status: 'published',
+      blocks: [],
+      translations: {},
+      tagIds: [],
+      attributes: [],
+    })
+    const posts = await new PostStore(testDb.db).query().all()
+    expect(posts[0].id).toBe(NEW_POST_ID)
+  })
+})
+
 // ─── seed fixtures ───────────────────────────────────────────────────────────
 
 async function seedPosts(testDb: TestDb): Promise<void> {

@@ -6,6 +6,7 @@ import {
   DragEndEvent,
   PointerSensor,
   KeyboardSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -47,6 +48,7 @@ export function SortableRows<T extends { id: string }>({
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
@@ -111,7 +113,7 @@ const SortableRow = ({ id, children }: { id: string; children: ReactNode }) => {
     <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-1">
       <button
         type="button"
-        className="cursor-grab select-none px-1 opacity-50 hover:opacity-100"
+        className="cursor-grab select-none px-1 opacity-50 hover:opacity-100 touch-none"
         aria-label="Drag to reorder"
         {...attributes}
         {...listeners}

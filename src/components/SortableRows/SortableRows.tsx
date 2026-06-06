@@ -84,6 +84,7 @@ export function SortableRows<T extends { id: string }>({
       id={dndId}
       sensors={sensors}
       collisionDetection={closestCenter}
+      autoScroll={{ layoutShiftCompensation: false }}
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={localItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>

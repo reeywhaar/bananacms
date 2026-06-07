@@ -36,22 +36,34 @@ export const Client: FC<{ posts: PostData[]; categories: CategoryData[] }> = ({
       renderItem={(item) => {
         const category = categories.find((c) => c.id === item.categoryId)
         return (
-          <Link
-            className="link flex-auto flex flex-row items-center justify-between gap-2"
-            href={routing.entityEdit('post', item.id)}
-          >
-            {item.name}
-            <span className="flex-auto" />
-            <span className="text-sm text-gray-400">{category?.name ?? '???'}</span>
-            <span className="text-sm text-gray-400">{item.createdAt}</span>
-            {item.status && (
-              <span
-                className={`text-xs px-1.5 py-0.5 rounded font-medium ${item.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
-              >
-                {item.status}
-              </span>
-            )}
-          </Link>
+          <>
+            <Link
+              className="link min-w-[150px] truncate text-sm md:text-base"
+              href={routing.entityEdit('post', item.id)}
+            >
+              {item.name}
+            </Link>
+            <div className="overflow-x-auto flex flex-row items-center gap-2">
+              {category ? (
+                <Link
+                  className="link text-sm whitespace-nowrap"
+                  href={routing.entityShow('category', category.id)}
+                >
+                  {category.name}
+                </Link>
+              ) : (
+                <span className="text-sm text-gray-400 whitespace-nowrap">???</span>
+              )}
+              <span className="text-sm text-gray-400 whitespace-nowrap">{item.createdAt}</span>
+              {item.status && (
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded font-medium whitespace-nowrap ${item.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                >
+                  {item.status}
+                </span>
+              )}
+            </div>
+          </>
         )
       }}
     />

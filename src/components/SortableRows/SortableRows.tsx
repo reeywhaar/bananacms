@@ -110,10 +110,14 @@ const SortableRow = ({ id, children }: { id: string; children: ReactNode }) => {
     opacity: isDragging ? 0.5 : 1,
   }
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-1">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 py-1"
+    >
       <button
         type="button"
-        className="cursor-grab select-none px-1 opacity-50 hover:opacity-100 touch-none"
+        className="cursor-grab select-none opacity-50 hover:opacity-100 touch-none"
         aria-label="Drag to reorder"
         {...attributes}
         {...listeners}

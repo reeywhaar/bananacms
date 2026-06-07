@@ -37,6 +37,7 @@
     "prepack": "rm -rf dist/.next/cache",
     "prepare": "npm run build",
     "demo": "cd demo && node ../src/cli/index.ts dev --watch-cms",
+    "demo:exec": "cd demo && node ../src/cli/index.ts",
     "next:clean": "rm -rf src/.next demo/.next",
     "seed:create": "./scripts/create_seed",
     "tgz:pack": "./scripts/pack_latest",

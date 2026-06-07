@@ -61,6 +61,7 @@ export class ApiDispatcher {
         method: action.method,
         headers,
         body: action.body,
+        credentials: 'same-origin',
       })
     } catch (cause) {
       throw new RequestError(cause)

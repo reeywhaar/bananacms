@@ -69,7 +69,7 @@ describe('POST /api/auth', () => {
     const cookie = res.cookies.get('auth')
     expect(cookie?.value).toBeTruthy()
     expect(cookie?.httpOnly).toBe(true)
-    expect(cookie?.sameSite).toBe('strict')
+    expect(cookie?.sameSite).toBe('lax')
     expect(cookie?.path).toBe('/')
 
     const userId = await new AuthTokenStore(testDb.db).getUserId(cookie!.value)

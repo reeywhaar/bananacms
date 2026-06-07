@@ -8,6 +8,7 @@ import { useToast } from '@cms/components/Toast/Toast'
 import { useEvent } from '@cms/hooks/useEvent'
 import { changePassword, revokeOtherSessions } from '@cms/lib/api/me'
 import { extractErrorMessage } from '@cms/utils/extractErrorMessage'
+import { pluralize } from '@cms/utils/pluralize'
 
 export const MeClient: FC<{
   user: { id: string; name: string }
@@ -48,11 +49,20 @@ export const MeClient: FC<{
 
   const handleRevoke = useEvent(async () => {
     if (otherSessions === 0) return
-    if (!window.confirm(`Revoke ${otherSessions} other session(s)?`)) return
+    if (
+      !window.confirm(
+        `Revoke ${otherSessions} other ${pluralize(otherSessions, { one: 'session', other: 'sessions' })}`,
+      )
+    )
+      return
     await withProgress(async () => {
       try {
         const { revoked } = await dispatcher.dispatch(revokeOtherSessions())
-        showToast('info', `Revoked ${revoked} session(s).`, { timeout: 2000 })
+        showToast(
+          'info',
+          `Revoked ${revoked} ${pluralize(revoked, { one: 'session', other: 'sessions' })}.`,
+          { timeout: 2000 },
+        )
         router.refresh()
       } catch (err) {
         showToast('error', extractErrorMessage(err), { timeout: 3000 })
@@ -121,7 +131,7 @@ export const MeClient: FC<{
         <p className="text-sm text-gray-600 mb-2">
           {otherSessions === 0
             ? 'No other active sessions.'
-            : `${otherSessions} other active session(s).`}
+            : `${otherSessions} other active ${pluralize(otherSessions, { one: 'session', other: 'sessions' })}.`}
         </p>
         <div className="flex justify-end">
           <button

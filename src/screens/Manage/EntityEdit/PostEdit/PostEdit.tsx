@@ -43,18 +43,19 @@ export default async function PostEdit({ id }: { id?: string }) {
 
   const translations = id ? await new LocalizationStore(db).getByParentId('post', id) : {}
 
-  const imageAssetIds: string[] = []
+  const assetIds: string[] = []
   const collect = (list: BlockData[]): void => {
     for (const b of list) {
-      if (b.content.type === 'image' && b.content.assetId) imageAssetIds.push(b.content.assetId)
+      if (b.content.type === 'image' && b.content.assetId) assetIds.push(b.content.assetId)
+      if (b.content.type === 'asset' && b.content.assetId) assetIds.push(b.content.assetId)
       if (b.content.type === 'group') collect(b.content.blocks)
     }
   }
   collect(blocks)
 
   const assetStore = new AssetStore(db)
-  const [assetContents, assetSizes] = imageAssetIds.length
-    ? await Promise.all([assetStore.getContent(imageAssetIds), assetStore.getSizes(imageAssetIds)])
+  const [assetContents, assetSizes] = assetIds.length
+    ? await Promise.all([assetStore.getContent(assetIds), assetStore.getSizes(assetIds)])
     : [{}, {}]
 
   return (

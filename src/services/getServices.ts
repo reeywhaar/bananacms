@@ -34,12 +34,31 @@ const resolveRequestIds = async (): Promise<{ traceId: string; sessionId: string
   return ids
 }
 
+const resolveRequestInfo = async (): Promise<Record<string, string>> => {
+  const hdrs = await headers()
+  const ip =
+    hdrs.get('x-forwarded-for')?.split(',')[0]?.trim() || hdrs.get('x-real-ip') || undefined
+  const info: Record<string, string | undefined> = {
+    host: hdrs.get('host') ?? undefined,
+    ip,
+    ua: hdrs.get('user-agent') ?? undefined,
+    proto: hdrs.get('x-forwarded-proto') ?? undefined,
+    referer: hdrs.get('referer') ?? undefined,
+    origin: hdrs.get('origin') ?? undefined,
+    lang: hdrs.get('accept-language') ?? undefined,
+  }
+  return Object.fromEntries(
+    Object.entries(info).filter(([, v]) => v !== undefined),
+  ) as Record<string, string>
+}
+
 export type AuthData =
   | { user: { id: string; name: string }; token: string; tokenExpiresAt: string }
   | undefined
 
 export const getServices = async () => {
   const { traceId, sessionId } = await resolveRequestIds()
+  const requestInfo = await resolveRequestInfo()
   return requestSetup(sessionId, 'services', async () => {
     const db: Db = await globalSetup('services', async () => {
       const { client, db } = openDb(resolveDbPath())
@@ -51,7 +70,7 @@ export const getServices = async () => {
     const userStore = new UserStore(db)
     const postSearchStore = new PostSearchStore(db)
 
-    const rootLogger = createRootLogger({ traceId, sessionId })
+    const rootLogger = createRootLogger({ traceId, sessionId, request: requestInfo })
     const apiDispatcher = new ApiDispatcher(traceId)
 
     const token = (await cookies()).get('auth')?.value

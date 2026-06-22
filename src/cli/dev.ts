@@ -156,18 +156,42 @@ function spawnZone(
   return child
 }
 
+function jsonLogFormat(): boolean {
+  if (process.env.LOG_FORMAT === 'json') return true
+  if (process.env.LOG_FORMAT === 'dev') return false
+  return process.env.NODE_ENV === 'production'
+}
+
+// Child lines that are themselves JSON objects get the zone merged in (without
+// clobbering an existing key); everything else is wrapped as {zone, message}.
+function formatLine(json: boolean, name: string, line: string): string {
+  if (!json) return `[${name}] ${line}`
+  if (line.startsWith('{')) {
+    try {
+      const parsed: unknown = JSON.parse(line)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const record = parsed as Record<string, unknown>
+        return JSON.stringify('zone' in record ? record : { zone: name, ...record })
+      }
+    } catch {
+      // not JSON — fall through to the wrapped form
+    }
+  }
+  return JSON.stringify({ zone: name, message: line })
+}
+
 function prefixStream(name: string, src: NodeJS.ReadableStream | null, dst: NodeJS.WriteStream) {
   if (!src) return
-  const prefix = `[${name}] `
+  const json = jsonLogFormat()
   let carry = ''
   src.on('data', (chunk: Buffer | string) => {
     const text = carry + (typeof chunk === 'string' ? chunk : chunk.toString())
     const lines = text.split('\n')
     carry = lines.pop() ?? ''
-    for (const line of lines) dst.write(`${prefix}${line}\n`)
+    for (const line of lines) dst.write(`${formatLine(json, name, line)}\n`)
   })
   src.on('end', () => {
-    if (carry) dst.write(`${prefix}${carry}\n`)
+    if (carry) dst.write(`${formatLine(json, name, carry)}\n`)
   })
 }
 

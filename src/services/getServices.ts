@@ -47,9 +47,10 @@ const resolveRequestInfo = async (): Promise<Record<string, string>> => {
     origin: hdrs.get('origin') ?? undefined,
     lang: hdrs.get('accept-language') ?? undefined,
   }
-  return Object.fromEntries(
-    Object.entries(info).filter(([, v]) => v !== undefined),
-  ) as Record<string, string>
+  return Object.fromEntries(Object.entries(info).filter(([, v]) => v !== undefined)) as Record<
+    string,
+    string
+  >
 }
 
 export type AuthData =

@@ -1,6 +1,6 @@
 import { createHash, randomBytes, scrypt, type ScryptOptions } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { v7 as uuidv7 } from 'uuid'
 import { openDb } from '@cms/lib/db/client'
 
@@ -15,9 +15,10 @@ const KEYLEN = 64
 const SALT_BYTES = 16
 
 export async function run({ name, password }: { name: string; password: string }): Promise<void> {
-  const dbPath = requireEnv('DB_PATH')
+  const dataPath = requireEnv('DATA_PATH')
+  const dbPath = join(dataPath, 'database.db')
 
-  await mkdir(dirname(resolve(dbPath)), { recursive: true })
+  await mkdir(resolve(dataPath), { recursive: true })
 
   const { client } = openDb(dbPath)
 

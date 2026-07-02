@@ -129,7 +129,7 @@ Commands:
                                   (rebuilds dist/ on change so the consumer sees fresh types).
   start                           Same as dev but in production mode
   build                           Build both zones
-  migrate [--force]               Run SQL migrations against DB_PATH
+  migrate [--force]               Run SQL migrations against DATA_PATH/database.db
   db:add-migration                Create a new client migration file in src/lib/migrations/
   db:set-user <name> <pw>         Create or update an admin user
   db:seed                         Apply seed/database.sql if DB is absent or empty
@@ -143,7 +143,7 @@ Commands:
   assets:cleanup [--dry-run]      Remove files in ASSETS_DIRECTORY with no DB record
 
 Environment (from .env in cwd):
-  DB_PATH                         Path to the SQLite database file
+  DATA_PATH                       Path to the data directory (database stored as database.db inside)
   ASSETS_DIRECTORY                Path to the asset storage directory
   BANANACMS_HOST                  Public host used to build NEXT_PUBLIC_SERVER_URL in dev/start (default: localhost). CMS_INTERNAL_URL is always bound to localhost.
   BANANACMS_CONFIG_MODULE         Path to the consumer's createCMS() module, relative to cwd (default: src/cms.ts). Both zones side-effect-import this at boot.

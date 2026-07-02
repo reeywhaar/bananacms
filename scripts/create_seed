@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-DB_PATH="${DB_PATH:-private/database.db}"
+DATA_PATH="${DATA_PATH:-private}"
+DB_PATH="$DATA_PATH/database.db"
 
 if [ ! -f "$DB_PATH" ]; then
   echo "Database not found: $DB_PATH" >&2

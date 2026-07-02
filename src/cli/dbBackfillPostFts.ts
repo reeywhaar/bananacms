@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { openDb, runMigrations } from '@cms/lib/db/client'
 import { post } from '@cms/lib/db/schema'
 import { PostSearchStore } from '@cms/services/PostSearchStore'
@@ -12,7 +13,8 @@ function requireEnv(name: string): string {
 }
 
 export async function run(): Promise<void> {
-  const dbPath = requireEnv('DB_PATH')
+  const dataPath = requireEnv('DATA_PATH')
+  const dbPath = join(dataPath, 'database.db')
   const { client, db } = openDb(dbPath)
 
   await runMigrations(client)

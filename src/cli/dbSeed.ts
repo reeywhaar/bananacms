@@ -1,9 +1,11 @@
 import fs from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { openDb } from '@cms/lib/db/client'
 
 export async function run(): Promise<void> {
-  const dbPath = requireEnv('DB_PATH')
+  const dataPath = requireEnv('DATA_PATH')
+  const dbPath = join(dataPath, 'database.db')
   const seedPath = fileURLToPath(new URL('../../seed/database.sql', import.meta.url))
 
   if (!fs.existsSync(seedPath)) {

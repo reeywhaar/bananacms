@@ -4,7 +4,8 @@ import sharp from 'sharp'
 import { openDb } from '@cms/lib/db/client'
 
 export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
-  const dbPath = requireEnv('DB_PATH')
+  const dataPath = requireEnv('DATA_PATH')
+  const dbPath = join(dataPath, 'database.db')
   const assetsDir = process.env.ASSETS_DIRECTORY
 
   const { client } = openDb(dbPath)

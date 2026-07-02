@@ -1,5 +1,6 @@
 'use server'
 
+import { join } from 'node:path'
 import { ApiDispatcher } from '@cms/lib/api/Dispatcher'
 import { AuthTokenStore } from './AuthTokenStore'
 import { PostSearchStore } from './PostSearchStore'
@@ -15,7 +16,8 @@ import { ApiError } from '@cms/lib/api/error'
 
 const resolveDbPath = (): string => {
   if (isCMSInitialized()) return getCMS().env.dbPath
-  return process.env.DB_PATH ?? invariant('DB_PATH environment variable is not set')
+  const dataPath = process.env.DATA_PATH ?? invariant('DATA_PATH environment variable is not set')
+  return join(dataPath, 'database.db')
 }
 
 const REQUEST_IDS = new WeakMap<object, { traceId: string; sessionId: string }>()

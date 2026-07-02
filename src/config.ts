@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import type { ComponentType } from 'react'
 
 export interface CMSLocale {
@@ -57,7 +58,7 @@ const host = globalThis as unknown as Host
 
 export function createCMS(input: CreateCMSInput): CMSInstance {
   const env: CMSEnv = {
-    dbPath: input.env?.dbPath ?? requireEnv('DB_PATH', 'dbPath'),
+    dbPath: input.env?.dbPath ?? join(requireEnv('DATA_PATH', 'dataPath'), 'database.db'),
     assetsDir: input.env?.assetsDir ?? requireEnv('ASSETS_DIRECTORY', 'assetsDir'),
   }
   const resolved: CMSInstance = {

@@ -1,11 +1,12 @@
 import { mkdir } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { openDb, runMigrations } from '@cms/lib/db/client'
 
 export async function run({ force = false }: { force?: boolean }): Promise<void> {
-  const dbPath = requireEnv('DB_PATH')
+  const dataPath = requireEnv('DATA_PATH')
+  const dbPath = join(dataPath, 'database.db')
 
-  await mkdir(resolve(dbPath, '..'), { recursive: true })
+  await mkdir(resolve(dataPath), { recursive: true })
 
   const { client } = openDb(dbPath)
 

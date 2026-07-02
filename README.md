@@ -120,18 +120,18 @@ Each consumer owns a `.env`. A template is provided:
 cp demo/.env.example demo/.env
 ```
 
-| Variable | Required | Notes |
-|---|---|---|
-| `NEXT_PUBLIC_SERVER_URL` | yes | Public origin (e.g. `http://localhost:3000`). Used for CORS, metadata, asset URLs. |
-| `ALLOWED_HOSTS` | no | Extra dev-mode hostnames, comma-separated. |
-| `DB_PATH` | yes | Path to SQLite DB file, relative to `.env` or absolute. |
-| `ASSETS_DIRECTORY` | yes | Directory for asset storage. |
-| `PORT` | no | Consumer zone port (default `3000`). |
-| `CMS_INTERNAL_PORT` | no | CMS zone port (default `4001`). |
-| `CMS_INTERNAL_URL` | no | Derived from `CMS_INTERNAL_PORT` by default. |
-| `LOG_FORMAT` | no | `dev` or `json`. Defaults: `dev` in development, `json` in production. |
-| `LOG_LEVEL` | no | `debug` / `info` / `warn` / `error`. Default `info`. |
-| `NO_COLOR` | no | Disable ANSI colors in the dev log formatter. |
+| Variable                 | Required | Notes                                                                              |
+| ------------------------ | -------- | ---------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SERVER_URL` | yes      | Public origin (e.g. `http://localhost:3000`). Used for CORS, metadata, asset URLs. |
+| `ALLOWED_HOSTS`          | no       | Extra dev-mode hostnames, comma-separated.                                         |
+| `DATA_PATH`              | yes      | Directory for data storage. SQLite database is stored inside as `database.db`.     |
+| `ASSETS_DIRECTORY`       | yes      | Directory for asset storage.                                                       |
+| `PORT`                   | no       | Consumer zone port (default `3000`).                                               |
+| `CMS_INTERNAL_PORT`      | no       | CMS zone port (default `4001`).                                                    |
+| `CMS_INTERNAL_URL`       | no       | Derived from `CMS_INTERNAL_PORT` by default.                                       |
+| `LOG_FORMAT`             | no       | `dev` or `json`. Defaults: `dev` in development, `json` in production.             |
+| `LOG_LEVEL`              | no       | `debug` / `info` / `warn` / `error`. Default `info`.                               |
+| `NO_COLOR`               | no       | Disable ANSI colors in the dev log formatter.                                      |
 
 ## Quick start
 
@@ -223,17 +223,23 @@ import { PostStore } from '@reeywhaar/bananacms/stores'
 export default async function Page() {
   const { db } = await getServices()
   const posts = await new PostStore(db).getPublic()
-  return <ul>{posts.map((p) => <li key={p.id}>{p.name}</li>)}</ul>
+  return (
+    <ul>
+      {posts.map((p) => (
+        <li key={p.id}>{p.name}</li>
+      ))}
+    </ul>
+  )
 }
 ```
 
 ### Package exports
 
-| Path | What's there | Loaded by |
-|---|---|---|
-| `@reeywhaar/bananacms` | `createCMS`, `getCMS`, `createConfig`, `cmsRewrites`, `mergeRewrites`, all config types | Next config loader + bundler |
-| `@reeywhaar/bananacms/runtime` | `getServices`, asset helpers, block types, `combineProxies`, middleware factories | bundler only |
-| `@reeywhaar/bananacms/stores` | `PostStore`, `CategoryStore`, `BlockStore`, `AssetStore`, `PageStore`, `TagStore`, `UserStore`, `AuthTokenStore`, `LocalizationStore` | bundler only |
+| Path                           | What's there                                                                                                                          | Loaded by                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `@reeywhaar/bananacms`         | `createCMS`, `getCMS`, `createConfig`, `cmsRewrites`, `mergeRewrites`, all config types                                               | Next config loader + bundler |
+| `@reeywhaar/bananacms/runtime` | `getServices`, asset helpers, block types, `combineProxies`, middleware factories                                                     | bundler only                 |
+| `@reeywhaar/bananacms/stores`  | `PostStore`, `CategoryStore`, `BlockStore`, `AssetStore`, `PageStore`, `TagStore`, `UserStore`, `AuthTokenStore`, `LocalizationStore` | bundler only                 |
 
 The split exists so Next.js's config transpiler (which pulls `@reeywhaar/bananacms` into
 CJS at boot) doesn't eagerly load request-time code like DB services.
@@ -245,23 +251,23 @@ CJS at boot) doesn't eagerly load request-time code like DB services.
 Always run from the consumer directory (`cd demo && cms <command>`), or via
 the `demo:*` scripts at the repo root.
 
-| Command | Purpose |
-|---|---|
-| `cms dev` | Boot CMS + consumer zones (dev mode). |
-| `cms start` | Same, production mode. |
-| `cms build` | Build both zones. |
-| `cms migrate [--force]` | Apply SQL migrations to `DB_PATH`. |
-| `cms db:set-user <name> <password>` | Create or update an admin user. |
-| `cms db:seed` | Apply `seed/database.sql` from the `@reeywhaar/bananacms` package, but only if `DB_PATH` is absent or has no tables. |
-| `cms db:cleanup [--dry-run]` | Remove orphaned posts, blocks, assets, then `VACUUM`. |
-| `cms db:backfill-image-dimensions [--dry-run]` | Populate width/height on image assets using `sharp`. |
-| `cms assets:cleanup [--dry-run]` | Remove files in `ASSETS_DIRECTORY` with no DB record. |
+| Command                                        | Purpose                                                                                                                            |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `cms dev`                                      | Boot CMS + consumer zones (dev mode).                                                                                              |
+| `cms start`                                    | Same, production mode.                                                                                                             |
+| `cms build`                                    | Build both zones.                                                                                                                  |
+| `cms migrate [--force]`                        | Apply SQL migrations to `DATA_PATH/database.db`.                                                                                   |
+| `cms db:set-user <name> <password>`            | Create or update an admin user.                                                                                                    |
+| `cms db:seed`                                  | Apply `seed/database.sql` from the `@reeywhaar/bananacms` package, but only if `DATA_PATH/database.db` is absent or has no tables. |
+| `cms db:cleanup [--dry-run]`                   | Remove orphaned posts, blocks, assets, then `VACUUM`.                                                                              |
+| `cms db:backfill-image-dimensions [--dry-run]` | Populate width/height on image assets using `sharp`.                                                                               |
+| `cms assets:cleanup [--dry-run]`               | Remove files in `ASSETS_DIRECTORY` with no DB record.                                                                              |
 
 ---
 
 ## Seed database
 
-The repo ships a committed SQL dump at [seed/database.sql](seed/database.sql) that `cms db:seed` applies to a fresh `DB_PATH`. Run it from the consumer after `migrate` is *not* needed — the dump includes the full schema.
+The repo ships a committed SQL dump at [seed/database.sql](seed/database.sql) that `cms db:seed` applies to a fresh `DATA_PATH/database.db`. Run it from the consumer after `migrate` is _not_ needed — the dump includes the full schema.
 
 To regenerate the seed from the current dev DB (at repo root):
 
@@ -269,7 +275,7 @@ To regenerate the seed from the current dev DB (at repo root):
 npm run seed:create
 ```
 
-This calls [scripts/create_seed](scripts/create_seed), which takes a `.backup` copy of `DB_PATH` (default `private/database.db`), strips `user` + `authtoken` rows, and writes `seed/database.sql`. The live DB is never modified.
+This calls [scripts/create_seed](scripts/create_seed), which takes a `.backup` copy of `DATA_PATH/database.db` (default `private/database.db`), strips `user` + `authtoken` rows, and writes `seed/database.sql`. The live DB is never modified.
 
 ## Development
 

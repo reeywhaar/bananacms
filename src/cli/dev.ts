@@ -27,7 +27,7 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
     NEXT_PUBLIC_SERVER_URL: publicUrl,
     CMS_INTERNAL_URL: cmsInternalUrl,
     BANANACMS_CONFIG_MODULE: configModule,
-    ...(process.env.DB_PATH ? { DB_PATH: absolutePath(process.env.DB_PATH) } : {}),
+    ...(process.env.DATA_PATH ? { DATA_PATH: absolutePath(process.env.DATA_PATH) } : {}),
     ...(process.env.ASSETS_DIRECTORY
       ? { ASSETS_DIRECTORY: absolutePath(process.env.ASSETS_DIRECTORY) }
       : {}),

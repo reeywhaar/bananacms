@@ -11,6 +11,7 @@ import { createRootLogger } from '@cms/lib/logger/root'
 import { v4 as uuid } from 'uuid'
 import { isCMSInitialized, getCMS } from '@cms/config'
 import { openDb, openDerivedDb, runMigrations } from '@cms/lib/db/client'
+import { setupSnapshotScheduler, wrapDbWithWriteHook } from '@cms/lib/snapshots/setup'
 import { ApiError } from '@cms/lib/api/error'
 
 const resolveDbPath = (): string => {
@@ -72,7 +73,11 @@ export const getServices = async () => {
       const { client, db } = openDb(resolveDbPath())
       const { client: derivedClient, db: derivedDb } = openDerivedDb(resolveDerivedDbPath())
       await runMigrations(client, derivedClient)
-      return { db, derivedDb }
+      const snapshotScheduler = setupSnapshotScheduler(client)
+      const trackedDb = snapshotScheduler
+        ? wrapDbWithWriteHook(db, () => snapshotScheduler.markDirty())
+        : db
+      return { client, db: trackedDb, derivedDb }
     })
 
     const authTokenStore = new AuthTokenStore(derivedDb)

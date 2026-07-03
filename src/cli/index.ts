@@ -106,6 +106,29 @@ switch (command) {
     await run({ dryRun: values['dry-run'] })
     break
   }
+  case 'snapshot': {
+    const { values, positionals } = parseArgs({
+      args: rest,
+      options: { raw: { type: 'boolean', default: false } },
+      allowPositionals: true,
+    })
+    const [action, indexStr] = positionals
+    if (action !== 'list' && action !== 'view' && action !== 'restore') {
+      console.error('Usage: bananacms snapshot <list|view|restore> [index] [--raw]')
+      process.exit(1)
+    }
+    let index: number | undefined
+    if (action === 'view' || action === 'restore') {
+      index = Number.parseInt(indexStr ?? '', 10)
+      if (!Number.isInteger(index) || index < 1) {
+        console.error(`Usage: bananacms snapshot ${action} <index>   (1 = newest snapshot)`)
+        process.exit(1)
+      }
+    }
+    const { run } = await import('./snapshot.ts')
+    await run({ action, index, raw: values.raw })
+    break
+  }
   case 'help':
   case '--help':
   case '-h': {
@@ -141,6 +164,13 @@ Commands:
                                   Convert old sequential migration IDs in the DB table to the
                                   new 12-digit timestamp-based IDs from migration files
   assets:cleanup [--dry-run]      Remove files in ASSETS_DIRECTORY with no DB record
+  snapshot list                   List database snapshots in DATA_PATH/snapshots (1 = newest)
+  snapshot view <n> [--raw]       Print snapshot <n> as SQL (--raw prints the stored file,
+                                  which is a diff for all but the oldest snapshot)
+  snapshot restore <n>            Replace DATA_PATH/database.db with snapshot <n>. The app
+                                  must be stopped (refuses while the .pid file marks it
+                                  running on this host); the current state is snapshotted
+                                  first.
 
 Environment (from .env in cwd):
   DATA_PATH                       Path to the data directory (database stored as database.db inside)
@@ -148,5 +178,10 @@ Environment (from .env in cwd):
   BANANACMS_HOST                  Public host used to build NEXT_PUBLIC_SERVER_URL in dev/start (default: localhost). CMS_INTERNAL_URL is always bound to localhost.
   BANANACMS_CONFIG_MODULE         Path to the consumer's createCMS() module, relative to cwd (default: src/cms.ts). Both zones side-effect-import this at boot.
   SERVER_PORT                     Public-zone port (default: 3000). CMS zone runs on SERVER_PORT + 1.
+  SNAPSHOTS_COUNT                 Enable automatic DB snapshots and keep at most this many
+                                  (0 or unset disables). Snapshots are taken at app start and
+                                  after each burst of writes, into DATA_PATH/snapshots.
+  SNAPSHOTS_DELAY                 Seconds between the first write and the snapshot capturing
+                                  it (default: 600)
 `)
 }

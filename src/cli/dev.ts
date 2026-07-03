@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
+import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
 
 export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Promise<void> {
   const cmsDir = fileURLToPath(new URL('../', import.meta.url))
@@ -37,6 +38,12 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
   console.info(`bananacms [${mode}]`)
   console.info(`  Pub zone: ${publicUrl}`)
   console.info(`  CMS zone: ${cmsInternalUrl}`)
+
+  // Marks the app as running so `snapshot restore` refuses to touch the DB
+  // underneath it. The exit hook also covers signal-triggered shutdowns —
+  // process.exit below fires it.
+  writePidFile()
+  process.on('exit', removePidFile)
 
   const cmsChild = spawnZone('cms', cmsDir, cmsPort, dev, env)
   const consumerChild = spawnZone('pub', consumerDir, consumerPort, dev, env)

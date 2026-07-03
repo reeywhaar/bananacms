@@ -15,6 +15,9 @@ public/sitemap*.xml
 
 private
 
+# bananacms running-app marker (written by `bananacms dev|start`)
+.pid
+
 # Playwright
 node_modules/
 /test-results/

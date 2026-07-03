@@ -132,6 +132,8 @@ cp demo/.env.example demo/.env
 | `LOG_FORMAT`             | no       | `dev` or `json`. Defaults: `dev` in development, `json` in production.             |
 | `LOG_LEVEL`              | no       | `debug` / `info` / `warn` / `error`. Default `info`.                               |
 | `NO_COLOR`               | no       | Disable ANSI colors in the dev log formatter.                                      |
+| `SNAPSHOTS_COUNT`        | no       | Enable [automatic DB snapshots](#database-snapshots) and keep at most this many. `0` or unset disables. |
+| `SNAPSHOTS_DELAY`        | no       | Seconds between the first DB write and the snapshot capturing it (default `600`).  |
 
 ## Quick start
 
@@ -262,8 +264,19 @@ the `demo:*` scripts at the repo root.
 | `cms db:cleanup [--dry-run]`                   | Remove orphaned posts, blocks, assets, then `VACUUM`.                                                                              |
 | `cms db:backfill-image-dimensions [--dry-run]` | Populate width/height on image assets using `sharp`.                                                                               |
 | `cms assets:cleanup [--dry-run]`               | Remove files in `ASSETS_DIRECTORY` with no DB record.                                                                              |
+| `cms snapshot list`                            | List [database snapshots](#database-snapshots), newest first.                                                                      |
+| `cms snapshot view <n> [--raw]`                | Print snapshot `n` (1 = newest) as a full SQL dump; `--raw` prints the stored file instead (a diff for all but the oldest).        |
+| `cms snapshot restore <n>`                     | Replace `DATA_PATH/database.db` with snapshot `n`. Stop the app first; the current state is snapshotted before it is replaced.     |
 
 ---
+
+## Database snapshots
+
+Set `SNAPSHOTS_COUNT` (e.g. `5`) to enable automatic snapshots of `DATA_PATH/database.db` into `DATA_PATH/snapshots/`. `derived.db` holds only regenerable data and is not snapshotted.
+
+- A snapshot is taken at app start, and another one `SNAPSHOTS_DELAY` seconds (default 600) after each burst of writes — many edits inside the window collapse into one snapshot. Unchanged database states are never snapshotted twice.
+- Snapshots are deterministic SQL dumps stored as text: the oldest is a full `.sql` dump, each newer one a `.diff` against its predecessor (`snapshot_YYYYMMDD_HHmmssSSS.sql|diff`, UTC). When the count exceeds `SNAPSHOTS_COUNT`, the two oldest are merged into a new full dump.
+- `cms snapshot restore <n>` rebuilds the chosen snapshot into a temp database, integrity-checks it, and atomically swaps it in — after snapshotting the current state, so a restore is itself restorable. The command refuses to run while the app is up (tracked via a `.pid` file in the consumer directory), and requires the CLI to run on the same host/container as the app.
 
 ## Seed database
 

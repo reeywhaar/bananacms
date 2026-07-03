@@ -4,10 +4,12 @@ import { type BlockData } from '@cms/lib/blocks/declarations'
 import { createTestDb, type TestDb } from '../test/db'
 import {
   asset,
+  attribute,
   block,
   category,
   localizations,
   parentAsset,
+  parentAttribute,
   parentBlock,
   post,
 } from '@cms/lib/db/schema'
@@ -388,6 +390,50 @@ describe('BlockStore.saveByParent', () => {
 
     const remaining = await testDb.db.select({ id: block.id }).from(block)
     expect(remaining).toEqual([])
+  })
+
+  it('does not orphan attributes when blocks are replaced under new ids', async () => {
+    using testDb = await createTestDb()
+    await testDb.db.insert(post).values({
+      id: POST_ID,
+      shortid: POST_ID.slice(-8),
+      name: 'Host Post',
+      slug: 'host-post',
+      status: 'published',
+    })
+
+    const withAttributes = makeNestedBlocks()
+    withAttributes[0].attributes = [
+      { id: 'attr-outer', key: 'style', translatable: false, text: 'wide' },
+    ]
+    const inner = withAttributes[0].content
+    if (inner.type !== 'group' || inner.blocks[0].content.type !== 'group') {
+      throw new Error('unreachable')
+    }
+    inner.blocks[0].content.blocks[0].attributes = [
+      { id: 'attr-nested', key: 'tone', translatable: true, text: 'calm' },
+    ]
+
+    const store = new BlockStore(testDb.db)
+    await store.saveByParent('post', POST_ID, withAttributes)
+    expect(await testDb.db.select({ id: attribute.id }).from(attribute)).toHaveLength(2)
+
+    // Re-save under entirely new block ids and without attributes — the
+    // blocks-JSON flow. The old attribute rows must not linger.
+    const replacement: BlockData[] = [
+      {
+        id: '019dbcea-d3a4-75e7-b37a-190d51650e99',
+        parent: { type: 'post', id: POST_ID },
+        content: { type: 'text', key: 'fresh', contentType: 'plain', text: 'New' },
+        attributes: [],
+      },
+    ]
+    await store.saveByParent('post', POST_ID, replacement)
+
+    expect(await testDb.db.select({ id: attribute.id }).from(attribute)).toEqual([])
+    expect(
+      await testDb.db.select({ id: parentAttribute.attributeId }).from(parentAttribute),
+    ).toEqual([])
   })
 })
 

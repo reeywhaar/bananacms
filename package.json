@@ -60,6 +60,7 @@
     "disposablestack": "^1.1.7",
     "drizzle-orm": "^0.45.2",
     "framer-motion": "^12.38.0",
+    "json5": "^2.2.3",
     "postcss": "^8.5.9",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.2",

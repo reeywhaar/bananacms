@@ -1,7 +1,9 @@
 import { and, asc, desc, eq, gt, inArray, lt, notInArray, or, sql, type SQL } from 'drizzle-orm'
 import { type Db } from '@cms/lib/db/client'
 import {
+  attribute,
   block,
+  parentAttribute,
   parentBlock,
   post,
   page,
@@ -101,6 +103,23 @@ export class BlockStore {
       `)
     ).map((r) => r.blockId)
     if (orphanIds.length === 0) return
+    // parent_attribute has no FK on parentId, so block attributes must be
+    // swept explicitly or they survive as orphans (deleting the attribute
+    // cascades its parent_attribute row).
+    const attributeIds = (
+      await this.db
+        .select({ id: parentAttribute.attributeId })
+        .from(parentAttribute)
+        .where(
+          and(
+            eq(parentAttribute.parentTable, 'block'),
+            inArray(parentAttribute.parentId, orphanIds),
+          ),
+        )
+    ).map((r) => r.id)
+    if (attributeIds.length > 0) {
+      await this.db.delete(attribute).where(inArray(attribute.id, attributeIds))
+    }
     await this.db.delete(block).where(inArray(block.id, orphanIds))
   }
 

@@ -7,6 +7,7 @@ import { useToast } from '@cms/components/Toast/Toast'
 import { useCMSLocales } from '@cms/components/CMSLocalesProvider/CMSLocalesProvider'
 import { extractErrorMessage } from '@cms/utils/extractErrorMessage'
 import { serializeBlocks, deserializeData } from './serialize'
+import JSON5 from 'json5'
 
 type SerializeModalProps = {
   blocks: BlockData[]
@@ -48,7 +49,9 @@ export const SerializeModal: FC<SerializeModalProps> = ({
   const handleSave = () => {
     setSaving(true)
     try {
-      const result = deserializeData(JSON.parse(value), translations, defaultLocale)
+      // JSON5 tolerates trailing commas, comments, and single quotes — the
+      // textarea is hand-edited, strict JSON syntax errors are just friction.
+      const result = deserializeData(JSON5.parse(value), translations, defaultLocale, blocks)
       onSave(result.blocks, result.translations)
       onClose()
     } catch (e) {

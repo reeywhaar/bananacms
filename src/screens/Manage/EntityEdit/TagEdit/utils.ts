@@ -1,16 +1,16 @@
-'use server'
 import { and, eq } from 'drizzle-orm'
 import { getServices, requireAuth } from '@cms/services/getServices'
 import { TagPayload, TagStore } from '@cms/services/TagStore'
 import { parentTag } from '@cms/lib/db/schema'
 import { createServerAction } from '@cms/lib/serverActions'
+import { PostSearchStore } from '@cms/services/PostSearchStore'
 
 export const editTag = createServerAction(
   async (id: string, payload: TagPayload): Promise<void> => {
     await requireAuth()
-    const { db, postSearchStore } = await getServices()
+    const { db } = await getServices()
     await new TagStore(db).update(id, payload)
-    await postSearchStore.rebuildPostsWithTag(id)
+    await new PostSearchStore(db).rebuildPostsWithTag(id)
   },
 )
 
@@ -22,7 +22,7 @@ export const addTag = createServerAction(async (id: string, payload: TagPayload)
 
 export const deleteTag = createServerAction(async (id: string): Promise<void> => {
   await requireAuth()
-  const { db, postSearchStore } = await getServices()
+  const { db } = await getServices()
   // Capture affected post IDs before cascade delete removes parent_tag rows
   const rows = await db
     .select({ postId: parentTag.parentId })
@@ -30,6 +30,6 @@ export const deleteTag = createServerAction(async (id: string): Promise<void> =>
     .where(and(eq(parentTag.tagId, id), eq(parentTag.parentTable, 'post')))
   await new TagStore(db).delete(id)
   for (const { postId } of rows) {
-    await postSearchStore.rebuildPostIndex(postId)
+    await new PostSearchStore(db).rebuildPostIndex(postId)
   }
 })

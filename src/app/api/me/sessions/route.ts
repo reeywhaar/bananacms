@@ -10,7 +10,7 @@ export const DELETE = createRouteHandler(async () => {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const revoked = await new AuthTokenStore(services.db).revokeOthersForUser(
+  const revoked = await new AuthTokenStore(services.derivedDb).revokeOthersForUser(
     authData.user.id,
     authData.token,
   )

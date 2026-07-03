@@ -8,8 +8,8 @@ export interface Migration {
    * Defaults to `true`.
    */
   foreignKeys?: boolean
-  up(tx: Transaction): Promise<void>
-  down(tx: Transaction): Promise<void>
+  up(tx: Transaction, derivedClient: Client): Promise<void>
+  down(tx: Transaction, derivedClient: Client): Promise<void>
 }
 
 export function createMigration(migration: Migration): Migration {
@@ -33,7 +33,7 @@ export class MigrationHandler {
     this.entry = entry
   }
 
-  async runUp(client: Client): Promise<void> {
+  async runUp(client: Client, derivedClient: Client): Promise<void> {
     const { id, name, migration } = this.entry
     const fkOff = migration.foreignKeys === false
     const fkBefore = fkOff ? await getFkState(client) : false
@@ -41,7 +41,7 @@ export class MigrationHandler {
 
     const tx = await client.transaction('write')
     try {
-      await migration.up(tx)
+      await migration.up(tx, derivedClient)
       await tx.execute({ sql: 'INSERT INTO migrations (id, name) VALUES (?, ?)', args: [id, name] })
       await tx.commit()
     } finally {
@@ -50,7 +50,7 @@ export class MigrationHandler {
     }
   }
 
-  async runDown(client: Client): Promise<void> {
+  async runDown(client: Client, derivedClient: Client): Promise<void> {
     const { name, migration } = this.entry
     const fkOff = migration.foreignKeys === false
     const fkBefore = fkOff ? await getFkState(client) : false
@@ -58,7 +58,7 @@ export class MigrationHandler {
 
     const tx = await client.transaction('write')
     try {
-      await migration.down(tx)
+      await migration.down(tx, derivedClient)
       await tx.execute({ sql: 'DELETE FROM migrations WHERE name = ?', args: [name] })
       await tx.commit()
     } finally {

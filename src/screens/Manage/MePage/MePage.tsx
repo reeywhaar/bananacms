@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation'
 import { getServices } from '@cms/services/getServices'
+import { AuthTokenStore } from '@cms/services/AuthTokenStore'
 import { MeClient } from './MeClient'
 import { WithBreadcrumbs } from '../BreadCrumbs/Breadcrumbs'
-import { AuthTokenStore } from '@cms/services/AuthTokenStore'
 
 export default async function MePage() {
   const services = await getServices()
@@ -11,7 +11,7 @@ export default async function MePage() {
     redirect('/manage/login?next=/manage/me')
   }
 
-  const otherSessions = await new AuthTokenStore(services.db).countOthersForUser(
+  const otherSessions = await new AuthTokenStore(services.derivedDb).countOthersForUser(
     authData.user.id,
     authData.token,
   )

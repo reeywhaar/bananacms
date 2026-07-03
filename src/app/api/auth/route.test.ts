@@ -25,7 +25,11 @@ vi.mock('@cms/services/getServices', () => {
     setContext: () => {},
   }
   return {
-    getServices: async () => ({ db: currentTestDb!.db, rootLogger: stubLogger }),
+    getServices: async () => ({
+      db: currentTestDb!.db,
+      derivedDb: currentTestDb!.derivedDb,
+      rootLogger: stubLogger,
+    }),
   }
 })
 
@@ -72,7 +76,7 @@ describe('POST /api/auth', () => {
     expect(cookie?.sameSite).toBe('lax')
     expect(cookie?.path).toBe('/')
 
-    const userId = await new AuthTokenStore(testDb.db).getUserId(cookie!.value)
+    const userId = await new AuthTokenStore(testDb.derivedDb).getUserId(cookie!.value)
     expect(userId).toBe(USER_ID)
   })
 
@@ -143,7 +147,7 @@ describe('DELETE /api/auth', () => {
     using testDb = await createTestDb()
     currentTestDb = testDb
     await seedUser(testDb)
-    const tokenStore = new AuthTokenStore(testDb.db)
+    const tokenStore = new AuthTokenStore(testDb.derivedDb)
     const { token } = await tokenStore.issue(USER_ID)
 
     const res = (await DELETE(buildDeleteRequest(token), undefined)) as NextResponse

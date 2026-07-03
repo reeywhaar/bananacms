@@ -6,6 +6,7 @@ import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { MigrationHandler, type Migration, type MigrationEntry } from '../migrations/migration'
 import { schema, type Schema } from './schema'
+import { derivedSchema, type DerivedSchema } from './derivedSchema'
 
 /**
  * Wide type accepted by all stores. Both `LibSQLDatabase<Schema>` (top-level db)
@@ -14,10 +15,19 @@ import { schema, type Schema } from './schema'
  */
 export type Db = BaseSQLiteDatabase<'async', ResultSet, Schema>
 
+export type DerivedDb = BaseSQLiteDatabase<'async', ResultSet, DerivedSchema>
+
 export function openDb(filename: string): { client: Client; db: Db } {
   const url = filename === ':memory:' ? ':memory:' : `file:${filename}`
   const client = createClient({ url })
   const db = drizzle(client, { schema })
+  return { client, db }
+}
+
+export function openDerivedDb(filename: string): { client: Client; db: DerivedDb } {
+  const url = filename === ':memory:' ? ':memory:' : `file:${filename}`
+  const client = createClient({ url })
+  const db = drizzle(client, { schema: derivedSchema })
   return { client, db }
 }
 
@@ -34,7 +44,11 @@ const MIGRATION_FILE_RE = /^(\d+)_(.+)\.(ts|js)$/
 // statically analyze it as an asset module reference.
 const CMS_MIGRATIONS_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'migrations')
 
-export async function runMigrations(client: Client, opts: { force?: boolean } = {}): Promise<void> {
+export async function runMigrations(
+  client: Client,
+  derivedClient: Client,
+  opts: { force?: boolean } = {},
+): Promise<void> {
   const clientMigrationsPath = join(process.cwd(), 'src', 'lib', 'migrations')
   const [cmsEntries, clientEntries] = await Promise.all([
     loadMigrations(CMS_MIGRATIONS_PATH),
@@ -59,14 +73,14 @@ export async function runMigrations(client: Client, opts: { force?: boolean } = 
     for (let i = entries.length - 1; i >= 0; i--) {
       const entry = entries[i]
       if (!applied.has(entry.id)) continue
-      await new MigrationHandler(entry).runDown(client)
+      await new MigrationHandler(entry).runDown(client, derivedClient)
     }
     applied.clear()
   }
 
   for (const entry of entries) {
     if (applied.has(entry.id)) continue
-    await new MigrationHandler(entry).runUp(client)
+    await new MigrationHandler(entry).runUp(client, derivedClient)
   }
 }
 

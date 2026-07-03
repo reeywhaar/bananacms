@@ -3,7 +3,6 @@
 import { join } from 'node:path'
 import { ApiDispatcher } from '@cms/lib/api/Dispatcher'
 import { AuthTokenStore } from './AuthTokenStore'
-import { PostSearchStore } from './PostSearchStore'
 import { UserStore } from './UserStore'
 import { globalSetup, requestSetup } from '@cms/utils/globalSetup'
 import { invariant } from '@cms/utils/invariant'
@@ -11,13 +10,19 @@ import { cookies, headers } from 'next/headers'
 import { createRootLogger } from '@cms/lib/logger/root'
 import { v4 as uuid } from 'uuid'
 import { isCMSInitialized, getCMS } from '@cms/config'
-import { openDb, runMigrations, type Db } from '@cms/lib/db/client'
+import { openDb, openDerivedDb, runMigrations } from '@cms/lib/db/client'
 import { ApiError } from '@cms/lib/api/error'
 
 const resolveDbPath = (): string => {
   if (isCMSInitialized()) return getCMS().env.dbPath
   const dataPath = process.env.DATA_PATH ?? invariant('DATA_PATH environment variable is not set')
   return join(dataPath, 'database.db')
+}
+
+const resolveDerivedDbPath = (): string => {
+  if (isCMSInitialized()) return getCMS().env.derivedDbPath
+  const dataPath = process.env.DATA_PATH ?? invariant('DATA_PATH environment variable is not set')
+  return join(dataPath, 'derived.db')
 }
 
 const REQUEST_IDS = new WeakMap<object, { traceId: string; sessionId: string }>()
@@ -63,15 +68,15 @@ export const getServices = async () => {
   const { traceId, sessionId } = await resolveRequestIds()
   const requestInfo = await resolveRequestInfo()
   return requestSetup(sessionId, 'services', async () => {
-    const db: Db = await globalSetup('services', async () => {
+    const { db, derivedDb } = await globalSetup('cms.databases', async () => {
       const { client, db } = openDb(resolveDbPath())
-      await runMigrations(client)
-      return db
+      const { client: derivedClient, db: derivedDb } = openDerivedDb(resolveDerivedDbPath())
+      await runMigrations(client, derivedClient)
+      return { db, derivedDb }
     })
 
-    const authTokenStore = new AuthTokenStore(db)
+    const authTokenStore = new AuthTokenStore(derivedDb)
     const userStore = new UserStore(db)
-    const postSearchStore = new PostSearchStore(db)
 
     const rootLogger = createRootLogger({ traceId, sessionId, request: requestInfo })
     const apiDispatcher = new ApiDispatcher(traceId)
@@ -98,7 +103,14 @@ export const getServices = async () => {
 
     rootLogger.info('start')
 
-    return { db, apiDispatcher, rootLogger, traceId, authData, postSearchStore }
+    return {
+      db,
+      derivedDb,
+      apiDispatcher,
+      rootLogger,
+      traceId,
+      authData,
+    }
   })
 }
 

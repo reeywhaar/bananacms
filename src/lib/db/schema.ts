@@ -112,22 +112,6 @@ export const user = sqliteTable('user', {
   password_hash: text('password_hash').notNull(),
 })
 
-export const authtoken = sqliteTable(
-  'authtoken',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    token: text('token').notNull().unique(),
-    userId: text('userId')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade', onUpdate: 'cascade' }),
-    expiresAt: text('expiresAt').notNull(),
-  },
-  (t) => ({
-    tokenIdx: index('authtoken_ix_token').on(t.token),
-    userIdIdx: index('authtoken_ix_userId').on(t.userId),
-  }),
-)
-
 export const parentBlock = sqliteTable(
   'parent_block',
   {
@@ -225,7 +209,6 @@ export const schema = {
   asset,
   localizations,
   user,
-  authtoken,
   parentBlock,
   parentPost,
   parentAsset,

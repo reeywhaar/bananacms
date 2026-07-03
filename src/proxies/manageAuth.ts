@@ -39,7 +39,7 @@ export function createAuthProxy({
     const needsRefresh =
       new Date(authData.tokenExpiresAt).getTime() - Date.now() < REFRESH_THRESHOLD_MS
     if (needsRefresh) {
-      await new AuthTokenStore(services.db).extend(authData.token)
+      await new AuthTokenStore(services.derivedDb).extend(authData.token)
       const response = NextResponse.next()
       setAuthCookie(response, authData.token)
       return response

@@ -1,11 +1,12 @@
 import fs from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { openDb } from '@cms/lib/db/client'
+import { openDb, openDerivedDb, runMigrations } from '@cms/lib/db/client'
 
 export async function run(): Promise<void> {
   const dataPath = requireEnv('DATA_PATH')
   const dbPath = join(dataPath, 'database.db')
+  const derivedDbPath = join(dataPath, 'derived.db')
   const seedPath = fileURLToPath(new URL('../../seed/database.sql', import.meta.url))
 
   if (!fs.existsSync(seedPath)) {
@@ -14,6 +15,7 @@ export async function run(): Promise<void> {
   }
 
   const { client } = openDb(dbPath)
+  const { client: derivedClient } = openDerivedDb(derivedDbPath)
 
   try {
     const result = await client.execute(
@@ -22,14 +24,16 @@ export async function run(): Promise<void> {
     const n = Number(result.rows[0]?.n ?? 0)
     if (n > 0) {
       console.info(`Database already has ${n} table(s); skipping seed.`)
-      return
+    } else {
+      const sql = fs.readFileSync(seedPath, 'utf-8')
+      await client.executeMultiple(sql)
+      console.info(`Seeded database from ${seedPath}`)
     }
 
-    const sql = fs.readFileSync(seedPath, 'utf-8')
-    await client.executeMultiple(sql)
-    console.info(`Seeded database from ${seedPath}`)
+    await runMigrations(client, derivedClient)
   } finally {
     client.close()
+    derivedClient.close()
   }
 }
 

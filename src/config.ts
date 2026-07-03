@@ -20,6 +20,7 @@ export interface CMSPaths {
 
 export interface CMSEnv {
   dbPath: string
+  derivedDbPath: string
   assetsDir: string
 }
 
@@ -59,6 +60,8 @@ const host = globalThis as unknown as Host
 export function createCMS(input: CreateCMSInput): CMSInstance {
   const env: CMSEnv = {
     dbPath: input.env?.dbPath ?? join(requireEnv('DATA_PATH', 'dataPath'), 'database.db'),
+    derivedDbPath:
+      input.env?.derivedDbPath ?? join(requireEnv('DATA_PATH', 'dataPath'), 'derived.db'),
     assetsDir: input.env?.assetsDir ?? requireEnv('ASSETS_DIRECTORY', 'assetsDir'),
   }
   const resolved: CMSInstance = {

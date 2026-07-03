@@ -1,12 +1,14 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { openDb, runMigrations, type Db } from '@cms/lib/db/client'
+import { openDb, openDerivedDb, runMigrations, type Db, type DerivedDb } from '@cms/lib/db/client'
 import type { Client } from '@libsql/client'
 
 export type TestDb = {
   client: Client
   db: Db
+  derivedClient: Client
+  derivedDb: DerivedDb
   /** Symbol.dispose lets callers say `using testDb = await createTestDb()`. */
   [Symbol.dispose](): void
 }
@@ -18,22 +20,25 @@ export type TestDb = {
  *
  *   it('...', async () => {
  *     using testDb = await createTestDb()
- *     // ... use testDb.db
+ *     // ... use testDb.db / testDb.derivedDb
  *   })
  *
- * The temp file + libsql client are torn down at scope exit; no afterEach
+ * The temp files + libsql clients are torn down at scope exit; no afterEach
  * required.
  */
 export async function createTestDb(): Promise<TestDb> {
   const dir = mkdtempSync(join(tmpdir(), 'bananacms-test-'))
-  const dbPath = join(dir, 'db.sqlite')
-  const { client, db } = openDb(dbPath)
-  await runMigrations(client)
+  const { client, db } = openDb(join(dir, 'db.sqlite'))
+  const { client: derivedClient, db: derivedDb } = openDerivedDb(join(dir, 'derived.sqlite'))
+  await runMigrations(client, derivedClient)
   return {
     client,
     db,
+    derivedClient,
+    derivedDb,
     [Symbol.dispose]() {
       client.close()
+      derivedClient.close()
       rmSync(dir, { recursive: true, force: true })
     },
   }

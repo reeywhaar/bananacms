@@ -1,12 +1,12 @@
 import { and, eq, gt, ne, sql } from 'drizzle-orm'
-import { type Db } from '@cms/lib/db/client'
-import { authtoken } from '@cms/lib/db/schema'
+import { type DerivedDb } from '@cms/lib/db/client'
+import { authtoken } from '@cms/lib/db/derivedSchema'
 
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000
 export const COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 
 export class AuthTokenStore {
-  constructor(private db: Db) {}
+  constructor(private db: DerivedDb) {}
 
   async issue(userId: string): Promise<{ token: string; expiresAt: string }> {
     const token = crypto.randomUUID()

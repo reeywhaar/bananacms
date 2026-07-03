@@ -14,7 +14,7 @@ const DUMMY_HASH =
 export const POST = createRouteHandler(async (request) => {
   const services = await getServices()
   const userStore = new UserStore(services.db)
-  const authTokenStore = new AuthTokenStore(services.db)
+  const authTokenStore = new AuthTokenStore(services.derivedDb)
   const log = services.rootLogger.child('Auth')
   const bodyResult = await intoResult(() => request.json())
   if (bodyResult.error) {
@@ -49,7 +49,7 @@ export const POST = createRouteHandler(async (request) => {
 
 export const DELETE = createRouteHandler(async (request) => {
   const services = await getServices()
-  const authTokenStore = new AuthTokenStore(services.db)
+  const authTokenStore = new AuthTokenStore(services.derivedDb)
   const log = services.rootLogger.child('Auth')
   const token = request.cookies.get('auth')?.value
   if (token) {

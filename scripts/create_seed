@@ -16,7 +16,7 @@ tmp_db=$(mktemp --suffix=.db)
 trap 'rm -f "$tmp_db"' EXIT
 
 sqlite3 "$DB_PATH" ".backup '$tmp_db'"
-sqlite3 "$tmp_db" "DELETE FROM authtoken; DELETE FROM user;"
+sqlite3 "$tmp_db" "DELETE FROM user;"
 sqlite3 "$tmp_db" ".dump" > "$seed_file"
 
 echo "Seed created: $seed_file"

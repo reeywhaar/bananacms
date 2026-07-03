@@ -62,6 +62,7 @@ export async function runMigrations(
     .filter(({ name }) => (seen.has(name) ? false : seen.add(name) && true))
 
   await client.execute(MIGRATIONS_TABLE)
+  await normalizeLegacyMigrationsTable(client)
 
   const appliedRows = await client.execute('SELECT id, name FROM migrations')
   const applied = new Set<number>()
@@ -82,6 +83,31 @@ export async function runMigrations(
     if (applied.has(entry.id)) continue
     await new MigrationHandler(entry).runUp(client, derivedClient)
   }
+}
+
+/**
+ * Databases created before the bookkeeping-only migrations table stored the
+ * migration SQL in NOT NULL `up`/`down` columns. `CREATE TABLE IF NOT EXISTS`
+ * silently keeps that legacy shape, and the first new migration then fails
+ * its `INSERT INTO migrations (id, name)` with a NOT NULL violation on `up`.
+ * Rebuild the table into the current (id, name) format, keeping the rows.
+ */
+async function normalizeLegacyMigrationsTable(client: Client): Promise<void> {
+  const info = await client.execute('PRAGMA table_info(migrations)')
+  const columns = new Set(info.rows.map((row) => String(row.name)))
+  if (!columns.has('up') && !columns.has('down')) return
+
+  await client.executeMultiple(`
+    BEGIN;
+    CREATE TABLE migrations_normalized (
+      id   INTEGER PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE
+    );
+    INSERT INTO migrations_normalized (id, name) SELECT id, name FROM migrations;
+    DROP TABLE migrations;
+    ALTER TABLE migrations_normalized RENAME TO migrations;
+    COMMIT;
+  `)
 }
 
 async function loadMigrations(migrationsPath: string): Promise<MigrationEntry[]> {

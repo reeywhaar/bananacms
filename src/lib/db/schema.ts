@@ -20,6 +20,7 @@ export const category = sqliteTable(
   },
   (t) => ({
     shortidIdx: uniqueIndex('category_ix_shortid').on(t.shortid),
+    slugIdx: index('category_ix_slug').on(t.slug),
   }),
 )
 
@@ -42,6 +43,7 @@ export const post = sqliteTable(
   },
   (t) => ({
     shortidIdx: uniqueIndex('post_ix_shortid').on(t.shortid),
+    slugIdx: index('post_ix_slug').on(t.slug),
   }),
 )
 
@@ -71,6 +73,7 @@ export const tag = sqliteTable(
   },
   (t) => ({
     shortidIdx: uniqueIndex('tag_ix_shortid').on(t.shortid),
+    slugIdx: index('tag_ix_slug').on(t.slug),
   }),
 )
 

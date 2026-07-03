@@ -70,8 +70,8 @@ export const getServices = async () => {
   const requestInfo = await resolveRequestInfo()
   return requestSetup(sessionId, 'services', async () => {
     const { db, derivedDb } = await globalSetup('cms.databases', async () => {
-      const { client, db } = openDb(resolveDbPath())
-      const { client: derivedClient, db: derivedDb } = openDerivedDb(resolveDerivedDbPath())
+      const { client, db } = await openDb(resolveDbPath())
+      const { client: derivedClient, db: derivedDb } = await openDerivedDb(resolveDerivedDbPath())
       await runMigrations(client, derivedClient)
       const snapshotScheduler = setupSnapshotScheduler(client)
       const trackedDb = snapshotScheduler

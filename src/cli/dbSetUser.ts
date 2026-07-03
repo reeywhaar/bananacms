@@ -20,7 +20,7 @@ export async function run({ name, password }: { name: string; password: string }
 
   await mkdir(resolve(dataPath), { recursive: true })
 
-  const { client } = openDb(dbPath)
+  const { client } = await openDb(dbPath)
 
   const passwordHash = await hashPassword(sha256hex(password))
 

@@ -28,8 +28,8 @@ export type TestDb = {
  */
 export async function createTestDb(): Promise<TestDb> {
   const dir = mkdtempSync(join(tmpdir(), 'bananacms-test-'))
-  const { client, db } = openDb(join(dir, 'db.sqlite'))
-  const { client: derivedClient, db: derivedDb } = openDerivedDb(join(dir, 'derived.sqlite'))
+  const { client, db } = await openDb(join(dir, 'db.sqlite'))
+  const { client: derivedClient, db: derivedDb } = await openDerivedDb(join(dir, 'derived.sqlite'))
   await runMigrations(client, derivedClient)
   return {
     client,

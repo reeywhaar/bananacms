@@ -7,7 +7,7 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
   const dbPath = join(dataPath, 'database.db')
   const assetsDir = requireEnv('ASSETS_DIRECTORY')
 
-  const { client } = openDb(dbPath)
+  const { client } = await openDb(dbPath)
   const rows = (await client.execute('SELECT id FROM asset')).rows
   client.close()
 

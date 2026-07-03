@@ -12,11 +12,11 @@ afterEach(() => {
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
-function setup() {
+async function setup() {
   const dir = mkdtempSync(join(tmpdir(), 'bananacms-client-'))
   dirs.push(dir)
-  const { client, db } = openDb(join(dir, 'database.db'))
-  const { client: derivedClient } = openDerivedDb(join(dir, 'derived.db'))
+  const { client, db } = await openDb(join(dir, 'database.db'))
+  const { client: derivedClient } = await openDerivedDb(join(dir, 'derived.db'))
   closers.push(() => {
     client.close()
     derivedClient.close()
@@ -26,7 +26,7 @@ function setup() {
 
 describe('runMigrations', () => {
   it('normalizes the legacy migrations table (up/down columns) and can record new migrations', async () => {
-    const { client, derivedClient } = setup()
+    const { client, derivedClient } = await setup()
 
     // The pre-bookkeeping format: migration SQL stored in NOT NULL columns.
     // Databases from that era keep this shape via CREATE TABLE IF NOT EXISTS,
@@ -55,7 +55,7 @@ describe('runMigrations', () => {
   })
 
   it('leaves the current-format migrations table untouched', async () => {
-    const { client, derivedClient } = setup()
+    const { client, derivedClient } = await setup()
     await runMigrations(client, derivedClient)
     const before = (await client.execute('SELECT id, name FROM migrations ORDER BY id')).rows
 

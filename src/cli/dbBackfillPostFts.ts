@@ -16,8 +16,8 @@ export async function run(): Promise<void> {
   const dataPath = requireEnv('DATA_PATH')
   const dbPath = join(dataPath, 'database.db')
   const derivedDbPath = join(dataPath, 'derived.db')
-  const { client, db } = openDb(dbPath)
-  const { client: derivedClient } = openDerivedDb(derivedDbPath)
+  const { client, db } = await openDb(dbPath)
+  const { client: derivedClient } = await openDerivedDb(derivedDbPath)
 
   await runMigrations(client, derivedClient)
 

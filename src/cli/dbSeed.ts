@@ -14,8 +14,8 @@ export async function run(): Promise<void> {
     process.exit(1)
   }
 
-  const { client } = openDb(dbPath)
-  const { client: derivedClient } = openDerivedDb(derivedDbPath)
+  const { client } = await openDb(dbPath)
+  const { client: derivedClient } = await openDerivedDb(derivedDbPath)
 
   try {
     const result = await client.execute(

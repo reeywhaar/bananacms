@@ -5,7 +5,7 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
   const dataPath = requireEnv('DATA_PATH')
   const dbPath = join(dataPath, 'database.db')
 
-  const { client } = openDb(dbPath)
+  const { client } = await openDb(dbPath)
 
   await client.execute('BEGIN')
 

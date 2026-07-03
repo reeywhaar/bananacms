@@ -9,8 +9,8 @@ export async function run({ force = false }: { force?: boolean }): Promise<void>
 
   await mkdir(resolve(dataPath), { recursive: true })
 
-  const { client } = openDb(dbPath)
-  const { client: derivedClient } = openDerivedDb(derivedDbPath)
+  const { client } = await openDb(dbPath)
+  const { client: derivedClient } = await openDerivedDb(derivedDbPath)
 
   console.info(`bananacms: running migrations on ${dbPath}${force ? ' (force)' : ''}...`)
   await runMigrations(client, derivedClient, { force })

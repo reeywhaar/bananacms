@@ -31,7 +31,7 @@ function loadNameToId(migrationsPath: string): Map<string, number> {
 export async function run({ dryRun = false }: { dryRun?: boolean } = {}): Promise<void> {
   const dataPath = requireEnv('DATA_PATH')
   const dbPath = join(dataPath, 'database.db')
-  const { client } = openDb(dbPath)
+  const { client } = await openDb(dbPath)
 
   // Build name→newId mapping from both CMS and client migration directories.
   const cmsMigrationsPath = resolve(

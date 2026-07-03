@@ -17,16 +17,18 @@ export type Db = BaseSQLiteDatabase<'async', ResultSet, Schema>
 
 export type DerivedDb = BaseSQLiteDatabase<'async', ResultSet, DerivedSchema>
 
-export function openDb(filename: string): { client: Client; db: Db } {
+export async function openDb(filename: string): Promise<{ client: Client; db: Db }> {
   const url = filename === ':memory:' ? ':memory:' : `file:${filename}`
   const client = createClient({ url })
+  await applyConnectionPragmas(client)
   const db = drizzle(client, { schema })
   return { client, db }
 }
 
-export function openDerivedDb(filename: string): { client: Client; db: DerivedDb } {
+export async function openDerivedDb(filename: string): Promise<{ client: Client; db: DerivedDb }> {
   const url = filename === ':memory:' ? ':memory:' : `file:${filename}`
   const client = createClient({ url })
+  await applyConnectionPragmas(client)
   const db = drizzle(client, { schema: derivedSchema })
   return { client, db }
 }
@@ -107,6 +109,22 @@ async function normalizeLegacyMigrationsTable(client: Client): Promise<void> {
     DROP TABLE migrations;
     ALTER TABLE migrations_normalized RENAME TO migrations;
     COMMIT;
+  `)
+}
+
+/**
+ * libsql opens local files with journal_mode=delete, synchronous=FULL and
+ * busy_timeout=0: every write takes an exclusive lock that blocks all reads,
+ * and concurrent access fails instantly with SQLITE_BUSY instead of queueing.
+ * WAL keeps readers unblocked while a write transaction is open; NORMAL is
+ * the recommended synchronous level under WAL. On :memory: databases the WAL
+ * pragma is a no-op.
+ */
+async function applyConnectionPragmas(client: Client): Promise<void> {
+  await client.executeMultiple(`
+    PRAGMA journal_mode=WAL;
+    PRAGMA synchronous=NORMAL;
+    PRAGMA busy_timeout=5000;
   `)
 }
 

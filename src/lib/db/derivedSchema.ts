@@ -11,7 +11,6 @@ export const authtoken = sqliteTable(
     expiresAt: text('expiresAt').notNull(),
   },
   (t) => ({
-    tokenIdx: index('authtoken_ix_token').on(t.token),
     userIdIdx: index('authtoken_ix_userId').on(t.userId),
   }),
 )

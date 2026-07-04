@@ -105,7 +105,6 @@ export const localizations = sqliteTable(
   },
   (t) => ({
     keyLocaleIdx: uniqueIndex('localizations_ix_key_locale').on(t.key, t.locale),
-    keyIdx: index('localizations_ix_key').on(t.key),
   }),
 )
 

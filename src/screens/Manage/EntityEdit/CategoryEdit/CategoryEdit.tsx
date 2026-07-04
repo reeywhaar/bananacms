@@ -13,21 +13,14 @@ import { routing } from '../../routing'
 export default async function CategoryEdit({ id }: { id?: string }) {
   const db = (await getServices()).db
 
-  const category = await (async () => {
-    if (!id) return undefined
-    return (await new CategoryStore(db).query().byId(id).first()) ?? notFound()
-  })()
-
-  const blocks = await (async () => {
-    if (!id) return []
-    return new BlockStore(db).query().parentedBy({ table: 'category', id }).all()
-  })()
-
-  const translations = id ? await new LocalizationStore(db).getByParentId('category', id) : {}
-
-  const initialAttributes = id
-    ? await new AttributeStore(db).query().parentedBy({ table: 'category', id }).all()
-    : []
+  const [categoryRow, blocks, translations, initialAttributes] = await Promise.all([
+    id ? new CategoryStore(db).query().byId(id).first() : undefined,
+    id ? new BlockStore(db).query().parentedBy({ table: 'category', id }).all() : [],
+    id ? new LocalizationStore(db).getByParentId('category', id) : {},
+    id ? new AttributeStore(db).query().parentedBy({ table: 'category', id }).all() : [],
+  ])
+  if (id && !categoryRow) notFound()
+  const category = categoryRow ?? undefined
 
   const assetIds: string[] = []
   const collect = (list: BlockData[]): void => {

@@ -13,21 +13,14 @@ import { BlockData } from '@cms/lib/blocks/declarations'
 export default async function PageEdit({ id }: { id?: string }) {
   const db = (await getServices()).db
 
-  const page = await (async () => {
-    if (!id) return undefined
-    return (await new PageStore(db).query().byId(id).first()) ?? notFound()
-  })()
-
-  const blocks = await (async () => {
-    if (!id) return []
-    return new BlockStore(db).query().parentedBy({ table: 'page', id }).all()
-  })()
-
-  const translations = id ? await new LocalizationStore(db).getByParentId('page', id) : {}
-
-  const initialAttributes = id
-    ? await new AttributeStore(db).query().parentedBy({ table: 'page', id }).all()
-    : []
+  const [pageRow, blocks, translations, initialAttributes] = await Promise.all([
+    id ? new PageStore(db).query().byId(id).first() : undefined,
+    id ? new BlockStore(db).query().parentedBy({ table: 'page', id }).all() : [],
+    id ? new LocalizationStore(db).getByParentId('page', id) : {},
+    id ? new AttributeStore(db).query().parentedBy({ table: 'page', id }).all() : [],
+  ])
+  if (id && !pageRow) notFound()
+  const page = pageRow ?? undefined
 
   const assetIds: string[] = []
   const collect = (list: BlockData[]): void => {

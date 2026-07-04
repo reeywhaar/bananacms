@@ -15,33 +15,27 @@ import { BlockData } from '@cms/lib/blocks/declarations'
 export default async function PostEdit({ id }: { id?: string }) {
   const db = (await getServices()).db
 
-  const post = await (async () => {
-    if (!id) return undefined
-    return (await new PostStore(db).query().byId(id).first()) ?? notFound()
-  })()
-
-  const category = post
-    ? await new CategoryStore(db).query().byId(post.categoryId).first()
-    : undefined
-
-  const blocks = await (async () => {
-    if (!id) return []
-    return new BlockStore(db).query().parentedBy({ table: 'post', id }).all()
-  })()
-
-  const categories = await new CategoryStore(db).query().all()
-
+  // Everything keyed only by `id` runs as one batch; the category lookup and
+  // asset metadata depend on its results and form a second one.
   const tagStore = new TagStore(db)
-  const tags = await tagStore.query().withPostCount().all()
-  const initialTagIds = id
-    ? (await tagStore.query().taggedTo({ table: 'post', id }).all()).map((t) => t.id)
-    : []
-
-  const initialAttributes = id
-    ? await new AttributeStore(db).query().parentedBy({ table: 'post', id }).all()
-    : []
-
-  const translations = id ? await new LocalizationStore(db).getByParentId('post', id) : {}
+  const [postRow, blocks, categories, tags, initialTagIds, initialAttributes, translations] =
+    await Promise.all([
+      id ? new PostStore(db).query().byId(id).first() : undefined,
+      id ? new BlockStore(db).query().parentedBy({ table: 'post', id }).all() : [],
+      new CategoryStore(db).query().all(),
+      tagStore.query().withPostCount().all(),
+      id
+        ? tagStore
+            .query()
+            .taggedTo({ table: 'post', id })
+            .all()
+            .then((tagged) => tagged.map((t) => t.id))
+        : [],
+      id ? new AttributeStore(db).query().parentedBy({ table: 'post', id }).all() : [],
+      id ? new LocalizationStore(db).getByParentId('post', id) : {},
+    ])
+  if (id && !postRow) notFound()
+  const post = postRow ?? undefined
 
   const assetIds: string[] = []
   const collect = (list: BlockData[]): void => {
@@ -54,9 +48,11 @@ export default async function PostEdit({ id }: { id?: string }) {
   collect(blocks)
 
   const assetStore = new AssetStore(db)
-  const [assetContents, assetSizes] = assetIds.length
-    ? await Promise.all([assetStore.getContent(assetIds), assetStore.getSizes(assetIds)])
-    : [{}, {}]
+  const [category, assetContents, assetSizes] = await Promise.all([
+    post ? new CategoryStore(db).query().byId(post.categoryId).first() : undefined,
+    assetIds.length ? assetStore.getContent(assetIds) : {},
+    assetIds.length ? assetStore.getSizes(assetIds) : {},
+  ])
 
   return (
     <WithBreadcrumbs

@@ -13,18 +13,14 @@ import { routing } from '../../routing'
 export default async function TagEdit({ id }: { id?: string }) {
   const db = (await getServices()).db
 
-  const tag = await (async () => {
-    if (!id) return undefined
-    return (await new TagStore(db).query().byId(id).first()) ?? notFound()
-  })()
-
-  const blocks = id ? await new BlockStore(db).query().parentedBy({ table: 'tag', id }).all() : []
-
-  const translations = id ? await new LocalizationStore(db).getByParentId('tag', id) : {}
-
-  const initialAttributes = id
-    ? await new AttributeStore(db).query().parentedBy({ table: 'tag', id }).all()
-    : []
+  const [tagRow, blocks, translations, initialAttributes] = await Promise.all([
+    id ? new TagStore(db).query().byId(id).first() : undefined,
+    id ? new BlockStore(db).query().parentedBy({ table: 'tag', id }).all() : [],
+    id ? new LocalizationStore(db).getByParentId('tag', id) : {},
+    id ? new AttributeStore(db).query().parentedBy({ table: 'tag', id }).all() : [],
+  ])
+  if (id && !tagRow) notFound()
+  const tag = tagRow ?? undefined
 
   const assetIds: string[] = []
   const collect = (list: BlockData[]): void => {

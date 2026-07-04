@@ -8,15 +8,8 @@ const resFactor: Record<AssetResolution, number> = { '@1x': 1, '@2x': 2, '@3x': 
 
 export type ImageLayout = { width: number; height: number }
 
-const fileExists = (p: string) =>
-  access(p)
-    .then(() => true)
-    .catch(() => false)
-
 export const getImagesMetadata = async (ids: string[]): Promise<Record<string, ImageLayout>> => {
-  const dir = process.env.ASSETS_DIRECTORY
-  if (!dir) return {}
-  await mkdir(dir, { recursive: true })
+  if (ids.length === 0) return {}
 
   const { db } = await getServices()
   const store = new AssetStore(db)
@@ -24,18 +17,17 @@ export const getImagesMetadata = async (ids: string[]): Promise<Record<string, I
 
   const entries = await Promise.all(
     ids.map(async (id): Promise<[string, ImageLayout] | null> => {
-      const path = join(dir, id)
-      if (!(await fileExists(path))) {
-        const asset = await store.get(id)
-        if (!asset) return null
-        await writeFile(path, asset.data)
-      }
-      const meta = await sharp(path).metadata()
-      const w = meta.autoOrient?.width ?? meta.width
-      const h = meta.autoOrient?.height ?? meta.height
-      if (!w || !h) return null
-
       const content = contents[id]
+      // Dimensions are persisted into asset.content at upload time (both via
+      // sharp autoOrient, so the values are interchangeable); probing the
+      // cached file is only a fallback for assets predating that.
+      const dims =
+        content?.width && content?.height
+          ? { w: content.width, h: content.height }
+          : await probeDimensions(id, store)
+      if (!dims) return null
+      const { w, h } = dims
+
       const sourceRes: AssetResolution = content?.resolution ?? '@1x'
       const maxSize = content?.maxSize
       const k = maxSize ? Math.min(maxSize.width / w, maxSize.height / h, 1) : 1
@@ -52,4 +44,30 @@ export const getImagesMetadata = async (ids: string[]): Promise<Record<string, I
     }),
   )
   return Object.fromEntries(entries.filter((e): e is [string, ImageLayout] => e !== null))
+}
+
+const fileExists = (p: string) =>
+  access(p)
+    .then(() => true)
+    .catch(() => false)
+
+const probeDimensions = async (
+  id: string,
+  store: AssetStore,
+): Promise<{ w: number; h: number } | null> => {
+  const dir = process.env.ASSETS_DIRECTORY
+  if (!dir) return null
+  await mkdir(dir, { recursive: true })
+
+  const path = join(dir, id)
+  if (!(await fileExists(path))) {
+    const data = await store.getData(id)
+    if (!data) return null
+    await writeFile(path, data)
+  }
+  const meta = await sharp(path).metadata()
+  const w = meta.autoOrient?.width ?? meta.width
+  const h = meta.autoOrient?.height ?? meta.height
+  if (!w || !h) return null
+  return { w, h }
 }

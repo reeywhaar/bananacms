@@ -230,7 +230,7 @@ export class BlockQuery extends EntityQuery<BlockData, BlockOrderField, BlockQue
 
   async all(): Promise<BlockData[]> {
     const rows = await this.fetchRows()
-    const blocks = await Promise.all(rows.map((r) => this.toBlockData(r)))
+    const blocks = await this.hydrateRows(rows)
     if (!this.state.locale) return blocks
 
     const byTable = new Map<string, Set<string>>()
@@ -401,47 +401,87 @@ export class BlockQuery extends EntityQuery<BlockData, BlockOrderField, BlockQue
     return { q, where }
   }
 
-  private async toBlockData(raw: RawBlockRow): Promise<BlockData> {
-    if (raw.parentId == null || raw.parentTable == null)
-      throw new InvalidBlockContentError('Block has no parent')
-    const parentResult = intoResult(() =>
-      blockParentSchema.parse({ type: raw.parentTable, id: raw.parentId }),
+  /**
+   * Turns raw rows into BlockData without per-row queries: all descendants
+   * of group blocks come from one recursive-CTE query and all attributes
+   * from one IN query, instead of one query per group and per block.
+   */
+  private async hydrateRows(rows: RawBlockRow[]): Promise<BlockData[]> {
+    if (rows.length === 0) return []
+
+    const childRows = this.state.hydrate
+      ? await this.fetchDescendantRows(rows.map((r) => r.id))
+      : []
+    const childrenByParent = new Map<string, RawBlockRow[]>()
+    for (const row of childRows) {
+      if (row.parentId == null) continue
+      const bucket = childrenByParent.get(row.parentId)
+      if (bucket) bucket.push(row)
+      else childrenByParent.set(row.parentId, [row])
+    }
+
+    const attributesByBlock = await new AttributeStore(this.db).getByParents('block', [
+      ...rows.map((r) => r.id),
+      ...childRows.map((r) => r.id),
+    ])
+
+    const build = (raw: RawBlockRow): BlockData => {
+      if (raw.parentId == null || raw.parentTable == null)
+        throw new InvalidBlockContentError('Block has no parent')
+      const parentResult = intoResult(() =>
+        blockParentSchema.parse({ type: raw.parentTable, id: raw.parentId }),
+      )
+      if (parentResult.error) throw new InvalidBlockContentError('Invalid parent table')
+      const parent = parentResult.value
+
+      const parsed = JSON.parse(raw.content) as unknown
+      if (parsed == null || typeof parsed !== 'object')
+        throw new InvalidBlockContentError('Invalid block content')
+      if (!('type' in parsed) || typeof parsed.type !== 'string')
+        throw new InvalidBlockContentError('Invalid block content: missing type')
+      if (!('key' in parsed) || typeof parsed.key !== 'string')
+        throw new InvalidBlockContentError('Invalid block content: missing key')
+
+      const content: BlockType =
+        parsed.type === 'group' && this.state.hydrate
+          ? {
+              type: 'group',
+              key: parsed.key,
+              blocks: (childrenByParent.get(raw.id) ?? []).map(build),
+            }
+          : (parsed as BlockType)
+
+      return { id: raw.id, parent, content, attributes: attributesByBlock[raw.id] ?? [] }
+    }
+
+    return rows.map(build)
+  }
+
+  /**
+   * All blocks below the given ones (children of groups, recursively), in
+   * per-parent position order. UNION (not UNION ALL) so a block reachable
+   * from several seed ids is returned once.
+   */
+  private async fetchDescendantRows(ids: string[]): Promise<RawBlockRow[]> {
+    if (ids.length === 0) return []
+    const idList = sql.join(
+      ids.map((id) => sql`${id}`),
+      sql.raw(', '),
     )
-    if (parentResult.error) throw new InvalidBlockContentError('Invalid parent table')
-    const parent = parentResult.value
-
-    const parsed = JSON.parse(raw.content) as unknown
-    if (parsed == null || typeof parsed !== 'object')
-      throw new InvalidBlockContentError('Invalid block content')
-    if (!('type' in parsed) || typeof parsed.type !== 'string')
-      throw new InvalidBlockContentError('Invalid block content: missing type')
-    if (!('key' in parsed) || typeof parsed.key !== 'string')
-      throw new InvalidBlockContentError('Invalid block content: missing key')
-
-    const type = parsed.type
-    const key = parsed.key
-
-    const content: BlockType = await (async () => {
-      if (type === 'group' && this.state.hydrate) {
-        const childRows = (await this.db
-          .select({
-            id: block.id,
-            parentId: parentBlock.parentId,
-            parentTable: parentBlock.parentTable,
-            content: block.content,
-          })
-          .from(block)
-          .leftJoin(parentBlock, eq(parentBlock.blockId, block.id))
-          .where(and(eq(parentBlock.parentTable, 'block'), eq(parentBlock.parentId, raw.id)))
-          .orderBy(asc(parentBlock.position))) as RawBlockRow[]
-        const blocks = await Promise.all(childRows.map((r) => this.toBlockData(r)))
-        return { type: 'group', key, blocks }
-      }
-      return parsed as BlockType
-    })()
-
-    const attributes = await new AttributeStore(this.db).getByParent('block', raw.id)
-    return { id: raw.id, parent, content, attributes }
+    return await this.db.all<RawBlockRow>(sql`
+      WITH RECURSIVE block_tree(blockId) AS (
+        SELECT blockId FROM parent_block
+         WHERE parentTable = 'block' AND parentId IN (${idList})
+        UNION
+        SELECT pb.blockId FROM parent_block pb
+          INNER JOIN block_tree bt ON pb.parentTable = 'block' AND pb.parentId = bt.blockId
+      )
+      SELECT b.id, pb.parentId, pb.parentTable, b.content
+        FROM block b
+        JOIN parent_block pb ON pb.blockId = b.id
+       WHERE b.id IN (SELECT blockId FROM block_tree)
+       ORDER BY pb.position ASC, b.id ASC
+    `)
   }
 }
 

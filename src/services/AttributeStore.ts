@@ -73,6 +73,40 @@ export class AttributeStore {
     }))
   }
 
+  /** Batched variant of getByParent: one query covering many parents. */
+  async getByParents(
+    parentTable: string,
+    parentIds: string[],
+  ): Promise<Record<string, AttributeData[]>> {
+    if (parentIds.length === 0) return {}
+    const rows = await this.db
+      .select({
+        id: attribute.id,
+        key: attribute.key,
+        translatable: attribute.translatable,
+        text: attribute.text,
+        parentId: parentAttribute.parentId,
+      })
+      .from(attribute)
+      .innerJoin(parentAttribute, eq(parentAttribute.attributeId, attribute.id))
+      .where(
+        and(
+          eq(parentAttribute.parentTable, parentTable),
+          inArray(parentAttribute.parentId, parentIds),
+        ),
+      )
+    const result: Record<string, AttributeData[]> = {}
+    for (const r of rows) {
+      ;(result[r.parentId] ??= []).push({
+        id: r.id,
+        key: r.key,
+        translatable: r.translatable === 1,
+        text: r.text,
+      })
+    }
+    return result
+  }
+
   async saveByParent(parentTable: string, parentId: string, attrs: AttributeData[]): Promise<void> {
     validateAttributes(attrs)
     const orphans = (

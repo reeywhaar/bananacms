@@ -75,6 +75,14 @@ export type AssetData = {
   content: AssetContent | null
 }
 
+export type AssetMeta = {
+  id: string
+  filename: string
+  mime: string
+  size: number
+  content: AssetContent | null
+}
+
 export type AssetPayload = {
   filename: string
   mime: string
@@ -105,6 +113,38 @@ export class AssetStore {
       data: row.data,
       content: row.content ? parseContent(row.content) : null,
     }
+  }
+
+  /**
+   * Everything `get()` returns except the blob itself (plus its byte size).
+   * Serving paths that stream from the filesystem cache should use this so a
+   * cache hit never deserializes the blob out of SQLite.
+   */
+  async getMeta(id: string): Promise<AssetMeta | null> {
+    const row = await this.db
+      .select({
+        id: asset.id,
+        filename: asset.filename,
+        mime: asset.mime,
+        size: sql<number>`length(${asset.data})`,
+        content: asset.content,
+      })
+      .from(asset)
+      .where(eq(asset.id, id))
+      .get()
+    if (!row || row.id == null) return null
+    return {
+      id: row.id,
+      filename: row.filename,
+      mime: row.mime,
+      size: row.size,
+      content: row.content ? parseContent(row.content) : null,
+    }
+  }
+
+  async getData(id: string): Promise<Buffer | null> {
+    const row = await this.db.select({ data: asset.data }).from(asset).where(eq(asset.id, id)).get()
+    return row?.data ?? null
   }
 
   async getContent(ids: string[]): Promise<Record<string, AssetImageContent>> {

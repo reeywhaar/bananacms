@@ -20,16 +20,16 @@ export const GET = createRouteHandler<{ params: Promise<{ id: string }> }>(
         .catch(() => false)
 
       if (cacheHit) {
-        const asset = await new AssetStore(db).get(id)
-        if (!asset) return new NextResponse(null, { status: 404 })
+        const meta = await new AssetStore(db).getMeta(id)
+        if (!meta) return new NextResponse(null, { status: 404 })
 
         const stream = Readable.toWeb(createReadStream(cachePath)) as ReadableStream
         return new NextResponse(stream, {
           headers: {
-            'Content-Type': asset.mime,
-            'Content-Disposition': contentDisposition(asset.filename),
+            'Content-Type': meta.mime,
+            'Content-Disposition': contentDisposition(meta.filename),
             'Cache-Control': 'public, max-age=31536000, immutable',
-            'Content-Length': String(asset.data.length),
+            'Content-Length': String(meta.size),
           },
         })
       }

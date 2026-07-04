@@ -26,13 +26,14 @@ export const GET = createRouteHandler<{ params: Promise<{ id: string; hash: stri
 
     log.debug('lookup')
 
-    const asset = await new AssetStore(services.db).get(id)
-    if (!asset || !asset.mime.startsWith('image/')) {
+    const store = new AssetStore(services.db)
+    const meta = await store.getMeta(id)
+    if (!meta || !meta.mime.startsWith('image/')) {
       log.info('notFound')
       return new NextResponse(null, { status: 404 })
     }
 
-    const imageContent = asset.content?.type === 'image' ? asset.content : null
+    const imageContent = meta.content?.type === 'image' ? meta.content : null
     const outputAs: AssetOutputFormat = imageContent?.output_as ?? { type: 'original' }
     const sourceRes: AssetResolution = imageContent?.resolution ?? '@1x'
     const maxSize = imageContent?.maxSize
@@ -56,7 +57,7 @@ export const GET = createRouteHandler<{ params: Promise<{ id: string; hash: stri
     if (await fileExists(cachePath)) {
       const stat = await lstat(cachePath)
       const isSymlink = stat.isSymbolicLink()
-      const mime = isSymlink ? asset.mime : mimeFor(outputAs, asset.mime)
+      const mime = isSymlink ? meta.mime : mimeFor(outputAs, meta.mime)
       log.debug('cache.hit', { cachePath, isSymlink })
       const stream = Readable.toWeb(createReadStream(cachePath)) as ReadableStream
       return new NextResponse(stream, {
@@ -70,16 +71,24 @@ export const GET = createRouteHandler<{ params: Promise<{ id: string; hash: stri
     log.debug('cache.miss')
 
     const sourcePath = join(assetsDir, id)
-    if (!(await fileExists(sourcePath))) {
-      await writeFile(sourcePath, asset.data)
+    let sourceBuffer: Buffer
+    if (await fileExists(sourcePath)) {
+      sourceBuffer = await readFile(sourcePath)
+    } else {
+      const blob = await store.getData(id)
+      if (!blob) {
+        log.info('notFound')
+        return new NextResponse(null, { status: 404 })
+      }
+      sourceBuffer = blob
+      await writeFile(sourcePath, sourceBuffer)
     }
-    const sourceBuffer = await readFile(sourcePath)
 
     const { data, mime } = await optimizeImage(sourceBuffer, {
       sourceRes,
       targetRes: effectiveRes,
       format: outputAs,
-      sourceMime: asset.mime,
+      sourceMime: meta.mime,
       maxSize,
     })
 
@@ -97,7 +106,7 @@ export const GET = createRouteHandler<{ params: Promise<{ id: string; hash: stri
       await rename(tmpPath, cachePath).catch(() => {})
       return new NextResponse(new Uint8Array(sourceBuffer), {
         headers: {
-          'Content-Type': asset.mime,
+          'Content-Type': meta.mime,
           'Cache-Control': 'public, max-age=31536000, immutable',
         },
       })

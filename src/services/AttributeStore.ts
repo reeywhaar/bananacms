@@ -9,6 +9,7 @@ import {
   tag,
   localizations,
 } from '@cms/lib/db/schema'
+import { chunk } from '@cms/utils/chunk'
 import { EntityQuery, type BaseQueryState, type SortOrder } from './queryBuilder/EntityQuery'
 
 export type AttributeData = {
@@ -108,7 +109,6 @@ export class AttributeStore {
   }
 
   async saveByParent(parentTable: string, parentId: string, attrs: AttributeData[]): Promise<void> {
-    validateAttributes(attrs)
     const orphans = (
       await this.db
         .select({ id: parentAttribute.attributeId })
@@ -120,14 +120,37 @@ export class AttributeStore {
     if (orphans.length > 0) {
       await this.db.delete(attribute).where(inArray(attribute.id, orphans))
     }
-    for (const attr of attrs) {
-      await this.db.insert(attribute).values({
-        id: attr.id,
-        key: attr.key,
-        translatable: attr.translatable ? 1 : 0,
-        text: attr.text,
-      })
-      await this.db.insert(parentAttribute).values({ attributeId: attr.id, parentId, parentTable })
+    await this.insertByParents(parentTable, [{ parentId, attrs }])
+  }
+
+  /**
+   * Multi-row insert of attributes for many parents at once — no orphan
+   * sweep, so callers must have removed prior rows (fresh inserts, or after
+   * a tree-wide delete like BlockStore.deleteByParent).
+   */
+  async insertByParents(
+    parentTable: string,
+    entries: Array<{ parentId: string; attrs: AttributeData[] }>,
+  ): Promise<void> {
+    const attrRows: (typeof attribute.$inferInsert)[] = []
+    const parentRows: (typeof parentAttribute.$inferInsert)[] = []
+    for (const { parentId, attrs } of entries) {
+      validateAttributes(attrs)
+      for (const attr of attrs) {
+        attrRows.push({
+          id: attr.id,
+          key: attr.key,
+          translatable: attr.translatable ? 1 : 0,
+          text: attr.text,
+        })
+        parentRows.push({ attributeId: attr.id, parentId, parentTable })
+      }
+    }
+    for (const rows of chunk(attrRows, 500)) {
+      await this.db.insert(attribute).values(rows)
+    }
+    for (const rows of chunk(parentRows, 500)) {
+      await this.db.insert(parentAttribute).values(rows)
     }
   }
 }

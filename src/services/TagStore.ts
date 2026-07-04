@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, like, sql, type SQL } from 'drizzle-orm'
 import { type Db } from '@cms/lib/db/client'
 import { tag, parentTag, post, localizations } from '@cms/lib/db/schema'
+import { chunk } from '@cms/utils/chunk'
 import { getShortId } from '@cms/utils/getshortid'
 import { BlockData } from '@cms/lib/blocks/declarations'
 import { BlockStore } from './BlockStore'
@@ -56,8 +57,9 @@ export class TagStore {
     await this.db
       .delete(parentTag)
       .where(and(eq(parentTag.parentTable, parentTable), eq(parentTag.parentId, parentId)))
-    for (const tagId of tagIds) {
-      await this.db.insert(parentTag).values({ tagId, parentId, parentTable })
+    const rows = tagIds.map((tagId) => ({ tagId, parentId, parentTable }))
+    for (const batch of chunk(rows, 500)) {
+      await this.db.insert(parentTag).values(batch)
     }
   }
 

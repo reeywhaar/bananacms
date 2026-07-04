@@ -2,6 +2,7 @@ import { and, gte, lt, sql } from 'drizzle-orm'
 import { v7 } from 'uuid'
 import { type Db } from '@cms/lib/db/client'
 import { localizations } from '@cms/lib/db/schema'
+import { chunk } from '@cms/utils/chunk'
 
 export type Translations = Record<string, Record<string, string>>
 
@@ -108,11 +109,15 @@ export class LocalizationStore {
 
   async save(deleteKeyPrefix: string, translations: Translations): Promise<void> {
     await this.db.delete(localizations).where(keyPrefixPredicate(deleteKeyPrefix))
+    const rows: (typeof localizations.$inferInsert)[] = []
     for (const [locale, entries] of Object.entries(translations)) {
       for (const [key, text] of Object.entries(entries)) {
         if (!text) continue
-        await this.db.insert(localizations).values({ id: v7(), key, locale, text })
+        rows.push({ id: v7(), key, locale, text })
       }
+    }
+    for (const batch of chunk(rows, 500)) {
+      await this.db.insert(localizations).values(batch)
     }
   }
 }

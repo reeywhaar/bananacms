@@ -13,6 +13,7 @@ import {
   parentAsset,
 } from '@cms/lib/db/schema'
 import { type BlockData, type BlockType, blockParentSchema } from '@cms/lib/blocks/declarations'
+import { chunk } from '@cms/utils/chunk'
 import { intoResult } from '@cms/utils/result'
 import { LocalizationStore, type Translations } from './LocalizationStore'
 import { AttributeStore } from './AttributeStore'
@@ -138,29 +139,48 @@ export class BlockStore {
     blocks: BlockData[],
     parent: { parentTable: string; parentId: string },
   ): Promise<void> {
-    for (let i = 0; i < blocks.length; i++) {
-      const b = blocks[i]
-      const isGroup = b.content.type === 'group'
-      const content = isGroup
-        ? JSON.stringify({ type: b.content.type, key: b.content.key })
-        : JSON.stringify(b.content)
-      await this.db.insert(block).values({ id: b.id, content })
-      await this.db.insert(parentBlock).values({
-        blockId: b.id,
-        parentId: parent.parentId,
-        parentTable: parent.parentTable,
-        position: i,
-      })
-      await new AttributeStore(this.db).saveByParent('block', b.id, b.attributes)
-      if ((b.content.type === 'image' || b.content.type === 'asset') && b.content.assetId) {
-        await this.db
-          .insert(parentAsset)
-          .values({ assetId: b.content.assetId, parentId: b.id, parentTable: 'block' })
-          .onConflictDoNothing()
+    // Walk the tree once collecting rows, then insert each table in a few
+    // multi-row statements instead of ~4 statements per block.
+    const blockRows: (typeof block.$inferInsert)[] = []
+    const parentRows: (typeof parentBlock.$inferInsert)[] = []
+    const assetRows: (typeof parentAsset.$inferInsert)[] = []
+    const attributeEntries: Array<{ parentId: string; attrs: BlockData['attributes'] }> = []
+
+    const walk = (list: BlockData[], p: { parentTable: string; parentId: string }): void => {
+      for (let i = 0; i < list.length; i++) {
+        const b = list[i]
+        const isGroup = b.content.type === 'group'
+        const content = isGroup
+          ? JSON.stringify({ type: b.content.type, key: b.content.key })
+          : JSON.stringify(b.content)
+        blockRows.push({ id: b.id, content })
+        parentRows.push({
+          blockId: b.id,
+          parentId: p.parentId,
+          parentTable: p.parentTable,
+          position: i,
+        })
+        attributeEntries.push({ parentId: b.id, attrs: b.attributes })
+        if ((b.content.type === 'image' || b.content.type === 'asset') && b.content.assetId) {
+          assetRows.push({ assetId: b.content.assetId, parentId: b.id, parentTable: 'block' })
+        }
+        if (b.content.type === 'group') {
+          walk(b.content.blocks, { parentTable: 'block', parentId: b.id })
+        }
       }
-      if (b.content.type === 'group') {
-        await this.insertBlocks(b.content.blocks, { parentTable: 'block', parentId: b.id })
-      }
+    }
+    walk(blocks, parent)
+    if (blockRows.length === 0) return
+
+    for (const rows of chunk(blockRows, 500)) {
+      await this.db.insert(block).values(rows)
+    }
+    for (const rows of chunk(parentRows, 500)) {
+      await this.db.insert(parentBlock).values(rows)
+    }
+    await new AttributeStore(this.db).insertByParents('block', attributeEntries)
+    for (const rows of chunk(assetRows, 500)) {
+      await this.db.insert(parentAsset).values(rows).onConflictDoNothing()
     }
   }
 }

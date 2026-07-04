@@ -66,9 +66,10 @@ export type AuthData =
   | undefined
 
 export const getServices = async () => {
+  const hdrs = await headers()
   const { traceId, sessionId } = await resolveRequestIds()
   const requestInfo = await resolveRequestInfo()
-  return requestSetup(sessionId, 'services', async () => {
+  return requestSetup(hdrs, 'services', async () => {
     const { db, derivedDb } = await globalSetup('cms.databases', async () => {
       const { client, db } = await openDb(resolveDbPath())
       const { client: derivedClient, db: derivedDb } = await openDerivedDb(resolveDerivedDbPath())

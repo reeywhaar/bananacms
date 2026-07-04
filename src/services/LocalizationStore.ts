@@ -1,4 +1,4 @@
-import { like, sql } from 'drizzle-orm'
+import { and, gte, lt, sql } from 'drizzle-orm'
 import { v7 } from 'uuid'
 import { type Db } from '@cms/lib/db/client'
 import { localizations } from '@cms/lib/db/schema'
@@ -24,7 +24,7 @@ export class LocalizationStore {
         text: localizations.text,
       })
       .from(localizations)
-      .where(like(localizations.key, prefix + '%'))
+      .where(keyPrefixPredicate(prefix))
     return rowsToTranslations(rows)
   }
 
@@ -53,6 +53,7 @@ export class LocalizationStore {
   }
 
   async getByParentId(parentTable: string, parentId: string): Promise<Translations> {
+    const { lower, upper } = keyPrefixRange(`${parentTable}:${parentId}:`)
     const result = await this.db.all<LocalizationRow>(sql`
       WITH RECURSIVE block_tree(id) AS (
         SELECT blockId FROM parent_block
@@ -69,7 +70,7 @@ export class LocalizationStore {
           JOIN block_tree bt ON pa.parentTable = 'block' AND pa.parentId = bt.id
       )
       SELECT l.id, l.key, l.locale, l.text FROM localizations l
-      WHERE l.key LIKE ${parentTable} || ':' || ${parentId} || ':%'
+      WHERE (l.key >= ${lower} AND l.key < ${upper})
         OR l.key IN (
           SELECT 'block:' || id || ':text' FROM block_tree
           UNION ALL
@@ -106,7 +107,7 @@ export class LocalizationStore {
   }
 
   async save(deleteKeyPrefix: string, translations: Translations): Promise<void> {
-    await this.db.delete(localizations).where(like(localizations.key, deleteKeyPrefix + '%'))
+    await this.db.delete(localizations).where(keyPrefixPredicate(deleteKeyPrefix))
     for (const [locale, entries] of Object.entries(translations)) {
       for (const [key, text] of Object.entries(entries)) {
         if (!text) continue
@@ -114,6 +115,24 @@ export class LocalizationStore {
       }
     }
   }
+}
+
+/**
+ * Range equivalent of `key LIKE prefix || '%'` that can use the key index:
+ * default LIKE is case-insensitive, which disqualifies the BINARY-collation
+ * index and full-scans the table. The upper bound is the prefix with its
+ * last character incremented — well-defined here because every key prefix
+ * ends in an ASCII character.
+ */
+function keyPrefixRange(prefix: string): { lower: string; upper: string } {
+  if (!prefix) throw new Error('key prefix must not be empty')
+  const upper = prefix.slice(0, -1) + String.fromCharCode(prefix.charCodeAt(prefix.length - 1) + 1)
+  return { lower: prefix, upper }
+}
+
+function keyPrefixPredicate(prefix: string) {
+  const { lower, upper } = keyPrefixRange(prefix)
+  return and(gte(localizations.key, lower), lt(localizations.key, upper))
 }
 
 function rowsToTranslations(rows: LocalizationRow[]): Translations {

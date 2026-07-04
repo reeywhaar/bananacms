@@ -9,6 +9,7 @@ import { AssetStore, AssetOutputFormat, AssetResolution } from '@cms/services/As
 import { assetVariantHash } from '@cms/lib/assetHash'
 import { optimizeImage } from '@cms/lib/optimizeImage'
 import { createRouteHandler } from '@cms/lib/routeHandler'
+import { singleflight } from '@cms/utils/singleflight'
 
 export const GET = createRouteHandler<{ params: Promise<{ id: string; hash: string }> }>(
   async (req: NextRequest, { params }) => {
@@ -70,55 +71,58 @@ export const GET = createRouteHandler<{ params: Promise<{ id: string; hash: stri
 
     log.debug('cache.miss')
 
-    const sourcePath = join(assetsDir, id)
-    let sourceBuffer: Buffer
-    if (await fileExists(sourcePath)) {
-      sourceBuffer = await readFile(sourcePath)
-    } else {
-      const blob = await store.getData(id)
-      if (!blob) {
-        log.info('notFound')
-        return new NextResponse(null, { status: 404 })
+    // Coalesce concurrent misses for the same variant: the first request
+    // fetches the source and runs the sharp encode, the rest await its
+    // result instead of each starting their own.
+    const result = await singleflight(`asset-variant:${cachePath}`, async () => {
+      const sourcePath = join(assetsDir, id)
+      let sourceBuffer: Buffer
+      if (await fileExists(sourcePath)) {
+        sourceBuffer = await readFile(sourcePath)
+      } else {
+        const blob = await store.getData(id)
+        if (!blob) return null
+        sourceBuffer = blob
+        await writeFile(sourcePath, sourceBuffer)
       }
-      sourceBuffer = blob
-      await writeFile(sourcePath, sourceBuffer)
-    }
 
-    const { data, mime } = await optimizeImage(sourceBuffer, {
-      sourceRes,
-      targetRes: effectiveRes,
-      format: outputAs,
-      sourceMime: meta.mime,
-      maxSize,
+      const { data, mime } = await optimizeImage(sourceBuffer, {
+        sourceRes,
+        targetRes: effectiveRes,
+        format: outputAs,
+        sourceMime: meta.mime,
+        maxSize,
+      })
+
+      const tmpPath = `${cachePath}.tmp.${randomBytes(6).toString('hex')}`
+      const sourceBytes = sourceBuffer.length
+      const outBytes = data.length
+      const ratio = sourceBytes > 0 ? outBytes / sourceBytes : 0
+      const kept = outBytes < sourceBytes * 0.9
+      const wasResized = !!maxSize || resFactor[effectiveRes] < resFactor[sourceRes]
+
+      log.info('optimize.result', { sourceBytes, outBytes, ratio, kept, format: outputAs.type })
+
+      if (!kept && !wasResized) {
+        await symlink(id, tmpPath)
+        await rename(tmpPath, cachePath).catch(() => {})
+        return { body: sourceBuffer, mime: meta.mime }
+      }
+
+      await writeFile(tmpPath, data)
+      await rename(tmpPath, cachePath).catch(() => {})
+      log.debug('optimize.stored', { cachePath, outBytes })
+      return { body: data, mime }
     })
 
-    const tmpPath = `${cachePath}.tmp.${randomBytes(6).toString('hex')}`
-    const sourceBytes = sourceBuffer.length
-    const outBytes = data.length
-    const ratio = sourceBytes > 0 ? outBytes / sourceBytes : 0
-    const kept = outBytes < sourceBytes * 0.9
-    const wasResized = !!maxSize || resFactor[effectiveRes] < resFactor[sourceRes]
-
-    log.info('optimize.result', { sourceBytes, outBytes, ratio, kept, format: outputAs.type })
-
-    if (!kept && !wasResized) {
-      await symlink(id, tmpPath)
-      await rename(tmpPath, cachePath).catch(() => {})
-      return new NextResponse(new Uint8Array(sourceBuffer), {
-        headers: {
-          'Content-Type': meta.mime,
-          'Cache-Control': 'public, max-age=31536000, immutable',
-        },
-      })
+    if (!result) {
+      log.info('notFound')
+      return new NextResponse(null, { status: 404 })
     }
 
-    await writeFile(tmpPath, data)
-    await rename(tmpPath, cachePath).catch(() => {})
-    log.debug('optimize.stored', { cachePath, outBytes })
-
-    return new NextResponse(new Uint8Array(data), {
+    return new NextResponse(new Uint8Array(result.body), {
       headers: {
-        'Content-Type': mime,
+        'Content-Type': result.mime,
         'Cache-Control': 'public, max-age=31536000, immutable',
       },
     })

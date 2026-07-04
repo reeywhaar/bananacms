@@ -1,8 +1,9 @@
 'use server'
 
-import { mkdir, readdir, unlink, writeFile } from 'fs/promises'
+import { mkdir, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import sharp from 'sharp'
+import { assetVariantFilenames } from '@cms/lib/assetHash'
 import { getServices, requireAuth } from '@cms/services/getServices'
 import {
   AssetStore,
@@ -65,19 +66,21 @@ export const updateAssetContent = createServerAction(
     assetContentSchema.parse(toValidate)
     await requireAuth()
     const { db } = await getServices()
-    await new AssetStore(db).updateContent(id, patch)
-    await purgeGeneratedAssetFiles(id)
+    const store = new AssetStore(db)
+    // Variant files on disk are named by hashes of the pre-update content's
+    // params — capture it before the update so the purge can address them.
+    const oldContent = (await store.getMeta(id))?.content ?? null
+    await store.updateContent(id, patch)
+    await purgeGeneratedAssetFiles(id, oldContent)
   },
 )
 
-const purgeGeneratedAssetFiles = async (id: string): Promise<void> => {
+const purgeGeneratedAssetFiles = async (
+  id: string,
+  content: AssetContent | null,
+): Promise<void> => {
   const assetsDir = process.env.ASSETS_DIRECTORY
   if (!assetsDir) return
-  const entries = await readdir(assetsDir).catch(() => [] as string[])
-  const prefix = `${id}-`
-  await Promise.all(
-    entries
-      .filter((name) => name.startsWith(prefix))
-      .map((name) => unlink(join(assetsDir, name)).catch(() => {})),
-  )
+  const names = assetVariantFilenames(id, content?.type === 'image' ? content : null)
+  await Promise.all(names.map((name) => unlink(join(assetsDir, name)).catch(() => {})))
 }

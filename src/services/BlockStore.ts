@@ -126,14 +126,12 @@ export class BlockStore {
   async saveByParent(parentTable: string, parentId: string, blocks: BlockData[]): Promise<void> {
     await this.deleteByParent(parentTable, parentId)
     await this.insertBlocks(blocks, { parentTable, parentId })
-    const referenced = (await this.db.select({ id: parentAsset.assetId }).from(parentAsset)).map(
-      (r) => r.id,
-    )
-    if (referenced.length === 0) {
-      await this.db.delete(asset)
-    } else {
-      await this.db.delete(asset).where(notInArray(asset.id, referenced))
-    }
+    // Orphaned-asset GC as one statement: materializing every referenced id
+    // in JS made each save O(total assets) and would eventually overflow
+    // SQLite's bound-parameter limit.
+    await this.db
+      .delete(asset)
+      .where(notInArray(asset.id, this.db.select({ id: parentAsset.assetId }).from(parentAsset)))
   }
 
   private async insertBlocks(

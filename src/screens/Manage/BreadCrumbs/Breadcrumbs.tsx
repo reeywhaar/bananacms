@@ -25,7 +25,7 @@ const BreadcrumbsContext = createContext<{
 export const BreadcrumbsProvider: FC<PropsWithChildren> = ({ children }) => {
   const [items, setItems] = useState<Breadcrumb[]>([])
 
-  const ctx = { items, setItems }
+  const ctx = useMemo(() => ({ items, setItems }), [items, setItems])
 
   return <BreadcrumbsContext.Provider value={ctx}>{children}</BreadcrumbsContext.Provider>
 }
@@ -74,11 +74,16 @@ export const WithBreadcrumbs: FC<PropsWithChildren<{ items: Breadcrumb[] }>> = (
 }) => {
   const { setItems } = useBreadcrumbsContext()
 
+  // Key the effect on the items' value: server components pass a fresh array
+  // on every RSC render, so an identity dep would re-fire per router.refresh().
+  const itemsKey = JSON.stringify(items)
+  const stableItems = useMemo(() => JSON.parse(itemsKey) as Breadcrumb[], [itemsKey])
+
   useEffect(() => {
-    setItems(items)
+    setItems(stableItems)
 
     return () => setItems([])
-  }, [items, setItems])
+  }, [stableItems, setItems])
 
   return children
 }

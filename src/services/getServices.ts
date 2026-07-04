@@ -65,6 +65,20 @@ export type AuthData =
   | { user: { id: string; name: string }; token: string; tokenExpiresAt: string }
   | undefined
 
+/**
+ * Request-scoped logger without the auth lookup getServices performs.
+ * Middleware logging runs for every matched request — public pages and
+ * extensionless asset URLs included — and must not cost DB queries.
+ */
+export const getRequestLogger = async () => {
+  const hdrs = await headers()
+  const { traceId, sessionId } = await resolveRequestIds()
+  const requestInfo = await resolveRequestInfo()
+  return requestSetup(hdrs, 'requestLogger', () =>
+    createRootLogger({ traceId, sessionId, request: requestInfo }),
+  )
+}
+
 export const getServices = async () => {
   const hdrs = await headers()
   const { traceId, sessionId } = await resolveRequestIds()

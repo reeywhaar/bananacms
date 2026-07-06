@@ -18,10 +18,6 @@ export async function run(): Promise<void> {
     ...process.env,
     NEXT_PUBLIC_SERVER_URL: process.env.NEXT_PUBLIC_SERVER_URL ?? `https://${host}`,
     CMS_INTERNAL_URL: process.env.CMS_INTERNAL_URL ?? `http://localhost:${cmsPort}`,
-    // Rewrites are baked into the build, so the asset-server target must be
-    // known here; `cms start` binds it on this port (consumer port + 2).
-    ASSET_SERVER_INTERNAL_URL:
-      process.env.ASSET_SERVER_INTERNAL_URL ?? `http://localhost:${consumerPort + 2}`,
     ...(process.env.DATA_PATH ? { DATA_PATH: absolutePath(process.env.DATA_PATH) } : {}),
     ...(process.env.ASSETS_DIRECTORY
       ? { ASSETS_DIRECTORY: absolutePath(process.env.ASSETS_DIRECTORY) }

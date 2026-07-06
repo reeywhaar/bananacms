@@ -5,20 +5,27 @@ import {
   type Server,
   type ServerResponse,
 } from 'node:http'
+import { connect } from 'node:net'
+import type { Duplex } from 'node:stream'
 import { open, type FileHandle } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /**
- * Plain-http fast path for asset delivery, sitting in front of the CMS zone.
+ * Public front door (plain node:http): serves encoded asset variants straight
+ * from disk and passes everything else — pages, statics, websocket upgrades —
+ * through to the consumer (pub) zone. Binding this on the public port means
+ * no reverse-proxy setup is required to get the fast path.
  *
  * Variant URLs are content-addressed: /d/<id>/<hash> maps 1:1 to the file
- * ASSETS_DIRECTORY/<id>-<hash> that the /d/[id]/[hash] route materializes on
- * first encode and unlinks on change (changed assets get a new hash, so a new
- * URL). Serving that file directly costs no Next.js machinery, no middleware,
- * and no DB lookup — on a small host this keeps image bursts from starving
- * page SSR. Anything the file lookup can't answer (originals, cold variants,
- * legacy clamped-resolution URLs, non-GET) is proxied to the CMS zone, which
- * stays the only writer of the assets directory.
+ * ASSETS_DIRECTORY/<id>-<hash> that the CMS zone's /d/[id]/[hash] route
+ * materializes on first encode and unlinks on change (changed assets get a
+ * new hash, so a new URL). Serving that file directly costs no Next.js
+ * machinery, no middleware, and no DB lookup — on a small host this keeps
+ * image bursts from starving page SSR. Anything the file lookup can't answer
+ * (originals, cold variants, legacy clamped-resolution URLs, non-GET) falls
+ * through to the pub zone, whose rewrites route asset paths on to the CMS
+ * zone — so a consumer with custom paths keeps today's behavior, just without
+ * the fast path.
  */
 export interface AssetServerOptions {
   /**
@@ -26,20 +33,34 @@ export interface AssetServerOptions {
    * When unset the server degrades to a pure pass-through proxy.
    */
   assetsDir?: string
-  /** CMS zone base URL; everything the file fast path can't answer goes here. */
+  /** Pub zone base URL; everything the file fast path can't answer goes here. */
   upstreamUrl: string
   /** Public asset-delivery prefix (cms.paths.assetDelivery). */
   assetDeliveryPath?: string
+  /** Called once per completed request; the CLI routes this into the zone logs. */
+  onRequest?: (entry: AssetServerRequestLog) => void
+}
+
+export interface AssetServerRequestLog {
+  /** 'hit' = served from the assets directory; 'proxy' = passed to the pub zone. */
+  kind: 'hit' | 'proxy'
+  method: string
+  url: string
+  status: number
+  ms: number
 }
 
 export function createAssetServer(opts: AssetServerOptions): Server {
   const prefix = (opts.assetDeliveryPath ?? '/d').replace(/\/+$/, '')
-  return createServer((req, res) => {
+  const server = createServer((req, res) => {
     handle(req, res, prefix, opts).catch(() => {
       if (!res.headersSent) res.writeHead(500)
       res.end()
     })
   })
+  // Without this, upgrade requests (Next dev HMR websockets) are dropped.
+  server.on('upgrade', (req, socket, head) => proxyUpgrade(req, socket, head, opts.upstreamUrl))
+  return server
 }
 
 export function startAssetServer(port: number, opts: AssetServerOptions): Promise<Server> {
@@ -47,7 +68,7 @@ export function startAssetServer(port: number, opts: AssetServerOptions): Promis
     const server = createAssetServer(opts)
     server.on('error', (err) => {
       if (server.listening) {
-        console.error('assets: server error', err)
+        console.error('front: server error', err)
       } else {
         reject(err)
       }
@@ -62,10 +83,26 @@ async function handle(
   prefix: string,
   opts: AssetServerOptions,
 ): Promise<void> {
+  let kind: AssetServerRequestLog['kind'] = 'proxy'
+  if (opts.onRequest) {
+    const started = performance.now()
+    res.once('finish', () => {
+      opts.onRequest?.({
+        kind,
+        method: req.method ?? '-',
+        url: req.url ?? '-',
+        status: res.statusCode,
+        ms: performance.now() - started,
+      })
+    })
+  }
   if (opts.assetsDir && (req.method === 'GET' || req.method === 'HEAD')) {
-    const pathname = new URL(req.url ?? '/', 'http://assets.internal').pathname
+    const pathname = new URL(req.url ?? '/', 'http://front.internal').pathname
     const filename = matchVariantFilename(pathname, prefix)
-    if (filename && (await serveFile(req, res, join(opts.assetsDir, filename)))) return
+    if (filename && (await serveFile(req, res, join(opts.assetsDir, filename)))) {
+      kind = 'hit'
+      return
+    }
   }
   proxyToUpstream(req, res, opts.upstreamUrl)
 }
@@ -86,7 +123,7 @@ function matchVariantFilename(pathname: string, prefix: string): string | null {
   return `${id}-${hash}`
 }
 
-/** Returns false when the request should fall through to the CMS zone. */
+/** Returns false when the request should fall through to the pub zone. */
 async function serveFile(
   req: IncomingMessage,
   res: ServerResponse,
@@ -197,8 +234,38 @@ function proxyToUpstream(req: IncomingMessage, res: ServerResponse, upstreamUrl:
       return
     }
     res.writeHead(502, { 'Content-Type': 'text/plain' })
-    res.end('asset server: upstream unavailable')
+    res.end('front: upstream unavailable')
   })
   res.on('close', () => upstream.destroy())
   req.pipe(upstream)
+}
+
+/**
+ * Splice an Upgrade request (websockets — e.g. Next dev HMR) through to the
+ * upstream as raw TCP: replay the request head verbatim, then pipe bytes both
+ * ways. rawHeaders preserves casing and duplicates.
+ */
+function proxyUpgrade(
+  req: IncomingMessage,
+  socket: Duplex,
+  head: Buffer,
+  upstreamUrl: string,
+): void {
+  const target = new URL(upstreamUrl)
+  const upstream = connect(Number(target.port || 80), target.hostname, () => {
+    let raw = `${req.method} ${req.url} HTTP/1.1\r\n`
+    for (let i = 0; i < req.rawHeaders.length; i += 2) {
+      raw += `${req.rawHeaders[i]}: ${req.rawHeaders[i + 1]}\r\n`
+    }
+    upstream.write(`${raw}\r\n`)
+    if (head.length) upstream.write(head)
+    socket.pipe(upstream)
+    upstream.pipe(socket)
+  })
+  const destroyBoth = () => {
+    socket.destroy()
+    upstream.destroy()
+  }
+  upstream.on('error', destroyBoth)
+  socket.on('error', destroyBoth)
 }

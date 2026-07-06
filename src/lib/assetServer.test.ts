@@ -1,10 +1,10 @@
 import { createServer, type Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
+import { connect, type AddressInfo } from 'node:net'
 import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { startAssetServer } from './assetServer.ts'
+import { startAssetServer, type AssetServerRequestLog } from './assetServer.ts'
 
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from('jpeg-body')])
 const PNG = Buffer.concat([
@@ -26,6 +26,7 @@ describe('assetServer', () => {
   let upstreamSeen: string[]
   let server: Server
   let base: string
+  let logged: AssetServerRequestLog[]
 
   beforeAll(async () => {
     assetsDir = mkdtempSync(join(tmpdir(), 'bananacms-assets-test-'))
@@ -44,9 +45,11 @@ describe('assetServer', () => {
     await new Promise<void>((resolve) => upstream.listen(0, resolve))
     const upstreamPort = (upstream.address() as AddressInfo).port
 
+    logged = []
     server = await startAssetServer(0, {
       assetsDir,
       upstreamUrl: `http://localhost:${upstreamPort}`,
+      onRequest: (entry) => logged.push(entry),
     })
     base = `http://localhost:${(server.address() as AddressInfo).port}`
   })
@@ -117,5 +120,44 @@ describe('assetServer', () => {
       const res = await fetch(`${base}${path}`)
       expect(res.headers.get('x-upstream')).toBe('1')
     }
+  })
+
+  it('reports hits and proxied requests via onRequest', async () => {
+    logged.length = 0
+    await fetch(`${base}/d/${ID}/${HASH}`)
+    await fetch(`${base}/some/page`)
+    expect(logged).toHaveLength(2)
+    expect(logged[0]).toMatchObject({ kind: 'hit', method: 'GET', status: 200 })
+    expect(logged[0].url).toBe(`/d/${ID}/${HASH}`)
+    expect(logged[1]).toMatchObject({ kind: 'proxy', method: 'GET', url: '/some/page' })
+  })
+
+  it('proxies websocket upgrades to the upstream as raw TCP', async () => {
+    upstream.on('upgrade', (req, socket) => {
+      socket.write(
+        'HTTP/1.1 101 Switching Protocols\r\nUpgrade: test\r\nConnection: Upgrade\r\n\r\n',
+      )
+      socket.write(`upgraded:${req.url}`)
+    })
+    const port = (server.address() as AddressInfo).port
+    const received = await new Promise<string>((resolve, reject) => {
+      const socket = connect(port, 'localhost', () => {
+        socket.write(
+          'GET /_next/hmr HTTP/1.1\r\nHost: x\r\nConnection: Upgrade\r\nUpgrade: test\r\n\r\n',
+        )
+      })
+      let buffer = ''
+      socket.on('data', (chunk) => {
+        buffer += chunk.toString()
+        if (buffer.includes('upgraded:')) {
+          socket.destroy()
+          resolve(buffer)
+        }
+      })
+      socket.on('error', reject)
+      setTimeout(() => reject(new Error('timed out waiting for upgrade')), 3000)
+    })
+    expect(received).toContain('101 Switching Protocols')
+    expect(received).toContain('upgraded:/_next/hmr')
   })
 })

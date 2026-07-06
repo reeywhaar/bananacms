@@ -10,14 +10,15 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
   const packageRoot = fileURLToPath(new URL('../../', import.meta.url))
   const consumerDir = process.cwd()
 
-  const consumerPort = parsePort(process.env.SERVER_PORT, 3000)
-  const cmsPort = consumerPort + 1
-  const assetsPort = consumerPort + 2
+  // The front server owns the public port; both Next zones are internal.
+  const frontPort = parsePort(process.env.SERVER_PORT, 3000)
+  const cmsPort = frontPort + 1
+  const pubPort = frontPort + 2
   const host = process.env.BANANACMS_HOST ?? 'localhost'
 
-  const publicUrl = `http://${host}:${consumerPort}`
+  const publicUrl = `http://${host}:${frontPort}`
   const cmsInternalUrl = `http://localhost:${cmsPort}`
-  const assetServerUrl = `http://localhost:${assetsPort}`
+  const pubInternalUrl = `http://localhost:${pubPort}`
 
   const configModule = resolve(consumerDir, process.env.BANANACMS_CONFIG_MODULE ?? 'src/cms.ts')
 
@@ -30,7 +31,6 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
     ...process.env,
     NEXT_PUBLIC_SERVER_URL: publicUrl,
     CMS_INTERNAL_URL: cmsInternalUrl,
-    ASSET_SERVER_INTERNAL_URL: assetServerUrl,
     BANANACMS_CONFIG_MODULE: configModule,
     ...(process.env.DATA_PATH ? { DATA_PATH: absolutePath(process.env.DATA_PATH) } : {}),
     ...(process.env.ASSETS_DIRECTORY
@@ -40,9 +40,9 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
 
   const mode = dev ? 'development' : 'production'
   console.info(`bananacms [${mode}]`)
-  console.info(`  Pub zone: ${publicUrl}`)
-  console.info(`  CMS zone: ${cmsInternalUrl}`)
-  console.info(`  Assets:   ${assetServerUrl}`)
+  console.info(`  Front:    ${publicUrl}`)
+  console.info(`  Pub zone: ${pubInternalUrl} (internal)`)
+  console.info(`  CMS zone: ${cmsInternalUrl} (internal)`)
 
   // Marks the app as running so `snapshot restore` refuses to touch the DB
   // underneath it. The exit hook also covers signal-triggered shutdowns —
@@ -52,15 +52,34 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
 
   // In-process on purpose: it's pure I/O (no encodes — those stay in the CMS
   // zone), and a third Node process is real memory on the small hosts this
-  // targets. Started before the zones so the consumer zone's asset rewrite
-  // never points at a dead port.
-  const assetServer = await startAssetServer(assetsPort, {
+  // targets. Binds the public port before the zones spawn so the origin is
+  // never a connection-refused while Next boots.
+  const logJson = jsonLogFormat()
+  const assetServer = await startAssetServer(frontPort, {
     assetsDir: env.ASSETS_DIRECTORY,
-    upstreamUrl: cmsInternalUrl,
+    upstreamUrl: pubInternalUrl,
+    onRequest: (e) => {
+      // Proxied non-asset traffic is already logged by the zones themselves.
+      if (e.kind === 'proxy' && !e.url.startsWith('/d/')) return
+      const ms = Math.round(e.ms)
+      const line = logJson
+        ? JSON.stringify({
+            timestamp: new Date().toISOString(),
+            level: 'info',
+            service: 'Front',
+            message: e.kind,
+            method: e.method,
+            url: e.url,
+            status: e.status,
+            ms,
+          })
+        : `${e.kind} ${e.method} ${e.url} → ${e.status} in ${ms}ms`
+      process.stdout.write(`${formatLine(logJson, 'front', line)}\n`)
+    },
   })
 
   const cmsChild = spawnZone('cms', cmsDir, cmsPort, dev, env)
-  const consumerChild = spawnZone('pub', consumerDir, consumerPort, dev, env)
+  const consumerChild = spawnZone('pub', consumerDir, pubPort, dev, env)
   // The CMS source watch (tsup + tsc + tsc-alias) is only relevant when the
   // package source is local and being modified — i.e. the workspace's own demo.
   // External consumers install bananacms as a pre-built dependency; rebuilding

@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
+import { startAssetServer } from '../lib/assetServer.ts'
 
 export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Promise<void> {
   const cmsDir = fileURLToPath(new URL('../', import.meta.url))
@@ -11,10 +12,12 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
 
   const consumerPort = parsePort(process.env.SERVER_PORT, 3000)
   const cmsPort = consumerPort + 1
+  const assetsPort = consumerPort + 2
   const host = process.env.BANANACMS_HOST ?? 'localhost'
 
   const publicUrl = `http://${host}:${consumerPort}`
   const cmsInternalUrl = `http://localhost:${cmsPort}`
+  const assetServerUrl = `http://localhost:${assetsPort}`
 
   const configModule = resolve(consumerDir, process.env.BANANACMS_CONFIG_MODULE ?? 'src/cms.ts')
 
@@ -27,6 +30,7 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
     ...process.env,
     NEXT_PUBLIC_SERVER_URL: publicUrl,
     CMS_INTERNAL_URL: cmsInternalUrl,
+    ASSET_SERVER_INTERNAL_URL: assetServerUrl,
     BANANACMS_CONFIG_MODULE: configModule,
     ...(process.env.DATA_PATH ? { DATA_PATH: absolutePath(process.env.DATA_PATH) } : {}),
     ...(process.env.ASSETS_DIRECTORY
@@ -38,12 +42,22 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
   console.info(`bananacms [${mode}]`)
   console.info(`  Pub zone: ${publicUrl}`)
   console.info(`  CMS zone: ${cmsInternalUrl}`)
+  console.info(`  Assets:   ${assetServerUrl}`)
 
   // Marks the app as running so `snapshot restore` refuses to touch the DB
   // underneath it. The exit hook also covers signal-triggered shutdowns —
   // process.exit below fires it.
   writePidFile()
   process.on('exit', removePidFile)
+
+  // In-process on purpose: it's pure I/O (no encodes — those stay in the CMS
+  // zone), and a third Node process is real memory on the small hosts this
+  // targets. Started before the zones so the consumer zone's asset rewrite
+  // never points at a dead port.
+  const assetServer = await startAssetServer(assetsPort, {
+    assetsDir: env.ASSETS_DIRECTORY,
+    upstreamUrl: cmsInternalUrl,
+  })
 
   const cmsChild = spawnZone('cms', cmsDir, cmsPort, dev, env)
   const consumerChild = spawnZone('pub', consumerDir, consumerPort, dev, env)
@@ -59,6 +73,7 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
     if (shuttingDown) return
     shuttingDown = true
     console.info(`\nbananacms: received ${signal}, stopping zones...`)
+    assetServer.close()
     cmsChild.kill(signal)
     consumerChild.kill(signal)
     for (const child of buildChildren) child.kill(signal)

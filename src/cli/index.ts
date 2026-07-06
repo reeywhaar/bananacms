@@ -177,7 +177,10 @@ Environment (from .env in cwd):
   ASSETS_DIRECTORY                Path to the asset storage directory
   BANANACMS_HOST                  Public host used to build NEXT_PUBLIC_SERVER_URL in dev/start (default: localhost). CMS_INTERNAL_URL is always bound to localhost.
   BANANACMS_CONFIG_MODULE         Path to the consumer's createCMS() module, relative to cwd (default: src/cms.ts). Both zones side-effect-import this at boot.
-  SERVER_PORT                     Public-zone port (default: 3000). CMS zone runs on SERVER_PORT + 1.
+  SERVER_PORT                     Public-zone port (default: 3000). CMS zone runs on SERVER_PORT + 1;
+                                  the asset server on SERVER_PORT + 2. Point your reverse proxy's
+                                  asset-delivery path (/d/*) at the asset server to bypass Next.js
+                                  for cached image variants.
   SNAPSHOTS_COUNT                 Enable automatic DB snapshots and keep at most this many
                                   (0 or unset disables). Snapshots are taken at app start and
                                   after each burst of writes, into DATA_PATH/snapshots.

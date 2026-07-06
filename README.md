@@ -22,20 +22,34 @@ A small, pluggable CMS built on Next.js 16 + SQLite. Ships as a package you inst
 │                                                             │
 │  Consumer zone (port 3000)                                  │
 │    app/[locale]/…   ← consumer's public content             │
-│    next.config.ts: rewrites(/manage, /api, /d → :4001)      │
+│    next.config.ts: rewrites(/manage, /api → :4001,          │
+│                             /d → :3002)                     │
 │                                                             │
 │  CMS zone (port 4001, internal)                             │
 │    app/manage/…     ← admin UI                              │
 │    app/api/…        ← auth + me routes                      │
-│    app/d/[id]/…     ← asset delivery                        │
+│    app/d/[id]/…     ← asset delivery (encodes, originals)   │
+│                                                             │
+│  Asset server (port 3002, internal, plain node:http)        │
+│    /d/<id>/<hash>   ← encoded variants straight from disk   │
+│    everything else  ← proxied to the CMS zone               │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 Each zone is a Next.js 16 app; each runs as its own child process so Turbopack's
-per-process singletons don't collide. The consumer zone rewrites `/manage`,
-`/api`, and `/d` paths internally to the CMS zone, so from the browser it looks
-like one site on port 3000.
+per-process singletons don't collide. The consumer zone rewrites `/manage` and
+`/api` internally to the CMS zone, and `/d` to the asset server, so from the
+browser it looks like one site on port 3000.
+
+The asset server (`SERVER_PORT + 2`, in-process in the CLI) exists because
+variant URLs are content-addressed: `/d/<id>/<hash>` maps 1:1 to the file
+`ASSETS_DIRECTORY/<id>-<hash>`, so a warm image request needs no Next.js
+machinery and no DB. Cold variants, originals, and anything unrecognized fall
+through to the CMS zone, which stays the only writer of the assets directory.
+On single-CPU hosts, point the reverse proxy's `/d/*` route directly at this
+port so image bursts skip the consumer zone entirely instead of being proxied
+through it.
 
 Both zones open the same SQLite DB (POSIX file locking; safe for multi-process).
 
@@ -126,9 +140,9 @@ cp demo/.env.example demo/.env
 | `ALLOWED_HOSTS`          | no       | Extra dev-mode hostnames, comma-separated.                                         |
 | `DATA_PATH`              | yes      | Directory for data storage. SQLite database is stored inside as `database.db`.     |
 | `ASSETS_DIRECTORY`       | yes      | Directory for asset storage.                                                       |
-| `PORT`                   | no       | Consumer zone port (default `3000`).                                               |
-| `CMS_INTERNAL_PORT`      | no       | CMS zone port (default `4001`).                                                    |
-| `CMS_INTERNAL_URL`       | no       | Derived from `CMS_INTERNAL_PORT` by default.                                       |
+| `SERVER_PORT`            | no       | Consumer zone port (default `3000`). CMS zone binds `SERVER_PORT + 1`, asset server `SERVER_PORT + 2`. |
+| `CMS_INTERNAL_URL`       | no       | Derived from `SERVER_PORT` by default.                                             |
+| `ASSET_SERVER_INTERNAL_URL` | no    | Where the consumer zone's `/d/*` rewrite points (default: the asset server on `SERVER_PORT + 2`). |
 | `LOG_FORMAT`             | no       | `dev` or `json`. Defaults: `dev` in development, `json` in production.             |
 | `LOG_LEVEL`              | no       | `debug` / `info` / `warn` / `error`. Default `info`.                               |
 | `NO_COLOR`               | no       | Disable ANSI colors in the dev log formatter.                                      |

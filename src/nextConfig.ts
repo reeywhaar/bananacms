@@ -6,10 +6,14 @@ type Rewrites = NonNullable<NextConfig['rewrites']>
 
 export function cmsRewrites(cms: CMSInstance = getCMS()): Rewrite[] {
   const url = (process.env.CMS_INTERNAL_URL ?? 'http://localhost:4001').replace(/\/+$/, '')
+  // Asset delivery goes to the asset server (filesystem fast path in front of
+  // the CMS zone) when the CLI provides one; consumers running `next build`
+  // directly without the CLI keep the CMS zone as the target.
+  const assetUrl = (process.env.ASSET_SERVER_INTERNAL_URL ?? url).replace(/\/+$/, '')
   const segments = [cms.paths.admin, cms.paths.api, cms.paths.assetDelivery, cms.paths.assetPrefix]
   return segments.map((path) => ({
     source: `${path}/:path*`,
-    destination: `${url}${path}/:path*`,
+    destination: `${path === cms.paths.assetDelivery ? assetUrl : url}${path}/:path*`,
   }))
 }
 

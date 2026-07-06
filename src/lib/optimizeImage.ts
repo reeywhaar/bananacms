@@ -1,5 +1,6 @@
 import sharp from 'sharp'
 import type { AssetOutputFormat, AssetResolution } from '@cms/services/AssetStore'
+import { imageEncodeSemaphore } from '@cms/utils/semaphore'
 
 const resFactor: Record<AssetResolution, number> = { '@1x': 1, '@2x': 2, '@3x': 3 }
 
@@ -11,7 +12,12 @@ export type OptimizeImageOptions = {
   maxSize?: { width: number; height: number }
 }
 
-export const optimizeImage = async (
+export const optimizeImage = (
+  source: Buffer,
+  opts: OptimizeImageOptions,
+): Promise<{ data: Buffer; mime: string }> => imageEncodeSemaphore().run(() => encode(source, opts))
+
+const encode = async (
   source: Buffer,
   opts: OptimizeImageOptions,
 ): Promise<{ data: Buffer; mime: string }> => {

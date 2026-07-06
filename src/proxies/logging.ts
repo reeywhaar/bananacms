@@ -9,8 +9,8 @@ export const logging: ProxyMiddleware = async (request, _event, next) => {
   const method = request.method
   const path = request.nextUrl.pathname
   const startedAt = Date.now()
-  log.info('start', { method, path })
+  log.debug('start', { method, path })
   const response = await next()
-  log.info('end', { method, path, status: response.status, durationMs: Date.now() - startedAt })
+  log.debug('end', { method, path, status: response.status, durationMs: Date.now() - startedAt })
   return response
 }

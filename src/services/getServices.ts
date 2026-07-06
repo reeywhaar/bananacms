@@ -121,7 +121,7 @@ export const getServices = async () => {
       rootLogger.setContext({ auth: { type: 'guest' } })
     }
 
-    rootLogger.info('start')
+    rootLogger.debug('start')
 
     return {
       db,

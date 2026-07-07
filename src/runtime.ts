@@ -7,7 +7,12 @@
 export { getServices, requireAuth, type AuthData } from './services/getServices'
 
 // Asset helpers (URL formation, optimized srcset)
-export { getImagesMetadata } from './lib/getImagesMetadata'
+export {
+  getImagesMetadata,
+  imageDimensionsFromContent,
+  imageMetadataFromContents,
+  type ImageLayout,
+} from './lib/getImagesMetadata'
 
 // Block system — types needed by consumers rendering blocks
 export type {

@@ -2,11 +2,52 @@ import { join } from 'node:path'
 import { access, mkdir, writeFile } from 'node:fs/promises'
 import sharp from 'sharp'
 import { getServices } from '@cms/services/getServices'
-import { AssetStore, AssetResolution } from '@cms/services/AssetStore'
+import { AssetStore, AssetResolution, type AssetImageContent } from '@cms/services/AssetStore'
 
 const resFactor: Record<AssetResolution, number> = { '@1x': 1, '@2x': 2, '@3x': 3 }
 
 export type ImageLayout = { width: number; height: number }
+
+/**
+ * Pure transform from persisted asset content to display dimensions.
+ * Consumers that already hold a `getContent()` result can derive dimensions
+ * from it directly instead of paying a second content scan through
+ * getImagesMetadata() (or duplicating this math and drifting from it).
+ * Returns null when the content predates persisted width/height —
+ * getImagesMetadata() covers those with a sharp probe of the cached file.
+ */
+export const imageDimensionsFromContent = (
+  content: AssetImageContent | undefined,
+): ImageLayout | null => {
+  if (!content?.width || !content.height) return null
+  return scaleDimensions(content, { w: content.width, h: content.height })
+}
+
+/** Batch form of imageDimensionsFromContent; ids without dimensions are omitted. */
+export const imageMetadataFromContents = (
+  contents: Record<string, AssetImageContent>,
+): Record<string, ImageLayout> => {
+  const result: Record<string, ImageLayout> = {}
+  for (const [id, content] of Object.entries(contents)) {
+    const layout = imageDimensionsFromContent(content)
+    if (layout) result[id] = layout
+  }
+  return result
+}
+
+const scaleDimensions = (
+  content: AssetImageContent | undefined,
+  { w, h }: { w: number; h: number },
+): ImageLayout => {
+  const sourceRes: AssetResolution = content?.resolution ?? '@1x'
+  const maxSize = content?.maxSize
+  const k = maxSize ? Math.min(maxSize.width / w, maxSize.height / h, 1) : 1
+  const factor = resFactor[sourceRes]
+  return {
+    width: Math.max(1, Math.round((w * k) / factor)),
+    height: Math.max(1, Math.round((h * k) / factor)),
+  }
+}
 
 export const getImagesMetadata = async (ids: string[]): Promise<Record<string, ImageLayout>> => {
   if (ids.length === 0) return {}
@@ -21,26 +62,10 @@ export const getImagesMetadata = async (ids: string[]): Promise<Record<string, I
       // Dimensions are persisted into asset.content at upload time (both via
       // sharp autoOrient, so the values are interchangeable); probing the
       // cached file is only a fallback for assets predating that.
-      const dims =
-        content?.width && content?.height
-          ? { w: content.width, h: content.height }
-          : await probeDimensions(id, store)
-      if (!dims) return null
-      const { w, h } = dims
-
-      const sourceRes: AssetResolution = content?.resolution ?? '@1x'
-      const maxSize = content?.maxSize
-      const k = maxSize ? Math.min(maxSize.width / w, maxSize.height / h, 1) : 1
-      const boundedW = w * k
-      const boundedH = h * k
-      const factor = resFactor[sourceRes]
-      return [
-        id,
-        {
-          width: Math.max(1, Math.round(boundedW / factor)),
-          height: Math.max(1, Math.round(boundedH / factor)),
-        },
-      ]
+      const fromContent = imageDimensionsFromContent(content)
+      if (fromContent) return [id, fromContent]
+      const dims = await probeDimensions(id, store)
+      return dims ? [id, scaleDimensions(content, dims)] : null
     }),
   )
   return Object.fromEntries(entries.filter((e): e is [string, ImageLayout] => e !== null))

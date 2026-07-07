@@ -102,6 +102,9 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
     } else {
       await client.execute('COMMIT')
       await client.execute('VACUUM')
+      // VACUUM in WAL mode streams the rebuilt database through the -wal
+      // file; truncate it to actually return the space.
+      await client.execute('PRAGMA wal_checkpoint(TRUNCATE)')
       console.info('Cleanup complete.')
     }
   } catch (e) {

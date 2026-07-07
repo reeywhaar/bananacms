@@ -65,14 +65,18 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
     assetsDir: env.ASSETS_DIRECTORY,
     upstreamUrl: pubInternalUrl,
     onRequest: (e) => {
-      // Proxied non-asset traffic is already logged by the zones themselves.
+      // Proxied statics are zone noise; asset traffic stays at debug. 'nav'
+      // logs at info: it is the only accurate render-latency metric — the
+      // zones' middleware timing returns before the RSC render.
       if (e.kind === 'proxy' && !e.url.startsWith('/d/')) return
-      frontLog.debug(e.kind, {
+      const args = {
         method: e.method,
         url: e.url,
         status: e.status,
         durationMs: Math.round(e.ms),
-      })
+      }
+      if (e.kind === 'nav') frontLog.info('nav', args)
+      else frontLog.debug(e.kind, args)
     },
   })
 

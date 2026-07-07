@@ -42,8 +42,15 @@ export interface FrontServerOptions {
 }
 
 export interface FrontServerRequestLog {
-  /** 'hit' = served from the assets directory; 'proxy' = passed to the pub zone. */
-  kind: 'hit' | 'proxy'
+  /**
+   * 'hit' = served from the assets directory; 'nav' = page navigation passed
+   * to the pub zone; 'proxy' = any other pass-through (statics, asset
+   * fall-throughs). The zones can't time navigations themselves — middleware
+   * `next()` returns before the RSC render — so the 'nav' `ms`, measured here
+   * from request start to response finish, is the authoritative
+   * per-navigation latency.
+   */
+  kind: 'hit' | 'proxy' | 'nav'
   method: string
   url: string
   status: number
@@ -83,7 +90,8 @@ async function handle(
   prefix: string,
   opts: FrontServerOptions,
 ): Promise<void> {
-  let kind: FrontServerRequestLog['kind'] = 'proxy'
+  const pathname = new URL(req.url ?? '/', 'http://front.internal').pathname
+  let kind: FrontServerRequestLog['kind'] = isNavigation(pathname, prefix) ? 'nav' : 'proxy'
   if (opts.onRequest) {
     const started = performance.now()
     res.once('finish', () => {
@@ -97,7 +105,6 @@ async function handle(
     })
   }
   if (opts.assetsDir && (req.method === 'GET' || req.method === 'HEAD')) {
-    const pathname = new URL(req.url ?? '/', 'http://front.internal').pathname
     const filename = matchVariantFilename(pathname, prefix)
     if (filename && (await serveFile(req, res, join(opts.assetsDir, filename)))) {
       kind = 'hit'
@@ -105,6 +112,15 @@ async function handle(
     }
   }
   proxyToUpstream(req, res, opts.upstreamUrl)
+}
+
+// Dot-less paths outside Next internals and asset delivery are page
+// navigations — the same convention as the middleware matcher's `.*\..*`
+// file exclusion.
+function isNavigation(pathname: string, prefix: string): boolean {
+  if (pathname.includes('.')) return false
+  if (pathname.startsWith('/_next')) return false
+  return pathname !== prefix && !pathname.startsWith(`${prefix}/`)
 }
 
 // Hashes are 12 lowercase hex chars and ids are UUIDs, but accept the full

@@ -122,14 +122,25 @@ describe('frontServer', () => {
     }
   })
 
-  it('reports hits and proxied requests via onRequest', async () => {
+  it('reports hits, navigations and proxied requests via onRequest', async () => {
     logged.length = 0
     await fetch(`${base}/d/${ID}/${HASH}`)
     await fetch(`${base}/some/page`)
     expect(logged).toHaveLength(2)
     expect(logged[0]).toMatchObject({ kind: 'hit', method: 'GET', status: 200 })
     expect(logged[0].url).toBe(`/d/${ID}/${HASH}`)
-    expect(logged[1]).toMatchObject({ kind: 'proxy', method: 'GET', url: '/some/page' })
+    expect(logged[1]).toMatchObject({ kind: 'nav', method: 'GET', url: '/some/page' })
+    expect(logged[1].ms).toBeGreaterThan(0)
+  })
+
+  it('classifies statics and asset fall-throughs as proxy, dot-less pages as nav', async () => {
+    logged.length = 0
+    await fetch(`${base}/_next/static/chunk.js`)
+    await fetch(`${base}/styles.css`)
+    await fetch(`${base}/d/${ID}`)
+    await fetch(`${base}/`)
+    await fetch(`${base}/blog/post`, { method: 'POST' })
+    expect(logged.map((e) => e.kind)).toEqual(['proxy', 'proxy', 'proxy', 'nav', 'nav'])
   })
 
   it('proxies websocket upgrades to the upstream as raw TCP', async () => {

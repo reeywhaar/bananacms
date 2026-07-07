@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createClient } from '@libsql/client'
 import { describe, expect, it } from 'vitest'
-import { asset, block, category, post } from '@cms/lib/db/schema'
+import { asset, assetBlob, block, category, post } from '@cms/lib/db/schema'
 import { createTestDb, type TestDb } from '../../test/db'
 import { dumpDatabase, hashDump } from './dump'
 
@@ -41,10 +41,10 @@ async function seed(testDb: TestDb, reverseOrder = false) {
     id: 'asset-1',
     filename: 'a.bin',
     mime: 'application/octet-stream',
-    data: BLOB_DATA,
     createdAt: 123,
     content: null,
   })
+  await testDb.db.insert(assetBlob).values({ id: 'asset-1', data: BLOB_DATA })
   await testDb.client.execute(
     "INSERT INTO post_fts (postId, locale, content) VALUES ('post-1', 'en', 'hello fts world')",
   )
@@ -77,7 +77,7 @@ describe('dumpDatabase', () => {
       const blockRow = await restored.execute("SELECT content FROM block WHERE id = 'block-1'")
       expect(blockRow.rows[0].content).toBe(BLOCK_CONTENT)
 
-      const assetRow = await restored.execute("SELECT data FROM asset WHERE id = 'asset-1'")
+      const assetRow = await restored.execute("SELECT data FROM asset_blob WHERE id = 'asset-1'")
       expect(Buffer.from(assetRow.rows[0].data as ArrayBuffer)).toEqual(BLOB_DATA)
 
       const fts = await restored.execute("SELECT postId FROM post_fts WHERE post_fts MATCH 'hello'")

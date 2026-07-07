@@ -88,11 +88,20 @@ export const asset = sqliteTable('asset', {
   id: text('id').primaryKey(),
   filename: text('filename').notNull(),
   mime: text('mime').notNull(),
-  data: blob('data', { mode: 'buffer' }).notNull().$type<Buffer>(),
   createdAt: integer('createdAt')
     .notNull()
     .default(sql`(unixepoch())`),
   content: text('content'),
+})
+
+// The blob lives in a sibling table so asset metadata reads never walk the
+// blob's overflow-page chain (columns after a big blob cost O(blob size) to
+// reach in SQLite).
+export const assetBlob = sqliteTable('asset_blob', {
+  id: text('id')
+    .primaryKey()
+    .references(() => asset.id, { onDelete: 'cascade' }),
+  data: blob('data', { mode: 'buffer' }).notNull().$type<Buffer>(),
 })
 
 export const localizations = sqliteTable(
@@ -209,6 +218,7 @@ export const schema = {
   tag,
   attribute,
   asset,
+  assetBlob,
   localizations,
   user,
   parentBlock,

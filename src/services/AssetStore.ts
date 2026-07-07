@@ -1,6 +1,6 @@
 import { eq, inArray, sql } from 'drizzle-orm'
 import { type Db } from '@cms/lib/db/client'
-import { asset } from '@cms/lib/db/schema'
+import { asset, assetBlob } from '@cms/lib/db/schema'
 import { valita } from '@cms/utils/valita'
 
 export type AssetResolution = '@1x' | '@2x' | '@3x'
@@ -99,10 +99,11 @@ export class AssetStore {
         id: asset.id,
         filename: asset.filename,
         mime: asset.mime,
-        data: asset.data,
+        data: assetBlob.data,
         content: asset.content,
       })
       .from(asset)
+      .innerJoin(assetBlob, eq(assetBlob.id, asset.id))
       .where(eq(asset.id, id))
       .get()
     if (!row || row.id == null) return null
@@ -121,15 +122,18 @@ export class AssetStore {
    * cache hit never deserializes the blob out of SQLite.
    */
   async getMeta(id: string): Promise<AssetMeta | null> {
+    // length() reads the blob size from the record header, not the blob body,
+    // and the join is a PK lookup — this stays blob-transfer-free.
     const row = await this.db
       .select({
         id: asset.id,
         filename: asset.filename,
         mime: asset.mime,
-        size: sql<number>`length(${asset.data})`,
+        size: sql<number>`length(${assetBlob.data})`,
         content: asset.content,
       })
       .from(asset)
+      .innerJoin(assetBlob, eq(assetBlob.id, asset.id))
       .where(eq(asset.id, id))
       .get()
     if (!row || row.id == null) return null
@@ -143,7 +147,11 @@ export class AssetStore {
   }
 
   async getData(id: string): Promise<Buffer | null> {
-    const row = await this.db.select({ data: asset.data }).from(asset).where(eq(asset.id, id)).get()
+    const row = await this.db
+      .select({ data: assetBlob.data })
+      .from(assetBlob)
+      .where(eq(assetBlob.id, id))
+      .get()
     return row?.data ?? null
   }
 
@@ -165,9 +173,9 @@ export class AssetStore {
   async getSizes(ids: string[]): Promise<Record<string, number>> {
     if (ids.length === 0) return {}
     const rows = await this.db
-      .select({ id: asset.id, size: sql<number>`length(${asset.data})` })
-      .from(asset)
-      .where(inArray(asset.id, ids))
+      .select({ id: assetBlob.id, size: sql<number>`length(${assetBlob.data})` })
+      .from(assetBlob)
+      .where(inArray(assetBlob.id, ids))
     const result: Record<string, number> = {}
     for (const row of rows) {
       if (row.id != null) result[row.id] = row.size
@@ -176,12 +184,14 @@ export class AssetStore {
   }
 
   async add(id: string, payload: AssetPayload): Promise<void> {
-    await this.db.insert(asset).values({
-      id,
-      filename: payload.filename,
-      mime: payload.mime,
-      data: payload.data,
-      content: payload.content ? JSON.stringify(payload.content) : null,
+    await this.db.transaction(async (tx) => {
+      await tx.insert(asset).values({
+        id,
+        filename: payload.filename,
+        mime: payload.mime,
+        content: payload.content ? JSON.stringify(payload.content) : null,
+      })
+      await tx.insert(assetBlob).values({ id, data: payload.data })
     })
   }
 

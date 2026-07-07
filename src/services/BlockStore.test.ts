@@ -4,6 +4,7 @@ import { type BlockData } from '@cms/lib/blocks/declarations'
 import { createTestDb, type TestDb } from '../test/db'
 import {
   asset,
+  assetBlob,
   attribute,
   block,
   category,
@@ -290,12 +291,10 @@ describe('BlockStore.query', () => {
     const ASSET_B = '019dbcea-d3a4-75e7-b37a-190d51650a02'
 
     async function seedAssets(testDb: TestDb): Promise<void> {
-      await testDb.db
-        .insert(asset)
-        .values({ id: ASSET_A, filename: 'a.png', mime: 'image/png', data: Buffer.from('a') })
-      await testDb.db
-        .insert(asset)
-        .values({ id: ASSET_B, filename: 'b.png', mime: 'image/png', data: Buffer.from('b') })
+      await testDb.db.insert(asset).values({ id: ASSET_A, filename: 'a.png', mime: 'image/png' })
+      await testDb.db.insert(assetBlob).values({ id: ASSET_A, data: Buffer.from('a') })
+      await testDb.db.insert(asset).values({ id: ASSET_B, filename: 'b.png', mime: 'image/png' })
+      await testDb.db.insert(assetBlob).values({ id: ASSET_B, data: Buffer.from('b') })
       await testDb.db
         .insert(parentAsset)
         .values({ assetId: ASSET_A, parentId: IMAGE_BLOCK, parentTable: 'block' })

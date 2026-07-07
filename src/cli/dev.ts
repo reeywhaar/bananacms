@@ -3,9 +3,15 @@ import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
-import { startAssetServer } from '../lib/assetServer.ts'
+import { startFrontServer } from '../lib/frontServer.ts'
+import { createRootLogger } from '../lib/logger/root.ts'
 
 export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Promise<void> {
+  // `next start` sets NODE_ENV=production only inside the zone processes;
+  // this wrapper gets nothing. Without the default, the zones log JSON while
+  // the front server and the zone-line wrapping stay in dev format.
+  if (!dev) (process.env as Record<string, string | undefined>).NODE_ENV ??= 'production'
+
   const cmsDir = fileURLToPath(new URL('../', import.meta.url))
   const packageRoot = fileURLToPath(new URL('../../', import.meta.url))
   const consumerDir = process.cwd()
@@ -54,27 +60,19 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
   // zone), and a third Node process is real memory on the small hosts this
   // targets. Binds the public port before the zones spawn so the origin is
   // never a connection-refused while Next boots.
-  const logJson = jsonLogFormat()
-  const assetServer = await startAssetServer(frontPort, {
+  const frontLog = createRootLogger({ zone: 'front' }).child('Front')
+  const frontServer = await startFrontServer(frontPort, {
     assetsDir: env.ASSETS_DIRECTORY,
     upstreamUrl: pubInternalUrl,
     onRequest: (e) => {
       // Proxied non-asset traffic is already logged by the zones themselves.
       if (e.kind === 'proxy' && !e.url.startsWith('/d/')) return
-      const ms = Math.round(e.ms)
-      const line = logJson
-        ? JSON.stringify({
-            timestamp: new Date().toISOString(),
-            level: 'info',
-            service: 'Front',
-            message: e.kind,
-            method: e.method,
-            url: e.url,
-            status: e.status,
-            ms,
-          })
-        : `${e.kind} ${e.method} ${e.url} → ${e.status} in ${ms}ms`
-      process.stdout.write(`${formatLine(logJson, 'front', line)}\n`)
+      frontLog.debug(e.kind, {
+        method: e.method,
+        url: e.url,
+        status: e.status,
+        durationMs: Math.round(e.ms),
+      })
     },
   })
 
@@ -92,7 +90,7 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
     if (shuttingDown) return
     shuttingDown = true
     console.info(`\nbananacms: received ${signal}, stopping zones...`)
-    assetServer.close()
+    frontServer.close()
     cmsChild.kill(signal)
     consumerChild.kill(signal)
     for (const child of buildChildren) child.kill(signal)

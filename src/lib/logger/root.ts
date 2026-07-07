@@ -1,6 +1,9 @@
-import { Logger, LoggerContext, type Formatter, type LogLevel, type Sink } from './Logger'
-import { DevFormatter, JsonFormatter } from './formatters'
-import { ConsoleSink } from './sink'
+// Explicit .ts extensions: the CLI (`node src/cli/index.ts`) loads this module
+// via Node's native type stripping, which does not resolve extensionless
+// specifiers.
+import { Logger, LoggerContext, type Formatter, type LogLevel, type Sink } from './Logger.ts'
+import { DevFormatter, JsonFormatter } from './formatters.ts'
+import { ConsoleSink } from './sink.ts'
 
 export const createRootLogger = (context: Record<string, unknown> = {}): Logger => {
   const formatter: Formatter =

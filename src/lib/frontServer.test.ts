@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { startAssetServer, type AssetServerRequestLog } from './assetServer.ts'
+import { startFrontServer, type FrontServerRequestLog } from './frontServer.ts'
 
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.from('jpeg-body')])
 const PNG = Buffer.concat([
@@ -20,13 +20,13 @@ const WEBP = Buffer.concat([
 const ID = '019d89d8-9bfb-722c-879e-1e39824a57ec'
 const HASH = '349edd0391a2'
 
-describe('assetServer', () => {
+describe('frontServer', () => {
   let assetsDir: string
   let upstream: Server
   let upstreamSeen: string[]
   let server: Server
   let base: string
-  let logged: AssetServerRequestLog[]
+  let logged: FrontServerRequestLog[]
 
   beforeAll(async () => {
     assetsDir = mkdtempSync(join(tmpdir(), 'bananacms-assets-test-'))
@@ -46,7 +46,7 @@ describe('assetServer', () => {
     const upstreamPort = (upstream.address() as AddressInfo).port
 
     logged = []
-    server = await startAssetServer(0, {
+    server = await startFrontServer(0, {
       assetsDir,
       upstreamUrl: `http://localhost:${upstreamPort}`,
       onRequest: (entry) => logged.push(entry),

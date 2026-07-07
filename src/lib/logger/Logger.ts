@@ -38,13 +38,27 @@ export class LoggerContext {
 }
 
 export class Logger {
+  readonly system: string
+  private readonly ctx: LoggerContext
+  private readonly formatter: Formatter
+  private readonly sink: Sink
+  private readonly minLevel: LogLevel
+
+  // No parameter properties: the CLI loads this file via Node's strip-only
+  // TypeScript mode, which rejects them.
   constructor(
-    readonly system: string,
-    private readonly ctx: LoggerContext,
-    private readonly formatter: Formatter,
-    private readonly sink: Sink,
-    private readonly minLevel: LogLevel = 'debug',
-  ) {}
+    system: string,
+    ctx: LoggerContext,
+    formatter: Formatter,
+    sink: Sink,
+    minLevel: LogLevel = 'debug',
+  ) {
+    this.system = system
+    this.ctx = ctx
+    this.formatter = formatter
+    this.sink = sink
+    this.minLevel = minLevel
+  }
 
   get context(): LoggerContext {
     return this.ctx

@@ -27,7 +27,7 @@ import { join } from 'node:path'
  * zone — so a consumer with custom paths keeps today's behavior, just without
  * the fast path.
  */
-export interface AssetServerOptions {
+export interface FrontServerOptions {
   /**
    * Directory holding original assets and encoded variants (ASSETS_DIRECTORY).
    * When unset the server degrades to a pure pass-through proxy.
@@ -38,10 +38,10 @@ export interface AssetServerOptions {
   /** Public asset-delivery prefix (cms.paths.assetDelivery). */
   assetDeliveryPath?: string
   /** Called once per completed request; the CLI routes this into the zone logs. */
-  onRequest?: (entry: AssetServerRequestLog) => void
+  onRequest?: (entry: FrontServerRequestLog) => void
 }
 
-export interface AssetServerRequestLog {
+export interface FrontServerRequestLog {
   /** 'hit' = served from the assets directory; 'proxy' = passed to the pub zone. */
   kind: 'hit' | 'proxy'
   method: string
@@ -50,7 +50,7 @@ export interface AssetServerRequestLog {
   ms: number
 }
 
-export function createAssetServer(opts: AssetServerOptions): Server {
+export function createFrontServer(opts: FrontServerOptions): Server {
   const prefix = (opts.assetDeliveryPath ?? '/d').replace(/\/+$/, '')
   const server = createServer((req, res) => {
     handle(req, res, prefix, opts).catch(() => {
@@ -63,9 +63,9 @@ export function createAssetServer(opts: AssetServerOptions): Server {
   return server
 }
 
-export function startAssetServer(port: number, opts: AssetServerOptions): Promise<Server> {
+export function startFrontServer(port: number, opts: FrontServerOptions): Promise<Server> {
   return new Promise((resolve, reject) => {
-    const server = createAssetServer(opts)
+    const server = createFrontServer(opts)
     server.on('error', (err) => {
       if (server.listening) {
         console.error('front: server error', err)
@@ -81,9 +81,9 @@ async function handle(
   req: IncomingMessage,
   res: ServerResponse,
   prefix: string,
-  opts: AssetServerOptions,
+  opts: FrontServerOptions,
 ): Promise<void> {
-  let kind: AssetServerRequestLog['kind'] = 'proxy'
+  let kind: FrontServerRequestLog['kind'] = 'proxy'
   if (opts.onRequest) {
     const started = performance.now()
     res.once('finish', () => {

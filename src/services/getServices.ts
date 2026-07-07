@@ -10,7 +10,9 @@ import { cookies, headers } from 'next/headers'
 import { createRootLogger } from '@cms/lib/logger/root'
 import { v4 as uuid } from 'uuid'
 import { isCMSInitialized, getCMS } from '@cms/config'
+import type { Client } from '@libsql/client'
 import { openDb, openDerivedDb, runMigrations } from '@cms/lib/db/client'
+import { wrapClientWithQueryLog } from '@cms/lib/db/queryLog'
 import { setupSnapshotScheduler, wrapDbWithWriteHook } from '@cms/lib/snapshots/setup'
 import { ApiError } from '@cms/lib/api/error'
 
@@ -85,8 +87,15 @@ export const getServices = async () => {
   const requestInfo = await resolveRequestInfo()
   return requestSetup(hdrs, 'services', async () => {
     const { db, derivedDb } = await globalSetup('cms.databases', async () => {
-      const { client, db } = await openDb(resolveDbPath())
-      const { client: derivedClient, db: derivedDb } = await openDerivedDb(resolveDerivedDbPath())
+      // Resolved per query: getRequestLogger reads Next's request store, so
+      // query logs pick up the traceId/sessionId of whichever request runs
+      // them, even though the client is created once globally. Outside a
+      // request scope it throws and the wrapper falls back to a root logger.
+      const instrumentClient = (c: Client) => wrapClientWithQueryLog(c, () => getRequestLogger())
+      const { client, db } = await openDb(resolveDbPath(), { instrumentClient })
+      const { client: derivedClient, db: derivedDb } = await openDerivedDb(resolveDerivedDbPath(), {
+        instrumentClient,
+      })
       await runMigrations(client, derivedClient)
       const snapshotScheduler = setupSnapshotScheduler(client)
       const trackedDb = snapshotScheduler

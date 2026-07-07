@@ -17,19 +17,34 @@ export type Db = BaseSQLiteDatabase<'async', ResultSet, Schema>
 
 export type DerivedDb = BaseSQLiteDatabase<'async', ResultSet, DerivedSchema>
 
-export async function openDb(filename: string): Promise<{ client: Client; db: Db }> {
+export interface OpenDbOptions {
+  /**
+   * Wraps the client handed to drizzle (e.g. query timing logs). The returned
+   * raw `client` stays unwrapped: migrations and snapshot plumbing use it
+   * directly and must not emit per-query logs.
+   */
+  instrumentClient?: (client: Client) => Client
+}
+
+export async function openDb(
+  filename: string,
+  opts: OpenDbOptions = {},
+): Promise<{ client: Client; db: Db }> {
   const url = filename === ':memory:' ? ':memory:' : `file:${filename}`
   const client = createClient({ url })
   await applyConnectionPragmas(client)
-  const db = drizzle(client, { schema })
+  const db = drizzle(opts.instrumentClient?.(client) ?? client, { schema })
   return { client, db }
 }
 
-export async function openDerivedDb(filename: string): Promise<{ client: Client; db: DerivedDb }> {
+export async function openDerivedDb(
+  filename: string,
+  opts: OpenDbOptions = {},
+): Promise<{ client: Client; db: DerivedDb }> {
   const url = filename === ':memory:' ? ':memory:' : `file:${filename}`
   const client = createClient({ url })
   await applyConnectionPragmas(client)
-  const db = drizzle(client, { schema: derivedSchema })
+  const db = drizzle(opts.instrumentClient?.(client) ?? client, { schema: derivedSchema })
   return { client, db }
 }
 

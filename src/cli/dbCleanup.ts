@@ -37,10 +37,12 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
           SELECT b.id FROM block b
              LEFT JOIN parent_block pb ON pb.blockId = b.id
             WHERE pb.blockId IS NULL
-               OR (pb.parentTable = 'post'  AND NOT EXISTS (SELECT 1 FROM post  WHERE id = pb.parentId))
-               OR (pb.parentTable = 'block' AND NOT EXISTS (SELECT 1 FROM block WHERE id = pb.parentId))
-               OR (pb.parentTable = 'page'  AND NOT EXISTS (SELECT 1 FROM page  WHERE id = pb.parentId))
-               OR pb.parentTable NOT IN ('post', 'block', 'page')
+               OR (pb.parentTable = 'post'     AND NOT EXISTS (SELECT 1 FROM post     WHERE id = pb.parentId))
+               OR (pb.parentTable = 'block'    AND NOT EXISTS (SELECT 1 FROM block    WHERE id = pb.parentId))
+               OR (pb.parentTable = 'page'     AND NOT EXISTS (SELECT 1 FROM page     WHERE id = pb.parentId))
+               OR (pb.parentTable = 'category' AND NOT EXISTS (SELECT 1 FROM category WHERE id = pb.parentId))
+               OR (pb.parentTable = 'tag'      AND NOT EXISTS (SELECT 1 FROM tag      WHERE id = pb.parentId))
+               OR pb.parentTable NOT IN ('post', 'block', 'page', 'category', 'tag')
         `)
       ).rows.map((r) => String(r.id))
       if (orphanBlocks.length === 0) break
@@ -63,7 +65,8 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
              OR (pa.parentTable = 'category' AND NOT EXISTS (SELECT 1 FROM category WHERE id = pa.parentId))
              OR (pa.parentTable = 'page'     AND NOT EXISTS (SELECT 1 FROM page     WHERE id = pa.parentId))
              OR (pa.parentTable = 'block'    AND NOT EXISTS (SELECT 1 FROM block    WHERE id = pa.parentId))
-             OR pa.parentTable NOT IN ('post', 'category', 'page', 'block')
+             OR (pa.parentTable = 'tag'      AND NOT EXISTS (SELECT 1 FROM tag      WHERE id = pa.parentId))
+             OR pa.parentTable NOT IN ('post', 'category', 'page', 'block', 'tag')
       `)
     ).rows.map((r) => String(r.id))
     console.info(`Orphan attributes (no parent): ${orphanAttributes.length}`)

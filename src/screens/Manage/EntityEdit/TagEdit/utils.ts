@@ -1,3 +1,5 @@
+'use server'
+
 import { and, eq } from 'drizzle-orm'
 import { getServices, requireAuth } from '@cms/services/getServices'
 import { TagPayload, TagStore } from '@cms/services/TagStore'

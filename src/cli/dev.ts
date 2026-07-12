@@ -1,9 +1,10 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
 import { startFrontServer } from '../lib/frontServer.ts'
 import { createRootLogger } from '../lib/logger/root.ts'
+import { getCMS } from '../config.ts'
 import { binEntry } from './binResolve.ts'
 
 export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Promise<void> {
@@ -60,10 +61,20 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
   // zone), and a third Node process is real memory on the small hosts this
   // targets. Binds the public port before the zones spawn so the origin is
   // never a connection-refused while Next boots.
+  // The front server routes CMS-owned prefixes straight to the CMS zone,
+  // skipping the pub-zone hop. It needs the same paths the zones resolve, so
+  // load the consumer's config module here too — createCMS is cheap and pure,
+  // and this is the same side-effect import both zones do — then read them back.
+  await import(pathToFileURL(configModule).href)
+  const cmsPaths = getCMS().paths
+
   const frontLog = createRootLogger({ zone: 'front' }).child('Front')
   const frontServer = await startFrontServer(frontPort, {
     assetsDir: env.ASSETS_DIRECTORY,
     upstreamUrl: pubInternalUrl,
+    cmsUpstreamUrl: cmsInternalUrl,
+    cmsPaths: [cmsPaths.admin, cmsPaths.api, cmsPaths.assetDelivery, cmsPaths.assetPrefix],
+    assetDeliveryPath: cmsPaths.assetDelivery,
     onRequest: (e) => {
       // Proxied statics are zone noise; asset traffic stays at debug. 'nav'
       // logs at info: it is the only accurate render-latency metric — the

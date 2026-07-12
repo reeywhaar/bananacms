@@ -12,9 +12,18 @@ import { join } from 'node:path'
 
 /**
  * Public front door (plain node:http): serves encoded asset variants straight
- * from disk and passes everything else — pages, statics, websocket upgrades —
- * through to the consumer (pub) zone. Binding this on the public port means
- * no reverse-proxy setup is required to get the fast path.
+ * from disk, routes CMS-owned path prefixes (admin, api, asset delivery, asset
+ * prefix) straight to the CMS zone, and passes everything else — pages,
+ * statics, websocket upgrades — through to the consumer (pub) zone. Binding
+ * this on the public port means no reverse-proxy setup is required to get the
+ * fast path.
+ *
+ * CMS prefixes bypass the pub zone on purpose: the pub zone would only rewrite
+ * them back out to the CMS zone (see cmsRewrites), so proxying them there
+ * directly removes a full proxy hop from every admin page, API call, and asset
+ * request. When `cmsUpstreamUrl`/`cmsPaths` are unset the server degrades to
+ * the old behavior (everything to the pub zone, whose rewrites still reach the
+ * CMS zone).
  *
  * Variant URLs are content-addressed: /d/<id>/<hash> maps 1:1 to the file
  * ASSETS_DIRECTORY/<id>-<hash> that the CMS zone's /d/[id]/[hash] route
@@ -23,9 +32,7 @@ import { join } from 'node:path'
  * machinery, no middleware, and no DB lookup — on a small host this keeps
  * image bursts from starving page SSR. Anything the file lookup can't answer
  * (originals, cold variants, legacy clamped-resolution URLs, non-GET) falls
- * through to the pub zone, whose rewrites route asset paths on to the CMS
- * zone — so a consumer with custom paths keeps today's behavior, just without
- * the fast path.
+ * through to the CMS zone (asset delivery is a CMS prefix).
  */
 export interface FrontServerOptions {
   /**
@@ -33,8 +40,20 @@ export interface FrontServerOptions {
    * When unset the server degrades to a pure pass-through proxy.
    */
   assetsDir?: string
-  /** Pub zone base URL; everything the file fast path can't answer goes here. */
+  /** Pub zone base URL; non-CMS requests the file fast path can't answer go here. */
   upstreamUrl: string
+  /**
+   * CMS zone base URL. Requests whose path matches one of `cmsPaths` are
+   * proxied here directly, skipping the pub zone. Unset ⇒ everything goes to
+   * `upstreamUrl` (previous behavior).
+   */
+  cmsUpstreamUrl?: string
+  /**
+   * CMS-owned path prefixes (admin, api, assetDelivery, assetPrefix) routed to
+   * `cmsUpstreamUrl`. A path matches a prefix when it equals it or starts with
+   * `${prefix}/`.
+   */
+  cmsPaths?: string[]
   /** Public asset-delivery prefix (cms.paths.assetDelivery). */
   assetDeliveryPath?: string
   /** Called once per completed request; the CLI routes this into the zone logs. */
@@ -111,7 +130,19 @@ async function handle(
       return
     }
   }
-  proxyToUpstream(req, res, opts.upstreamUrl)
+  // CMS-owned prefixes go straight to the CMS zone; the pub zone would only
+  // rewrite them back there. Everything else (and any CMS path when routing
+  // isn't configured) goes to the pub zone.
+  const upstream =
+    opts.cmsUpstreamUrl && matchesCmsPath(pathname, opts.cmsPaths)
+      ? opts.cmsUpstreamUrl
+      : opts.upstreamUrl
+  proxyToUpstream(req, res, upstream)
+}
+
+function matchesCmsPath(pathname: string, prefixes: string[] | undefined): boolean {
+  if (!prefixes) return false
+  return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 }
 
 // Dot-less paths outside Next internals and asset delivery are page

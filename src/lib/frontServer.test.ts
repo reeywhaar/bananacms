@@ -172,3 +172,85 @@ describe('frontServer', () => {
     expect(received).toContain('upgraded:/_next/hmr')
   })
 })
+
+describe('frontServer CMS routing', () => {
+  let assetsDir: string
+  let pub: Server
+  let cms: Server
+  let pubSeen: string[]
+  let cmsSeen: string[]
+  let server: Server
+  let base: string
+
+  const zoneServer = (name: string, seen: string[]) =>
+    createServer((req, res) => {
+      seen.push(`${req.method} ${req.url}`)
+      res.writeHead(200, { 'X-Zone': name })
+      res.end(name)
+    })
+
+  beforeAll(async () => {
+    assetsDir = mkdtempSync(join(tmpdir(), 'bananacms-cms-route-'))
+    writeFileSync(join(assetsDir, `${ID}-${HASH}`), JPEG)
+
+    pubSeen = []
+    cmsSeen = []
+    pub = zoneServer('pub', pubSeen)
+    cms = zoneServer('cms', cmsSeen)
+    await new Promise<void>((resolve) => pub.listen(0, resolve))
+    await new Promise<void>((resolve) => cms.listen(0, resolve))
+
+    server = await startFrontServer(0, {
+      assetsDir,
+      upstreamUrl: `http://localhost:${(pub.address() as AddressInfo).port}`,
+      cmsUpstreamUrl: `http://localhost:${(cms.address() as AddressInfo).port}`,
+      cmsPaths: ['/manage', '/api', '/d', '/cms-static'],
+      assetDeliveryPath: '/d',
+    })
+    base = `http://localhost:${(server.address() as AddressInfo).port}`
+  })
+
+  afterAll(() => {
+    server.close()
+    pub.close()
+    cms.close()
+    rmSync(assetsDir, { recursive: true, force: true })
+  })
+
+  const zoneOf = async (path: string, init?: RequestInit) =>
+    (await fetch(`${base}${path}`, init)).headers.get('x-zone')
+
+  it('routes CMS-owned prefixes straight to the CMS zone', async () => {
+    expect(await zoneOf('/manage')).toBe('cms')
+    expect(await zoneOf('/manage/e/tag')).toBe('cms')
+    expect(await zoneOf('/api/posts')).toBe('cms')
+    expect(await zoneOf('/cms-static/chunk.js')).toBe('cms')
+    expect(pubSeen).toEqual([])
+  })
+
+  it('routes everything else to the pub zone', async () => {
+    pubSeen.length = 0
+    expect(await zoneOf('/')).toBe('pub')
+    expect(await zoneOf('/blog/post')).toBe('pub')
+    expect(await zoneOf('/_next/static/chunk.js')).toBe('pub')
+    expect(cmsSeen.some((s) => s.includes('/blog/post'))).toBe(false)
+  })
+
+  it('does not match a prefix by string-prefix alone (/managed ≠ /manage)', async () => {
+    expect(await zoneOf('/managed')).toBe('pub')
+    expect(await zoneOf('/apix')).toBe('pub')
+  })
+
+  it('serves asset-variant hits from disk and falls through misses to the CMS zone', async () => {
+    cmsSeen.length = 0
+    pubSeen.length = 0
+    const hit = await fetch(`${base}/d/${ID}/${HASH}`)
+    expect(hit.headers.get('content-type')).toBe('image/jpeg')
+    expect(cmsSeen).toEqual([])
+
+    // A variant miss is a CMS-owned path, so it must fall through to the CMS
+    // zone — never the pub zone.
+    expect(await zoneOf(`/d/${ID}/000000000000`)).toBe('cms')
+    expect(pubSeen).toEqual([])
+  })
+})

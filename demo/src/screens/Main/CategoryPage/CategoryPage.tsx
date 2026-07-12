@@ -9,12 +9,12 @@ import {
   getImagesMetadata,
   getServices,
 } from '@reeywhaar/bananacms/runtime'
+import { getOptimizedAssetSrcSet } from '@reeywhaar/bananacms'
 import { AssetStore, BlockStore, CategoryStore, PostStore } from '@reeywhaar/bananacms/stores'
 import { WithBreadcrumbs } from '@app/components/Breadcrumbs/Breadcrumbs'
 import { WithNewLines } from '@app/components/WithNewLines/WithNewLines'
 import { secFontTitle } from '@app/lib/fonts'
 import { routing } from '../routing'
-import { getOptimizedAssetSrcSet } from '../../../../../dist'
 
 type Props = {
   params: Promise<{ id: string; slug?: string }>

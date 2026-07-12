@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util'
-import { loadEnvFile } from 'node:process'
 
 try {
-  loadEnvFile(process.cwd() + '/.env')
+  // Node >=20.12 exposes process.loadEnvFile; Bun doesn't (it auto-loads .env
+  // from cwd already), so skipping it there is correct. Accessing it off the
+  // process global with optional chaining avoids a named-import link error on
+  // runtimes that don't provide it.
+  process.loadEnvFile?.(process.cwd() + '/.env')
 } catch {
   // .env is optional — environment may provide vars directly
 }

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { binEntry } from './binResolve.ts'
 
 export async function run(): Promise<void> {
   const cmsDir = fileURLToPath(new URL('../', import.meta.url))
@@ -43,7 +44,7 @@ export async function run(): Promise<void> {
 
 async function buildAt(dir: string, env: NodeJS.ProcessEnv): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn('npx', ['next', 'build'], {
+    const child = spawn(process.execPath, [binEntry(dir, 'next'), 'build'], {
       cwd: dir,
       stdio: 'inherit',
       env,

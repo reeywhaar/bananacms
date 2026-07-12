@@ -1,10 +1,10 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
 import { startFrontServer } from '../lib/frontServer.ts'
 import { createRootLogger } from '../lib/logger/root.ts'
+import { binEntry } from './binResolve.ts'
 
 export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Promise<void> {
   // `next start` sets NODE_ENV=production only inside the zone processes;
@@ -112,16 +112,26 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
 }
 
 function maybeSpawnBuildWatch(packageRoot: string): ChildProcess[] {
-  const tsupBin = resolve(packageRoot, 'node_modules', '.bin', 'tsup')
-  const tscBin = resolve(packageRoot, 'node_modules', '.bin', 'tsc')
-  const tscAliasBin = resolve(packageRoot, 'node_modules', '.bin', 'tsc-alias')
-  if (!existsSync(tsupBin) || !existsSync(tscBin) || !existsSync(tscAliasBin)) return []
+  // External consumers install bananacms prebuilt, without these devDeps —
+  // resolution throws and there's nothing to watch. Run each via
+  // process.execPath so the watchers use the current runtime (the .bin shims
+  // carry a `#!/usr/bin/env node` shebang, which a bun-only host can't run).
+  let tsupBin: string
+  let tscBin: string
+  let tscAliasBin: string
+  try {
+    tsupBin = binEntry(packageRoot, 'tsup')
+    tscBin = binEntry(packageRoot, 'typescript:tsc')
+    tscAliasBin = binEntry(packageRoot, 'tsc-alias')
+  } catch {
+    return []
+  }
 
   // tsup emits .js; tsc emits .d.ts; tsc-alias rewrites @cms/* paths in the
   // emitted .d.ts. Demos and other consumers import the package via its
   // dist/*.d.ts entry, so without these declarations every CMS export degrades
   // to `any`.
-  const tsup = spawn(tsupBin, ['--watch', '--silent'], {
+  const tsup = spawn(process.execPath, [tsupBin, '--watch', '--silent'], {
     cwd: packageRoot,
     stdio: ['inherit', 'pipe', 'pipe'],
   })
@@ -129,8 +139,9 @@ function maybeSpawnBuildWatch(packageRoot: string): ChildProcess[] {
   prefixStream('build', tsup.stderr, process.stderr)
 
   const tsc = spawn(
-    tscBin,
+    process.execPath,
     [
+      tscBin,
       '-p',
       'tsconfig.build.json',
       '--emitDeclarationOnly',
@@ -155,7 +166,7 @@ function maybeSpawnBuildWatch(packageRoot: string): ChildProcess[] {
       return
     }
     aliasRunning = true
-    const child = spawn(tscAliasBin, ['-p', 'tsconfig.build.json'], {
+    const child = spawn(process.execPath, [tscAliasBin, '-p', 'tsconfig.build.json'], {
       cwd: packageRoot,
       stdio: ['inherit', 'pipe', 'pipe'],
     })
@@ -189,7 +200,7 @@ function spawnZone(
   env: NodeJS.ProcessEnv,
 ): ChildProcess {
   const cmd = dev ? 'dev' : 'start'
-  const child = spawn('npx', ['next', cmd, '--port', String(port)], {
+  const child = spawn(process.execPath, [binEntry(cwd, 'next'), cmd, '--port', String(port)], {
     cwd,
     env,
     stdio: ['inherit', 'pipe', 'pipe'],

@@ -64,8 +64,7 @@ const resolveRequestInfo = async (): Promise<Record<string, string>> => {
 }
 
 export type AuthData =
-  | { user: { id: string; name: string }; token: string; tokenExpiresAt: string }
-  | undefined
+  { user: { id: string; name: string }; token: string; tokenExpiresAt: string } | undefined
 
 /**
  * Request-scoped logger without the auth lookup getServices performs.

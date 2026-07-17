@@ -57,8 +57,7 @@ describe('rangeResponse', () => {
   const headers = { 'Content-Type': 'audio/mpeg' }
   const body = (start: number, end: number) => new Uint8Array(data.subarray(start, end + 1))
 
-  const build = (range: string | null) =>
-    rangeResponse({ range, size: data.length, headers, body })
+  const build = (range: string | null) => rangeResponse({ range, size: data.length, headers, body })
 
   it('serves the full body with Accept-Ranges when no range is requested', async () => {
     const res = build(null)

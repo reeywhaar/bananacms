@@ -47,11 +47,7 @@ export type BlockTypeAsset = {
 }
 
 export type BlockType =
-  | BlockTypeText
-  | BlockTypeGroup
-  | BlockTypeImage
-  | BlockTypeMeta
-  | BlockTypeAsset
+  BlockTypeText | BlockTypeGroup | BlockTypeImage | BlockTypeMeta | BlockTypeAsset
 
 export const blockParentSchema = valita.object({
   type: valita.union(

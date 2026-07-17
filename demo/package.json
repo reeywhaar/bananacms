@@ -12,10 +12,10 @@
   },
   "dependencies": {
     "@deemlol/next-icons": "^0.2.7",
-    "@tailwindcss/postcss": "^4.2.2",
     "@reeywhaar/bananacms": "file:..",
+    "@tailwindcss/postcss": "^4.2.2",
     "disposablestack": "^1.1.7",
-    "next": "^16.2.2",
+    "next": "^16.2.10",
     "next-intl": "^4.9.0",
     "postcss": "^8.5.9",
     "react": "^19.2.4",

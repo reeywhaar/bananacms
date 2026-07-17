@@ -94,5 +94,8 @@ const probeDimensions = async (
   const w = meta.autoOrient?.width ?? meta.width
   const h = meta.autoOrient?.height ?? meta.height
   if (!w || !h) return null
+  // Persist the probe so later renders read dimensions straight from content
+  // instead of re-running sharp on every request for this asset.
+  await store.updateContent(id, { width: w, height: h })
   return { w, h }
 }

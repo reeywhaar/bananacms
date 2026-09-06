@@ -11,6 +11,21 @@ import { SnapshotStore } from './store.ts'
  * it; the store's lock file plus hash dedupe make the second one a no-op.
  */
 export async function runStartupSnapshot(): Promise<void> {
+  await runSnapshot('startup')
+}
+
+/**
+ * Snapshot taken once the zones have exited (from dev.ts). The scheduler's
+ * timer is unref'd, so a snapshot still inside its debounce window dies with
+ * the zone and that point in time stops being restorable — this captures it
+ * instead. Writes nothing when the database is unchanged since the last
+ * snapshot: createSnapshot compares dump hashes.
+ */
+export async function runShutdownSnapshot(): Promise<void> {
+  await runSnapshot('shutdown')
+}
+
+async function runSnapshot(reason: 'startup' | 'shutdown'): Promise<void> {
   const config = getSnapshotsConfig()
   if (!config) return
   if (!existsSync(config.dbPath)) return
@@ -20,7 +35,7 @@ export async function runStartupSnapshot(): Promise<void> {
   try {
     const store = new SnapshotStore(config, logger)
     const result = await store.createSnapshot(client)
-    logger.info('startup snapshot', { result })
+    logger.info(`${reason} snapshot`, { result })
   } finally {
     client.close()
   }

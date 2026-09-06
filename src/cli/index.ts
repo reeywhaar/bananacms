@@ -184,8 +184,9 @@ Environment (from .env in cwd):
                                   fast path + proxy) — point your reverse proxy here. The CMS zone
                                   runs on SERVER_PORT + 1, the consumer zone on SERVER_PORT + 2.
   SNAPSHOTS_COUNT                 Enable automatic DB snapshots and keep at most this many
-                                  (0 or unset disables). Snapshots are taken at app start and
-                                  after each burst of writes, into DATA_PATH/snapshots.
+                                  (0 or unset disables). Snapshots are taken at app start, at
+                                  shutdown, and after each burst of writes, into
+                                  DATA_PATH/snapshots.
   SNAPSHOTS_DELAY                 Seconds between the first write and the snapshot capturing
                                   it (default: 600)
 `)

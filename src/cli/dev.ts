@@ -1,11 +1,17 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
+import { existsSync } from 'node:fs'
+import { createClient } from '@libsql/client'
 import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
+import { runShutdownSnapshot } from '../lib/snapshots/setup.ts'
 import { startFrontServer } from '../lib/frontServer.ts'
 import { createRootLogger } from '../lib/logger/root.ts'
 import { getCMS } from '../config.ts'
 import { binEntry } from './binResolve.ts'
+
+// Grace period for a zone to exit after being signalled, before SIGKILL.
+const FORCE_KILL_MS = 10_000
 
 export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Promise<void> {
   // `next start` sets NODE_ENV=production only inside the zone processes;
@@ -106,9 +112,24 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
     shuttingDown = true
     console.info(`\nbananacms: received ${signal}, stopping zones...`)
     frontServer.close()
-    cmsChild.kill(signal)
-    consumerChild.kill(signal)
-    for (const child of buildChildren) child.kill(signal)
+    const children = [cmsChild, consumerChild, ...buildChildren]
+    for (const child of children) child.kill(signal)
+    // A zone that ignores the signal (or wedges on the way down) would keep
+    // this wrapper alive until the supervisor's own grace period expires and
+    // SIGKILLs the group — the zones then die mid-shutdown, and this process
+    // never reaches the exit hook. Escalate on our own clock instead, while
+    // there is still time to unwind normally.
+    const forceKill = setTimeout(() => {
+      for (const child of children) {
+        if (child.exitCode !== null || child.signalCode !== null) continue
+        console.warn(
+          `bananacms: pid ${child.pid} ignored ${signal} after ${FORCE_KILL_MS}ms, killing`,
+        )
+        child.kill('SIGKILL')
+      }
+    }, FORCE_KILL_MS)
+    // Never let the timer itself hold the process open past a clean exit.
+    forceKill.unref()
   }
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))
@@ -119,7 +140,53 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
   ])
 
   for (const child of buildChildren) child.kill('SIGTERM')
+
+  // The scheduler's debounce timer is unref'd, so a snapshot still waiting out
+  // its window (SNAPSHOTS_DELAY, 10min by default) dies with the zone — the
+  // data survives in the database, but that point in time stops being a
+  // restorable target. Take it here, where the zones are gone and the database
+  // is quiescent. A no-op when snapshots are disabled or nothing changed.
+  try {
+    await runShutdownSnapshot()
+  } catch (error) {
+    // Never let a snapshot failure hold up (or fail) a shutdown.
+    console.warn(
+      `bananacms: shutdown snapshot failed: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+
+  // Neither zone closes its DB connections — a signalled Next process just
+  // exits — so commits since the last automatic checkpoint are still sitting in
+  // the -wal file. SQLite recovers them the next time the database is opened,
+  // so nothing is lost, but the .db file on its own is stale: a file-level copy
+  // taken while the app is down (a backup, a volume snapshot, moving the data
+  // directory) would miss that tail. Fold it in here, where both zones are gone
+  // and this connection has the database to itself.
+  await checkpointWal()
+
   process.exit(cmsCode || consumerCode)
+}
+
+async function checkpointWal(): Promise<void> {
+  const { dbPath, derivedDbPath } = getCMS().env
+  for (const path of [dbPath, derivedDbPath]) {
+    // A database that was never created has no WAL to fold in.
+    if (!existsSync(path)) continue
+    try {
+      const client = createClient({ url: `file:${path}` })
+      try {
+        await client.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+      } finally {
+        client.close()
+      }
+    } catch (error) {
+      // Best-effort: the data is durable in the -wal either way, so a failure
+      // here must not turn a clean shutdown into a non-zero exit.
+      console.warn(
+        `bananacms: WAL checkpoint on ${path} failed: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+  }
 }
 
 function maybeSpawnBuildWatch(packageRoot: string): ChildProcess[] {

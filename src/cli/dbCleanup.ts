@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { constants } from 'node:os'
 import { openDb } from '@cms/lib/db/client'
 
 export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
@@ -7,9 +8,33 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
 
   const { client } = await openDb(dbPath)
 
-  await client.execute('BEGIN')
+  // Without a handler, SIGTERM's default disposition kills this process on the
+  // spot: the open transaction is left to SQLite's crash recovery and the
+  // `finally` below never closes the client. libsql statements can't be
+  // cancelled mid-flight, so the handler only raises a flag — the statement in
+  // progress finishes, then the next checkpoint unwinds through the catch with
+  // the transaction still rollback-able. A second signal stops waiting.
+  let abortSignal: NodeJS.Signals | null = null
+  const onSignal = (signal: NodeJS.Signals) => {
+    if (abortSignal) {
+      console.error(`\nReceived ${signal} again, exiting without unwinding.`)
+      process.exit(exitCodeFor(signal))
+    }
+    abortSignal = signal
+    console.error(`\nReceived ${signal}, stopping at the next safe point...`)
+  }
+  process.on('SIGINT', onSignal)
+  process.on('SIGTERM', onSignal)
+  const checkAborted = () => {
+    if (abortSignal) throw new CleanupAborted(abortSignal)
+  }
 
+  let inTransaction = false
+  let aborted: NodeJS.Signals | null = null
   try {
+    await client.execute('BEGIN')
+    inTransaction = true
+
     const orphanPosts = (
       await client.execute(`
         SELECT p.id FROM post p
@@ -32,6 +57,9 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
 
     let totalOrphanBlocks = 0
     for (;;) {
+      // Unbounded: each pass can orphan the next level of nested blocks, so
+      // this is the loop most likely to be running when a signal lands.
+      checkAborted()
       const orphanBlocks = (
         await client.execute(`
           SELECT b.id FROM block b
@@ -56,6 +84,7 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
     }
     console.info(`Orphan blocks (no parent): ${totalOrphanBlocks}`)
 
+    checkAborted()
     const orphanAttributes = (
       await client.execute(`
         SELECT a.id FROM attribute a
@@ -79,6 +108,7 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
       })
     }
 
+    checkAborted()
     const orphanAssets = (
       await client.execute(`
         SELECT a.id FROM asset a
@@ -99,11 +129,21 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
       })
     }
 
+    checkAborted()
     if (dryRun) {
       await client.execute('ROLLBACK')
+      inTransaction = false
       console.info('[dry-run] Rolled back; no changes written.')
     } else {
       await client.execute('COMMIT')
+      inTransaction = false
+      // Past the commit the deletions are durable and the rest is only space
+      // reclamation, so a signal arriving here has nothing left to roll back —
+      // and nothing to interrupt either: VACUUM can't be cancelled from this
+      // side. Say so rather than appearing to ignore the signal.
+      if (abortSignal) {
+        console.error(`Changes are committed; VACUUM can't be interrupted, finishing it.`)
+      }
       await client.execute('VACUUM')
       // VACUUM in WAL mode streams the rebuilt database through the -wal
       // file; truncate it to actually return the space.
@@ -111,11 +151,43 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
       console.info('Cleanup complete.')
     }
   } catch (e) {
-    await client.execute('ROLLBACK')
-    throw e
+    // Only roll back while a transaction is actually open. The COMMIT/ROLLBACK
+    // above end it, so a failure in VACUUM or the checkpoint has nothing to
+    // undo — rolling back anyway throws "cannot rollback - no transaction is
+    // active" and buries the real error.
+    if (inTransaction) {
+      try {
+        await client.execute('ROLLBACK')
+      } catch (rollbackError) {
+        console.error('Rollback failed after the error below:', rollbackError)
+      }
+    }
+    if (e instanceof CleanupAborted) aborted = e.signal
+    else throw e
   } finally {
+    process.off('SIGINT', onSignal)
+    process.off('SIGTERM', onSignal)
     client.close()
   }
+
+  // Outside the try so the client is closed before the process goes away —
+  // process.exit() would skip the `finally`.
+  if (aborted) {
+    console.error('Aborted; no changes written.')
+    process.exit(exitCodeFor(aborted))
+  }
+}
+
+/** Raised at a checkpoint where the transaction is still open and undoable. */
+class CleanupAborted extends Error {
+  constructor(readonly signal: NodeJS.Signals) {
+    super(`Aborted by ${signal}`)
+  }
+}
+
+/** 128 + signal number: the shell convention for signal-terminated processes. */
+function exitCodeFor(signal: NodeJS.Signals): number {
+  return 128 + constants.signals[signal]
 }
 
 function requireEnv(name: string): string {

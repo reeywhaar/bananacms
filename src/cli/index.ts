@@ -109,6 +109,16 @@ switch (command) {
     await run({ dryRun: values['dry-run'] })
     break
   }
+  case 'backup': {
+    const { positionals } = parseArgs({ args: rest, options: {}, allowPositionals: true })
+    if (positionals[0] !== 'now') {
+      console.error('Usage: bananacms backup now')
+      process.exit(1)
+    }
+    const { run } = await import('./backup.ts')
+    await run()
+    break
+  }
   case 'snapshot': {
     const { values, positionals } = parseArgs({
       args: rest,
@@ -174,6 +184,8 @@ Commands:
                                   must be stopped (refuses while the .pid file marks it
                                   running on this host); the current state is snapshotted
                                   first.
+  backup now                      Build an archive of the databases and post it to BACKUP_URL,
+                                  whether or not anything changed. Safe while the app runs.
 
 Environment (from .env in cwd):
   DATA_PATH                       Path to the data directory (database stored as database.db inside)
@@ -189,5 +201,13 @@ Environment (from .env in cwd):
                                   DATA_PATH/snapshots.
   SNAPSHOTS_DELAY                 Seconds between the first write and the snapshot capturing
                                   it (default: 600)
+  BACKUP_URL                      A backup agent to post archives to. Unset, bananacms takes
+                                  no backups. It holds no credential: the agent owns the
+                                  destination, naming and retention.
+  BACKUP_MODE                     main | relaxed | all (default: relaxed). What the archive
+                                  carries and what makes one happen — 'main' sends database.db
+                                  alone, 'relaxed' adds derived.db, 'all' also sends every half
+                                  hour so a stalled instance is visible. Every mode sends when
+                                  database.db changes.
 `)
 }

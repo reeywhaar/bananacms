@@ -5,6 +5,8 @@ import { existsSync, rmSync } from 'node:fs'
 import { createClient } from '@libsql/client'
 import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
 import { runShutdownSnapshot } from '../lib/snapshots/setup.ts'
+import { getBackupConfig } from '../lib/backup/config.ts'
+import { BackupPusher } from '../lib/backup/pusher.ts'
 import { startFrontServer } from '../lib/frontServer.ts'
 import { createRootLogger } from '../lib/logger/root.ts'
 import { getCMS } from '../config.ts'
@@ -106,6 +108,18 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
   // Default off; opt in via `--watch-cms` from the workspace demo script.
   const buildChildren = dev && opts.watchCms ? maybeSpawnBuildWatch(packageRoot) : []
 
+  // Copies the databases offsite while the app runs. Lives here rather than in
+  // a zone for the same reason the snapshots do: both zones would run their own
+  // loop, and the wrapper is the one process there is exactly one of.
+  const backupConfig = getBackupConfig()
+  const backup = backupConfig
+    ? new BackupPusher({
+        config: backupConfig,
+        logger: createRootLogger({ zone: 'front' }).child('backup'),
+      })
+    : null
+  backup?.start()
+
   let shuttingDown = false
   const shutdown = (signal: NodeJS.Signals) => {
     if (shuttingDown) return
@@ -153,6 +167,21 @@ export async function run(dev: boolean, opts: { watchCms?: boolean } = {}): Prom
     console.warn(
       `bananacms: shutdown snapshot failed: ${error instanceof Error ? error.message : String(error)}`,
     )
+  }
+
+  // A last pass before the process goes, so a change made in the minutes since
+  // the previous one is not waiting on a restart to leave the host. Must come
+  // before the checkpoint below: VACUUM INTO opens its own connection, which
+  // would recreate the -wal the checkpoint has just removed.
+  if (backup) {
+    try {
+      await backup.runOnce()
+    } catch (error) {
+      console.warn(
+        `bananacms: final backup failed: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+    await backup.stop()
   }
 
   // Neither zone closes its DB connections — a signalled Next process just

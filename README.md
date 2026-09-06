@@ -147,6 +147,8 @@ cp demo/.env.example demo/.env
 | `NO_COLOR`               | no       | Disable ANSI colors in the dev log formatter.                                      |
 | `SNAPSHOTS_COUNT`        | no       | Enable [automatic DB snapshots](#database-snapshots) and keep at most this many. `0` or unset disables. |
 | `SNAPSHOTS_DELAY`        | no       | Seconds between the first DB write and the snapshot capturing it (default `600`).  |
+| `BACKUP_URL`             | no       | A [backup agent](#offsite-backups) to post archives to. Unset, bananacms takes no backups. |
+| `BACKUP_MODE`            | no       | `main`, `relaxed` (default) or `all` — what the archive carries and what makes one happen. |
 
 ## Quick start
 
@@ -280,6 +282,7 @@ the `demo:*` scripts at the repo root.
 | `cms snapshot list`                            | List [database snapshots](#database-snapshots), newest first.                                                                      |
 | `cms snapshot view <n> [--raw]`                | Print snapshot `n` (1 = newest) as a full SQL dump; `--raw` prints the stored file instead (a diff for all but the oldest).        |
 | `cms snapshot restore <n>`                     | Replace `DATA_PATH/database.db` with snapshot `n`. Stop the app first; the current state is snapshotted before it is replaced.     |
+| `cms backup now`                               | Build an archive of the databases and post it to `BACKUP_URL`, changed or not. Safe while the app is running.                     |
 
 ---
 
@@ -290,6 +293,30 @@ Set `SNAPSHOTS_COUNT` (e.g. `5`) to enable automatic snapshots of `DATA_PATH/dat
 - A snapshot is taken at app start, and another one `SNAPSHOTS_DELAY` seconds (default 600) after each burst of writes — many edits inside the window collapse into one snapshot. Unchanged database states are never snapshotted twice.
 - Snapshots are deterministic SQL dumps stored as text: the oldest is a full `.sql` dump, each newer one a `.diff` against its predecessor (`snapshot_YYYYMMDD_HHmmssSSS.sql|diff`, UTC). When the count exceeds `SNAPSHOTS_COUNT`, the two oldest are merged into a new full dump.
 - `cms snapshot restore <n>` rebuilds the chosen snapshot into a temp database, integrity-checks it, and atomically swaps it in — after snapshotting the current state, so a restore is itself restorable. The command refuses to run while the app is up (tracked via a `.pid` file in the consumer directory), and requires the CLI to run on the same host/container as the app.
+
+## Offsite backups
+
+Snapshots protect against a bad edit; they live on the same disk as the database. Set `BACKUP_URL` to a backup agent and bananacms will also post it a gzipped tar of the databases whenever there is something new to send.
+
+```
+bananacms ──POST archive──▶ agent ──▶ wherever the agent was told
+           (no credential)   (holds the token, names the file, prunes old ones)
+```
+
+bananacms holds no credential, no bucket and no retention policy. It decides *when* to back up and what goes in the archive; everything after that belongs to the agent — so a compromised container cannot read, overwrite or delete a single existing backup. It can only hand over one more archive.
+
+- **Each copy is made with `VACUUM INTO`**, so what leaves is a consistent database that opens on its own. A WAL database is three files with committed state spread across them, and a file-level copy of a running instance is a copy of a moment that never existed. The archive holds `database.db` (and `derived.db`, mode depending) at mode `0600`, with no directory entries, so it extracts straight back over a data directory.
+- **Assets need no separate backup.** Asset bytes live in the database (`asset_blob`); `ASSETS_DIRECTORY` is a regenerable cache of originals and encoded variants.
+- **A copy goes out only when `database.db` has changed.** Every five minutes bananacms checks `PRAGMA data_version` — a read, not a copy — and only when that moves does it vacuum the database and hash it, sending only if the digest differs from the one the agent last accepted. An instance nobody has touched since Tuesday sends nothing. The digest is recorded only *after* the agent accepts, so a rejected upload is retried rather than forgotten.
+- **The five minutes are also the throttle.** Nothing reacts to a write directly, so an editor saving six times in a minute produces one archive holding all six. The first pass is immediate, and a last one runs at shutdown. Neither interval is a setting: what you choose is the promise you want, and that is the mode.
+
+| `BACKUP_MODE`         | Carries                     | Sends when                                     |
+| --------------------- | --------------------------- | ---------------------------------------------- |
+| `main`                | `database.db`               | `database.db` changed                          |
+| `relaxed` *(default)* | both                        | `database.db` changed                          |
+| `all`                 | both                        | `database.db` changed, **or** half an hour has passed |
+
+`all` is the only mode that sends when nothing has changed. An agent told how often to expect an archive can report a bananacms that has stopped backing up; with copies arriving only when somebody edits a post, it cannot tell a broken instance from a quiet one.
 
 ## Seed database
 

@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { createClient } from '@libsql/client'
 import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
 import { runShutdownSnapshot } from '../lib/snapshots/setup.ts'
@@ -174,10 +174,27 @@ async function checkpointWal(): Promise<void> {
     if (!existsSync(path)) continue
     try {
       const client = createClient({ url: `file:${path}` })
+      let folded = false
       try {
-        await client.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+        const row = (await client.execute('PRAGMA wal_checkpoint(TRUNCATE)')).rows[0]
+        // busy: another connection blocked the checkpoint. log: frames left in
+        // the -wal. Both zero means everything committed is now in the .db and
+        // the sidecars hold nothing.
+        folded = Number(row?.busy) === 0 && Number(row?.log) === 0
       } finally {
         client.close()
+      }
+      // Checkpointing empties the -wal but leaves it, and the -shm, sitting in
+      // the data directory — SQLite only removes them when the last connection
+      // closes, which libsql's close does not do. Left behind they are
+      // confusing at best (a 0-byte -wal next to a database that is fully
+      // written) and misleading at worst, since a -wal beside a .db normally
+      // means the .db is incomplete. Only once the checkpoint says they are
+      // empty: removing a -wal with frames still in it would lose exactly the
+      // writes this is here to preserve.
+      if (folded) {
+        rmSync(`${path}-wal`, { force: true })
+        rmSync(`${path}-shm`, { force: true })
       }
     } catch (error) {
       // Best-effort: the data is durable in the -wal either way, so a failure

@@ -19,6 +19,9 @@ export async function run(): Promise<void> {
     const result = await pusher.runOnce({ force: true })
     if (result === 'unchanged') {
       console.info('The agent already has this database; nothing sent.')
+    } else if (result === 'not-ready') {
+      console.error(`There is no database at ${config.dbPath} yet; nothing to back up.`)
+      process.exit(1)
     }
   } finally {
     await pusher.stop()

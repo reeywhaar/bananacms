@@ -4,7 +4,7 @@ import type { Logger } from '../logger/Logger.ts'
 import { BACKUP_DELAY_MS, backupPeriodMs, carriesDerived, type BackupConfig } from './config.ts'
 import { archiveFilename, packArchive, stageBackup } from './archive.ts'
 import { pushArchive } from './push.ts'
-import { readBackupState, recordBackup } from './state.ts'
+import { ensureBackupState, readBackupState, recordBackup } from './state.ts'
 
 export type PassResult =
   /** An archive was built and the agent accepted it. */
@@ -14,9 +14,9 @@ export type PassResult =
   /** Nothing has written to the database since the last pass; nothing was copied. */
   | 'quiet'
   /**
-   * The databases are not migrated yet. The zones run migrations at boot, and
-   * this loop starts alongside them, so the first pass on a fresh data
-   * directory routinely arrives first.
+   * There is no database yet. The zones create it at boot, and this loop starts
+   * alongside them, so the first pass on a fresh data directory routinely
+   * arrives first.
    */
   | 'not-ready'
 
@@ -60,6 +60,8 @@ export class BackupPusher {
    * unchanged counter there would wait for the next write to try again.
    */
   private seenDataVersion: number | null = null
+  /** Whether backup_state has been checked for this pusher's lifetime. */
+  private stateReady = false
   private timer: NodeJS.Timeout | null = null
   private stopped = false
 
@@ -67,9 +69,9 @@ export class BackupPusher {
     this.config = opts.config
     this.logger = opts.logger
     this.everyMs = opts.everyMs ?? BACKUP_DELAY_MS
-    // While the zones are still migrating, look again shortly rather than
-    // waiting out a full interval: a fresh instance is the one most worth
-    // having a copy of, and migrations take seconds.
+    // While the zones are still creating the database, look again shortly
+    // rather than waiting out a full interval: a fresh instance is the one most
+    // worth having a copy of, and booting takes seconds.
     this.notReadyMs = Math.min(NOT_READY_RETRY_MS, this.everyMs)
     this.now = opts.now ?? (() => new Date())
   }
@@ -138,16 +140,11 @@ export class BackupPusher {
       return 'not-ready'
     }
     const derived = this.derivedClient()
-    let state: Awaited<ReturnType<typeof readBackupState>>
-    try {
-      state = await readBackupState(derived)
-    } catch (error) {
-      if (isMissingTable(error)) {
-        this.logger?.debug('waiting for migrations before the first backup')
-        return 'not-ready'
-      }
-      throw error
+    if (!this.stateReady) {
+      await ensureBackupState(derived)
+      this.stateReady = true
     }
+    const state = await readBackupState(derived)
     const now = this.now()
 
     // The floor, which only `all` has. It is a heartbeat rather than a guard on
@@ -234,12 +231,4 @@ export class BackupPusher {
     this.derived ??= createClient({ url: `file:${this.config.derivedDbPath}` })
     return this.derived
   }
-}
-
-/**
- * The zones create backup_state when they migrate; until then there is nothing
- * to read and nowhere to record a push.
- */
-function isMissingTable(error: unknown): boolean {
-  return error instanceof Error && /no such table: backup_state/.test(error.message)
 }

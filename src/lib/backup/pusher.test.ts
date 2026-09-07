@@ -171,6 +171,41 @@ describe('BackupPusher', () => {
     await pusher.stop()
   })
 
+  it('never sends for derived.db churn alone, though it carries it', async () => {
+    const { config, agent, dir } = await setup('relaxed')
+    const pusher = new BackupPusher({ config })
+    expect(await pusher.runOnce()).toBe('pushed')
+
+    // Recording that push wrote to derived.db, and so does every sign-in. The
+    // archive carries derived.db, but only database.db decides that one is due
+    // — otherwise recording a backup would make the next backup look overdue,
+    // and the loop would send an archive every interval forever.
+    const derived = createClient({ url: `file:${join(dir, 'derived.db')}` })
+    clients.push(derived)
+    await derived.execute('CREATE TABLE session (id TEXT PRIMARY KEY)')
+    for (let i = 0; i < 5; i++) {
+      await derived.execute({ sql: 'INSERT INTO session (id) VALUES (?)', args: [`s${i}`] })
+      expect(await pusher.runOnce()).toBe('quiet')
+    }
+    expect(agent.uploads).toHaveLength(1)
+    await pusher.stop()
+  })
+
+  it('has no periodic floor in main or relaxed, however long it sits', async () => {
+    for (const mode of ['main', 'relaxed'] as const) {
+      const { config, agent } = await setup(mode)
+      let now = new Date('2026-01-01T00:00:00Z')
+      const pusher = new BackupPusher({ config, now: () => now })
+      expect(await pusher.runOnce()).toBe('pushed')
+
+      // A year later, with nothing written, still nothing to send.
+      now = new Date('2027-01-01T00:00:00Z')
+      expect(await pusher.runOnce()).toBe('quiet')
+      expect(agent.uploads).toHaveLength(1)
+      await pusher.stop()
+    }
+  })
+
   it('sends on the floor in all mode even when nothing changed', async () => {
     const { config, agent } = await setup('all')
     let now = new Date('2026-01-01T00:00:00Z')

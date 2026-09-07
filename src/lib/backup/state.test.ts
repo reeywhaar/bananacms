@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { openDb, openDerivedDb, runMigrations } from '../db/client'
-import { readBackupState, recordBackup } from './state'
+import { ensureBackupState, readBackupState, recordBackup } from './state'
 
 const dirs: string[] = []
 const closers: Array<() => void> = []
@@ -46,5 +46,30 @@ describe('backup state', () => {
     expect((await readBackupState(derived))?.digest).toBe('b'.repeat(64))
     const { rows } = await derived.execute('SELECT COUNT(*) AS n FROM backup_state')
     expect(Number(rows[0].n)).toBe(1)
+  })
+})
+
+describe('a lost derived.db', () => {
+  it('recreates its own state table, because migrations will not', async () => {
+    const derived = await migrated()
+    await recordBackup(derived, 'a'.repeat(64), new Date('2026-02-03T04:05:06Z'))
+
+    // What losing derived.db looks like: the table is gone, and the migration
+    // that made it is still recorded in the *main* database, so re-running
+    // migrations brings nothing back.
+    await derived.execute('DROP TABLE backup_state')
+    await expect(readBackupState(derived)).rejects.toThrow(/no such table/)
+
+    await ensureBackupState(derived)
+    // Empty rather than stale: the agent's copy is unknown again, so the next
+    // pass sends one. A redundant upload, never a missed one.
+    expect(await readBackupState(derived)).toBeNull()
+  })
+
+  it('is a no-op when the table is already there', async () => {
+    const derived = await migrated()
+    await recordBackup(derived, 'c'.repeat(64), new Date('2026-02-03T04:05:06Z'))
+    await ensureBackupState(derived)
+    expect((await readBackupState(derived))?.digest).toBe('c'.repeat(64))
   })
 })

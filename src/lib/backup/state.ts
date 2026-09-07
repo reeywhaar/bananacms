@@ -1,5 +1,29 @@
 import type { Client } from '@libsql/client'
 
+const BACKUP_STATE_TABLE = `
+  CREATE TABLE IF NOT EXISTS backup_state (
+    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+    digest    TEXT    NOT NULL,
+    pushedAt  INTEGER NOT NULL
+  )
+`
+
+/**
+ * Creates the table if it is not there.
+ *
+ * derived.db is the disposable database — it can arrive empty on a new volume
+ * or be wiped deliberately — and migration bookkeeping lives in the *main*
+ * database, so once the migration is recorded there, re-running migrations
+ * will never bring a lost derived table back. Left to the migration alone, an
+ * instance that lost derived.db would read "no such table" on every pass and
+ * quietly stop backing up. The state is this subsystem's own, so it makes it
+ * rather than depending on a migration having run; the migration stays the
+ * canonical schema for instances that already have it.
+ */
+export async function ensureBackupState(derivedClient: Client): Promise<void> {
+  await derivedClient.execute(BACKUP_STATE_TABLE)
+}
+
 export interface BackupState {
   /** Digest of the main database as the agent last accepted it. */
   digest: string

@@ -58,7 +58,10 @@ export const getImagesMetadata = async (ids: string[]): Promise<Record<string, I
 
   const entries = await Promise.all(
     ids.map(async (id): Promise<[string, ImageLayout] | null> => {
-      const content = contents[id]
+      // getContent returns whatever each asset holds; only an image's content
+      // carries dimensions.
+      const raw = contents[id]
+      const content = raw?.type === 'image' ? raw : undefined
       // Dimensions are persisted into asset.content at upload time (both via
       // sharp autoOrient, so the values are interchangeable); probing the
       // cached file is only a fallback for assets predating that.

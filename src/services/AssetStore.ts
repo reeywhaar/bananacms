@@ -22,11 +22,42 @@ export type AssetImageContent = {
   maxSize?: { width: number; height: number }
 }
 
+export type AssetAudioTags = {
+  title?: string
+  artist?: string
+  album?: string
+  year?: number
+}
+
+/**
+ * Measured from the file's own headers at upload. Every field is optional:
+ * these are read from whatever the file happens to declare, and a file that
+ * declares nothing is still a perfectly good asset.
+ *
+ * `mime` is not repeated here — it is a column on the asset itself. `container`
+ * and `codec` are, and are not the same thing: mime is what the browser
+ * claimed, container is what the bytes say.
+ */
+export type AssetAudioContent = {
+  type: 'audio'
+  /**
+   * Seconds — fractional, since that is what the container reports. Formatting
+   * is a view concern: store the measurement, render "4:34".
+   */
+  duration?: number
+  bitrate?: number
+  sampleRate?: number
+  channels?: number
+  container?: string
+  codec?: string
+  tags?: AssetAudioTags
+}
+
 export type AssetFileContent = {
   type: 'file'
 }
 
-export type AssetContent = AssetImageContent | AssetFileContent
+export type AssetContent = AssetImageContent | AssetAudioContent | AssetFileContent
 
 export type AssetContentUpdate = {
   resolution?: AssetResolution | null
@@ -53,6 +84,14 @@ const positiveInteger = valita
   .number()
   .assert((n) => Number.isInteger(n) && n > 0, 'must be a positive integer')
 
+// Fractional, unlike a pixel count: a container reports whatever the sample
+// count works out to.
+const positiveNumber = valita
+  .number()
+  .assert((n) => Number.isFinite(n) && n > 0, 'must be a positive number')
+
+const nonEmptyString = valita.string().assert((s) => s.trim().length > 0, 'must not be empty')
+
 export const assetContentSchema: valita.Type<AssetContent> = valita.union(
   valita.object({
     type: valita.literal('image'),
@@ -63,6 +102,23 @@ export const assetContentSchema: valita.Type<AssetContent> = valita.union(
     width: positiveInteger.optional(),
     height: positiveInteger.optional(),
     maxSize: valita.object({ width: positiveInteger, height: positiveInteger }).optional(),
+  }),
+  valita.object({
+    type: valita.literal('audio'),
+    duration: positiveNumber.optional(),
+    bitrate: positiveInteger.optional(),
+    sampleRate: positiveInteger.optional(),
+    channels: positiveInteger.optional(),
+    container: nonEmptyString.optional(),
+    codec: nonEmptyString.optional(),
+    tags: valita
+      .object({
+        title: nonEmptyString.optional(),
+        artist: nonEmptyString.optional(),
+        album: nonEmptyString.optional(),
+        year: positiveInteger.optional(),
+      })
+      .optional(),
   }),
   valita.object({ type: valita.literal('file') }),
 )
@@ -155,17 +211,21 @@ export class AssetStore {
     return row?.data ?? null
   }
 
-  async getContent(ids: string[]): Promise<Record<string, AssetImageContent>> {
+  /**
+   * Content for each asset that has any, of whatever type. Callers that only
+   * handle one kind narrow on `type` — an image editor gets nothing useful
+   * from an audio asset's content, and vice versa.
+   */
+  async getContent(ids: string[]): Promise<Record<string, AssetContent>> {
     if (ids.length === 0) return {}
     const rows = await this.db
       .select({ id: asset.id, content: asset.content })
       .from(asset)
       .where(inArray(asset.id, ids))
-    const result: Record<string, AssetImageContent> = {}
+    const result: Record<string, AssetContent> = {}
     for (const row of rows) {
       if (row.id == null || !row.content) continue
-      const parsed = parseContent(row.content)
-      if (parsed.type === 'image') result[row.id] = parsed
+      result[row.id] = parseContent(row.content)
     }
     return result
   }

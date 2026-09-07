@@ -4,6 +4,7 @@ import { mkdir, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import sharp from 'sharp'
 import { assetVariantFilenames } from '@cms/lib/assetHash'
+import { readAudioMeta } from '@cms/lib/audioMeta'
 import { getServices, requireAuth } from '@cms/services/getServices'
 import {
   AssetStore,
@@ -28,6 +29,13 @@ export const uploadAsset = createServerAction(
     const data = Buffer.from(arrayBuffer)
 
     const content: AssetContent = await (async () => {
+      if (file.type.startsWith('audio/')) {
+        // Missing metadata is not a failed upload: an unreadable or truncated
+        // file is still an asset worth keeping, and `db:backfill-audio-meta`
+        // can fill it in later.
+        const meta = await readAudioMeta(data, file.type)
+        return assetContentSchema.parse({ type: 'audio', ...(meta ?? {}) })
+      }
       if (!file.type.startsWith('image/')) return { type: 'file' as const }
       const rawRes = formData.get('resolution')
       const resolution = typeof rawRes === 'string' && rawRes ? rawRes : '@1x'

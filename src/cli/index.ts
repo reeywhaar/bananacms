@@ -86,6 +86,15 @@ switch (command) {
     await run({ dryRun: values['dry-run'] })
     break
   }
+  case 'db:backfill-audio-meta': {
+    const { values } = parseArgs({
+      args: rest,
+      options: { 'dry-run': { type: 'boolean', default: false } },
+    })
+    const { run } = await import('./dbBackfillAudioMeta.ts')
+    await run({ dryRun: values['dry-run'] })
+    break
+  }
   case 'db:backfill-post-fts': {
     const { run } = await import('./dbBackfillPostFts.ts')
     await run()
@@ -172,6 +181,9 @@ Commands:
   db:cleanup [--dry-run]          Remove orphaned posts / blocks / assets
   db:backfill-image-dimensions [--dry-run]
                                   Populate width/height on image assets via sharp
+  db:backfill-audio-meta [--dry-run]
+                                  Populate duration/bitrate/sample rate/channels/codec and
+                                  embedded tags on audio assets from their file headers
   db:backfill-post-fts            Build post_fts search index for all existing posts
   db:backfill-migration-ids [--dry-run]
                                   Convert old sequential migration IDs in the DB table to the

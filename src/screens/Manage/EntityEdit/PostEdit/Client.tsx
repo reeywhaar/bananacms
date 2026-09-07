@@ -20,7 +20,7 @@ import { routing } from '../../routing'
 import { extractErrorMessage } from '@cms/utils/extractErrorMessage'
 import { v7 } from 'uuid'
 import { BlockData } from '@cms/lib/blocks/declarations'
-import { AssetImageContent } from '@cms/services/AssetStore'
+import { AssetContent } from '@cms/services/AssetStore'
 import { SegmentedControl } from '@cms/components/SegmentedControl/SegmentedControl'
 import { handleServerResult } from '@cms/lib/serverActions'
 
@@ -32,7 +32,7 @@ export const Client: FC<{
   initialTagIds?: string[]
   initialAttributes?: AttributeData[]
   translations?: Translations
-  assetContents?: Record<string, AssetImageContent>
+  assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
 }> = ({
   post,

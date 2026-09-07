@@ -12,7 +12,7 @@ import {
   BlockType,
 } from '@cms/lib/blocks/declarations'
 import { Translations } from '@cms/services/LocalizationStore'
-import { AssetImageContent } from '@cms/services/AssetStore'
+import { AssetContent, AssetImageContent } from '@cms/services/AssetStore'
 import { LocalizableField } from '../../LocalizableField'
 import { ImageBlockEdit } from './ImageBlockEdit'
 import { AssetBlockEdit } from './AssetBlockEdit'
@@ -27,7 +27,7 @@ type BlockEditProps = {
   onChange: (blocks: BlockData[]) => void
   translations: Translations
   onTranslationsChange: (translations: Translations) => void
-  assetContents?: Record<string, AssetImageContent>
+  assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
 }
 
@@ -163,7 +163,7 @@ type BlockRowProps = {
   onRemove: () => void
   translations: Translations
   onTranslationsChange: (translations: Translations) => void
-  assetContents: Record<string, AssetImageContent>
+  assetContents: Record<string, AssetContent>
   assetSizes: Record<string, number>
 }
 
@@ -217,7 +217,7 @@ const BlockRow: FC<BlockRowProps> = ({
       ) : block.content.type === 'image' ? (
         <ImageBlockEdit
           block={block as BlockData & { content: BlockTypeImage }}
-          content={assetContents[(block.content as BlockTypeImage).assetId] ?? null}
+          content={imageContent(assetContents[(block.content as BlockTypeImage).assetId])}
           size={assetSizes[(block.content as BlockTypeImage).assetId] ?? null}
           onChange={onUpdate}
           translations={translations}
@@ -232,6 +232,7 @@ const BlockRow: FC<BlockRowProps> = ({
         <AssetBlockEdit
           block={block as BlockData & { content: BlockTypeAsset }}
           size={assetSizes[(block.content as BlockTypeAsset).assetId] ?? null}
+          content={assetContents[(block.content as BlockTypeAsset).assetId] ?? null}
           onChange={onUpdate}
         />
       ) : (
@@ -330,7 +331,7 @@ type GroupBlockEditProps = {
   onChange: (block: BlockData) => void
   translations: Translations
   onTranslationsChange: (translations: Translations) => void
-  assetContents: Record<string, AssetImageContent>
+  assetContents: Record<string, AssetContent>
   assetSizes: Record<string, number>
 }
 
@@ -386,3 +387,7 @@ const makeBlock = (content: BlockType): BlockData => ({
   content,
   attributes: [],
 })
+
+/** Content is only useful to the image editor when it is an image's. */
+const imageContent = (content: AssetContent | undefined): AssetImageContent | null =>
+  content?.type === 'image' ? content : null

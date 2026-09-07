@@ -16,7 +16,7 @@ import { useEvent } from '@cms/hooks/useEvent'
 import { useWithProgress } from '@cms/components/ProgressOverlay/ProgressOverlay'
 import { extractErrorMessage } from '@cms/utils/extractErrorMessage'
 import { BlockData } from '@cms/lib/blocks/declarations'
-import { AssetImageContent } from '@cms/services/AssetStore'
+import { AssetContent } from '@cms/services/AssetStore'
 import { v7 } from 'uuid'
 import { handleServerResult } from '@cms/lib/serverActions'
 
@@ -25,7 +25,7 @@ export const Client: FC<{
   blocks?: BlockData[]
   initialAttributes?: AttributeData[]
   translations?: Translations
-  assetContents?: Record<string, AssetImageContent>
+  assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
 }> = ({
   category,

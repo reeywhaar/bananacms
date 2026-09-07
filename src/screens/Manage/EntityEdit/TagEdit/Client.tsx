@@ -3,7 +3,7 @@
 import { TagData } from '@cms/services/TagStore'
 import { AttributeData } from '@cms/services/AttributeStore'
 import { Translations } from '@cms/services/LocalizationStore'
-import { AssetImageContent } from '@cms/services/AssetStore'
+import { AssetContent } from '@cms/services/AssetStore'
 import { BlockData } from '@cms/lib/blocks/declarations'
 import { useRouter } from 'next/navigation'
 import { LocalizableField } from '../../LocalizableField'
@@ -25,7 +25,7 @@ export const Client: FC<{
   blocks?: BlockData[]
   translations?: Translations
   initialAttributes?: AttributeData[]
-  assetContents?: Record<string, AssetImageContent>
+  assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
 }> = ({
   tag,

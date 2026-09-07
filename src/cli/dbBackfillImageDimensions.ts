@@ -36,7 +36,9 @@ export async function run({ dryRun }: { dryRun: boolean }): Promise<void> {
       }
       if (!buf) {
         const r = await client.execute({
-          sql: 'SELECT data FROM asset WHERE id = ?',
+          // asset_blob, not asset: the blob moved to a sibling table so
+          // metadata reads never walk its overflow pages.
+          sql: 'SELECT data FROM asset_blob WHERE id = ?',
           args: [id],
         })
         const data = r.rows[0]?.data

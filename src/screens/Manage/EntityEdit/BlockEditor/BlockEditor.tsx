@@ -3,7 +3,7 @@
 import { FC, useState } from 'react'
 import { BlockData } from '@cms/lib/blocks/declarations'
 import { Translations } from '@cms/services/LocalizationStore'
-import { AssetImageContent } from '@cms/services/AssetStore'
+import { AssetContent } from '@cms/services/AssetStore'
 import { BlockEdit } from './BlockEdit'
 import { BlockReorderModal } from './BlockReorderModal'
 import { SerializeModal } from './SerializeModal'
@@ -14,7 +14,7 @@ type BlockEditorProps = {
   onChange: (blocks: BlockData[]) => void
   translations: Translations
   onTranslationsChange: (translations: Translations) => void
-  assetContents?: Record<string, AssetImageContent>
+  assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
 }
 

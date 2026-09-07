@@ -47,6 +47,30 @@ describe('AssetStore', () => {
     expect(await store.getSizes([ID_A, ID_B])).toEqual({ [ID_A]: 2, [ID_B]: 3 })
   })
 
+  it('returns content of every type, not only images', async () => {
+    using testDb = await createTestDb()
+    const store = new AssetStore(testDb.db)
+    const audio = {
+      type: 'audio' as const,
+      duration: 274.3,
+      bitrate: 128000,
+      sampleRate: 44100,
+      channels: 2,
+      container: 'MPEG',
+      codec: 'MPEG 1 Layer 3',
+      tags: { title: 'Episode 12', artist: 'bananacms radio' },
+    }
+    await store.add(ID_A, {
+      filename: 'a.mp3',
+      mime: 'audio/mpeg',
+      data: Buffer.from('aa'),
+      content: audio,
+    })
+    // getContent used to drop everything that was not an image, which left the
+    // editor unable to show anything it had measured about an audio file.
+    expect(await store.getContent([ID_A])).toEqual({ [ID_A]: audio })
+  })
+
   it('deletes both the asset row and its blob', async () => {
     using testDb = await createTestDb()
     const store = new AssetStore(testDb.db)

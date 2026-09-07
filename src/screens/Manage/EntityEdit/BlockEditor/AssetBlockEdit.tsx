@@ -2,6 +2,8 @@
 
 import { FC, DragEvent, useState, useRef } from 'react'
 import { BlockData, BlockTypeAsset } from '@cms/lib/blocks/declarations'
+import { describeAudio } from '@cms/lib/audioMeta'
+import type { AssetContent } from '@cms/services/AssetStore'
 import { getAssetUrl } from '@cms/lib/getAssetUrl'
 import { v7 } from 'uuid'
 
@@ -14,10 +16,12 @@ const formatSize = (bytes: number): string => {
 type AssetBlockEditProps = {
   block: BlockData & { content: BlockTypeAsset }
   size: number | null
+  /** Whatever was measured from the file at upload; null for older assets. */
+  content?: AssetContent | null
   onChange: (block: BlockData) => void
 }
 
-export const AssetBlockEdit: FC<AssetBlockEditProps> = ({ block, size, onChange }) => {
+export const AssetBlockEdit: FC<AssetBlockEditProps> = ({ block, size, content, onChange }) => {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -54,6 +58,15 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({ block, size, onChange 
   const fileSize = block.content.pendingFile?.size ?? (block.content.assetId ? size : null)
   const assetUrl = block.content.assetId ? getAssetUrl(block.content.assetId) : null
 
+  // Read-only: measured from the file, not something to edit here. Every field
+  // is optional — plenty of files declare almost nothing — so these render only
+  // when there is something to say, and the block looks exactly as it did
+  // before when there is not.
+  const audio = content?.type === 'audio' ? content : null
+  const audioInfo = audio ? describeAudio(audio) : ''
+  const audioTags = audio?.tags
+  const tagLine = [audioTags?.title, audioTags?.artist].filter(Boolean).join(' — ')
+
   return (
     <div
       className={[
@@ -71,6 +84,8 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({ block, size, onChange 
           {fileSize != null && (
             <span className="text-xs text-gray-500">{formatSize(fileSize)}</span>
           )}
+          {tagLine && <span className="text-xs text-gray-500">{tagLine}</span>}
+          {audioInfo && <span className="text-xs text-gray-500">{audioInfo}</span>}
           {assetUrl && (
             <a
               href={assetUrl}

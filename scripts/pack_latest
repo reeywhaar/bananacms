@@ -1,0 +1,16 @@
+#!/bin/bash
+set -euo pipefail
+
+# Packs the package in cms/ into private/bananacms.tgz, the tarball that npm
+# publishes, for a site to install as "@reeywhaar/bananacms": "file:<its path>".
+
+cd "$(dirname "$0")/.."
+
+mkdir -p private
+rm -f private/bananacms.tgz
+
+filename=$(npm pack --workspace cms --pack-destination private --json \
+  | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0, 'utf8'))[0].filename)")
+
+mv "private/$filename" private/bananacms.tgz
+echo "Packed: private/bananacms.tgz"

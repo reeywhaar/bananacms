@@ -1,0 +1,24 @@
+// Shared by the demo's Sass modules, which load it as '@app/styles/mixins.scss':
+// the site's tsconfig paths work in Sass too.
+
+@use 'sass:color';
+
+$amber: #f59e0b;
+$amber-light: #fde68a;
+
+@mixin card {
+  border: 1px solid $amber-light;
+  border-radius: 1rem;
+  background: white;
+  padding: 1.5rem;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+}
+
+@mixin stripes($color) {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    $color 0 0.5rem,
+    color.adjust($color, $lightness: 15%) 0.5rem 1rem
+  );
+  background-size: 200% 100%;
+}

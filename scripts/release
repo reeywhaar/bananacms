@@ -1,0 +1,43 @@
+#!/bin/bash
+set -euo pipefail
+
+# Bumps the version of the package in cms/, commits the bump as "Release
+# <version>", tags that commit with the version, and pushes both. The tag starts
+# .github/workflows/publish.yml, which publishes the package.
+
+if [ $# -ne 1 ]; then
+  echo "Usage: $0 <major|minor|patch|prealpha>" >&2
+  exit 1
+fi
+
+case "$1" in
+  major|minor|patch)
+    npm_args=("$1")
+    ;;
+  prealpha)
+    npm_args=("prerelease" "--preid=alpha")
+    ;;
+  *)
+    echo "Unknown bump type: $1 (expected: major | minor | patch | prealpha)" >&2
+    exit 1
+    ;;
+esac
+
+cd "$(dirname "$0")/.."
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "The working tree has changes: commit or stash them first" >&2
+  exit 1
+fi
+
+# On a workspace, npm version bumps package.json and package-lock.json only, so
+# the commit and the tag are made here
+npm version "${npm_args[@]}" --workspace cms > /dev/null
+new_version=$(node -p "require('./cms/package.json').version")
+echo "Bumped to $new_version"
+
+git commit --quiet -m "Release $new_version" cms/package.json package-lock.json
+git tag -a "$new_version" -m "Release $new_version"
+
+git push --follow-tags
+echo "Pushed $new_version"

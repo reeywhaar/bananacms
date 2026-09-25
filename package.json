@@ -1,0 +1,33 @@
+{
+  "name": "bananacms-monorepo",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26"
+  },
+  "workspaces": [
+    "cms",
+    "demo"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w demo",
+    "build": "npm run typecheck && npm run build -w demo",
+    "start": "npm run start -w demo",
+    "demo:seed": "npm run seed -w demo",
+    "release": "./scripts/release",
+    "tgz:pack": "./scripts/pack_latest",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "prettier": "^3.9.9",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

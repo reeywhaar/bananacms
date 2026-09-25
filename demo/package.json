@@ -1,0 +1,25 @@
+{
+  "name": "demo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bananacms dev",
+    "build": "bananacms build",
+    "start": "bananacms start",
+    "seed": "node scripts/seed.ts",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@fontsource-variable/noto-sans-display": "^5.3.0",
+    "marked": "^18.0.14",
+    "@reeywhaar/bananacms": "*",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "sass": "^1.105.0",
+    "sharp": "^0.35.4"
+  }
+}

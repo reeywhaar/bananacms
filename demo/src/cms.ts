@@ -1,9 +1,14 @@
 import { createCMS } from '@reeywhaar/bananacms'
-import { langConfig } from './lib/langconfig.ts'
 
+// The languages content is translated into, which the admin edits each of, and
+// which the seed's content is in (seed/content.ts).
 export const cms = createCMS({
   locales: {
-    default: langConfig.defaultLocale,
-    locales: langConfig.locales,
+    default: 'en',
+    locales: [
+      { code: 'en', flag: '🇬🇧' },
+      { code: 'fr', flag: '🇫🇷' },
+      { code: 'es', flag: '🇪🇸' },
+    ],
   },
 })

@@ -1,361 +1,152 @@
 # bananacms
 
-A small, pluggable CMS built on Next.js 16 + SQLite. Ships as a package you install into a Next.js consumer app; the consumer owns public routing and content, the CMS provides admin UI, services, asset delivery, migrations, and a CLI.
+A CMS and React Server Components framework on Vite 8, plus a demo site built on it. The package is `@reeywhaar/bananacms`, on GitHub Packages ([Releasing](#releasing)). It opens the databases of the package's releases up to 0.0.1-alpha.5, which run on Next.js, as they are.
 
-> **Status:** work in progress. The public surface (`@reeywhaar/bananacms`, `@reeywhaar/bananacms/runtime`, `@reeywhaar/bananacms/stores`) is in flux. Don't pin to a version yet.
+It requires Node 26.
 
----
-
-## What's in the box
-
-- **Admin UI** at `/manage/*` — CRUD for Posts, Categories, Tags, Pages, and a block editor (text, image, group, meta).
-- **Services layer** — a set of `Store` classes (`PostStore`, `CategoryStore`, `BlockStore`, `AssetStore`, `PageStore`, `TagStore`, `AuthTokenStore`, `UserStore`, `LocalizationStore`) over a single SQLite database.
-- **Asset delivery** at `/d/[id]` with on-the-fly image optimization (webp/jpeg, `@1x` / `@2x` / `@3x`).
-- **Auth** (session cookies, scrypt password hashing) at `/api/auth`, `/api/me/*`.
-- **CLI** — `cms dev`, `cms start`, `cms build`, `cms migrate`, `cms db:*`, `cms assets:cleanup`.
-- **Block system** — serializable content blocks with translations, rendered however the consumer wants.
-
-## Architecture: two Next zones, one repo
-
-```
-┌────────────────────── one HTTP origin ──────────────────────┐
-│                                                             │
-│  Front server (port 3000, public, plain node:http)          │
-│    /d/<id>/<hash>   ← encoded variants straight from disk   │
-│    everything else  ← proxied to the consumer zone          │
-│                                                             │
-│  Consumer zone (port 3002, internal)                        │
-│    app/[locale]/…   ← consumer's public content             │
-│    next.config.ts: rewrites(/manage, /api, /d → :3001)      │
-│                                                             │
-│  CMS zone (port 3001, internal)                             │
-│    app/manage/…     ← admin UI                              │
-│    app/api/…        ← auth + me routes                      │
-│    app/d/[id]/…     ← asset delivery (encodes, originals)   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```sh
+npm install
+cp demo/.env.example demo/.env
+npm run demo:seed                # the demo's content, and the user demo, password demo
+npm run dev                      # http://localhost:5173, admin at /manage
 ```
 
-Each zone is a Next.js 16 app; each runs as its own child process so Turbopack's
-per-process singletons don't collide. The front server (in-process in the CLI)
-owns the public port, so no reverse-proxy setup is needed: point your proxy at
-`SERVER_PORT` exactly as if it were the Next app. The consumer zone rewrites
-`/manage`, `/api`, and `/d` internally to the CMS zone, so from the browser it
-all looks like one site.
-
-The front server exists because variant URLs are content-addressed:
-`/d/<id>/<hash>` maps 1:1 to the file `ASSETS_DIRECTORY/<id>-<hash>`, so a
-warm image request needs no Next.js machinery and no DB — on small hosts this
-keeps image bursts from starving page SSR. Cold variants, originals, and
-anything unrecognized fall through to the consumer zone (and on to the CMS
-zone, which stays the only writer of the assets directory). Websocket upgrades
-(dev HMR) are proxied through as raw TCP.
-
-Both zones open the same SQLite DB (POSIX file locking; safe for multi-process).
-
-### This repo's layout
+## Layout
 
 ```
-/workspace
-├── src/                     # bananacms package
-│   ├── app/                 # CMS Next zone: manage/, api/, d/
-│   ├── screens/Manage/      # admin UI components
-│   ├── services/            # stores
-│   ├── lib/                 # blocks, migrations, logger, routeHandler, …
-│   ├── cli/                 # cms CLI
-│   ├── config.ts            # createCMS, getCMS
-│   ├── nextConfig.ts        # createConfig, cmsRewrites
-│   ├── proxy.ts             # Next proxy (middleware) for the CMS zone
-│   ├── cmsProxy.ts          # middleware factory used by proxy.ts
-│   ├── next.config.ts       # Next config for the CMS zone
-│   ├── index.ts             # package main (config-time API)
-│   ├── runtime.ts           # package runtime API (bundler-loaded only)
-│   └── stores.ts            # public stores barrel
-├── demo/                    # consumer Next zone — a working example
-│   ├── src/
-│   │   ├── app/[locale]/    # public pages
-│   │   ├── screens/Main/    # public frontend components
-│   │   ├── cms.ts           # createCMS(...) — consumer's CMS config
-│   │   └── proxy.ts         # Next proxy (middleware) for the consumer zone
-│   ├── messages/            # next-intl messages
-│   ├── public/              # static assets
-│   ├── next.config.ts       # consumer Next config (imports ./src/cms)
-│   └── package.json         # { "@reeywhaar/bananacms": "file:.." }
-├── private/                 # dev DB + asset files (shared between zones)
-├── scripts/                 # repo-level shell scripts (e.g. seed generation)
-├── seed/                    # committed seed DB dump (database.sql)
-└── package.json             # bananacms package manifest
+cms/    the package, @reeywhaar/bananacms: CLI, RSC framework, /manage admin
+demo/   a site built on it
 ```
 
----
+## Scripts
 
-## Requirements
+Run these from the repo root.
 
-- Node.js ≥ 24 (uses native TypeScript module loading)
-- npm (other package managers not tested yet)
+| Script                          |                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------- |
+| `npm run dev \| build \| start` | run the demo through the CLI (`build` typechecks first)                               |
+| `npm run demo:seed`             | make the demo's databases again from `demo/seed/` ([its README](demo/seed/README.md)) |
+| `npm test`                      | unit tests (`cms/src/**/*.test.ts`) and end-to-end tests (`cms/test/`, `demo/test/`)  |
+| `npm run test:watch`            | the same in watch mode                                                                |
+| `npm run typecheck`             | TypeScript 7 over both workspaces                                                     |
+| `npm run format`                | Prettier (`format:check` only checks)                                                 |
+| `npm run release -- <bump>`     | release a new version of the package ([Releasing](#releasing))                        |
+| `npm run tgz:pack`              | pack the package into `private/bananacms.tgz`, the tarball a release publishes        |
 
-## Installation
+The end-to-end tests run the real CLI (`bananacms dev`, then `build` and `start`) against the demo, and against the sites in `cms/test/`, whose routes reach the framework's corners: `site/`, and `groups-site/`, laid out with root layouts in route groups. Each server gets a throwaway database, and the tests use it over HTTP the way a browser without JavaScript would.
 
-### As a consumer dependency
+## CLI
 
-`@reeywhaar/bananacms` is published to GitHub Packages. In your consumer project, add an `.npmrc` that routes the `@reeywhaar` scope:
+Run it in the site directory. It reads the site's `.env`.
+
+| Command                                              |                                                                                                                                                   |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bananacms dev [-p <port>] [--host [host]]`          | dev server with hot reload                                                                                                                        |
+| `bananacms build`                                    | production build into `dist/`                                                                                                                     |
+| `bananacms start [-p <port>] [--host <host>]`        | serve `dist/` (port defaults to `$PORT`, then 3000)                                                                                               |
+| `bananacms db migration run [--force]`               | run the migrations that haven't run, as the server does on its first request; `--force` runs every down first, then every up, which can drop data |
+| `bananacms db migration check`                       | fail unless the databases are what the migrations make: each one run, none unknown, and the same schema                                           |
+| `bananacms db migration create <name>`               | create `src/lib/migrations/<Date.now()>_<name>.ts` ([docs/migrations.md](docs/migrations.md))                                                     |
+| `bananacms db cleanup [--dry-run]`                   | delete posts in no category, and the blocks, attributes and assets that nothing uses, then vacuum                                                 |
+| `bananacms db backfill image-dimensions [--dry-run]` | fill in the width and height of image assets that have none                                                                                       |
+| `bananacms db backfill audio-meta [--dry-run]`       | fill in audio assets' duration, bitrate, sample rate, channels, codec and tags                                                                    |
+| `bananacms db backfill post-fts`                     | build the search index of every post again                                                                                                        |
+| `bananacms db backfill migration-ids [--dry-run]`    | give an older database's migrations table the ids its migration files have now                                                                    |
+| `bananacms user create <name>`                       | print an invitation: a link where the user sets a password, which creates them, once, within 7 days                                               |
+| `bananacms user reset <name>`                        | print a recovery link, where a user sets a new password, once, within 24 hours; it signs them out everywhere else                                 |
+| `bananacms assets cleanup [--dry-run]`               | delete the files in `ASSETS_DIRECTORY` that belong to no asset                                                                                    |
+| `bananacms snapshot list`                            | list the snapshots of `database.db`, 1 being the newest ([docs/snapshots-and-backups.md](docs/snapshots-and-backups.md))                          |
+| `bananacms snapshot view <n> [--raw]`                | print snapshot `<n>` as the SQL that makes the database, or as its file has it                                                                    |
+| `bananacms snapshot restore <n>`                     | replace `database.db` with snapshot `<n>`, snapshotting the current one first; the site must be stopped                                           |
+| `bananacms backup now`                               | back the databases up to `BACKUP_URL` now                                                                                                         |
+
+`dev` and `start` stop on Ctrl-C or SIGTERM, and `dev` on `q` too. They stop taking requests, take a last snapshot and send a last backup when those are on, fold each database's `-wal` file into its `.db` file, and exit with 0. A second signal exits straight away ([docs/snapshots-and-backups.md](docs/snapshots-and-backups.md#stopping)).
+
+## Environment
+
+| Variable           |                                                                                                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| `DATA_PATH`        | directory for the SQLite databases (`database.db` and `derived.db`), created on first use; `dev` and `start` need it          |
+| `ASSETS_DIRECTORY` | directory that caches uploaded files and the image variants made from them; `dev` and `start` need it                         |
+| `LOG_LEVEL`        | the lowest log level written: `debug`, `info` (default), `warn` or `error`                                                    |
+| `LOG_FORMAT`       | `dev` for one line per entry, `json` for one JSON object; production defaults to `json`                                       |
+| `SNAPSHOTS_COUNT`  | how many snapshots of `database.db` to keep, in `DATA_PATH/snapshots`; unset or 0, none are taken                             |
+| `SNAPSHOTS_DELAY`  | how many seconds after a write its snapshot is taken, 600 by default                                                          |
+| `BACKUP_URL`       | a backup agent that takes archives of the databases in a multipart POST; unset, none are sent                                 |
+| `BACKUP_MODE`      | `main` sends `database.db`, `relaxed` (the default) adds `derived.db`, `all` also sends every half hour                       |
+| `SERVER_URL`       | the site's address, like `https://example.com`, which the links of `user create` and `user reset` go on; unset, they're paths |
+
+## Writing a site
+
+A site has no Vite config of its own. Its routes are files in `src/app/`, like the Next.js App Router, with `:name` folders for dynamic segments:
+
+```
+src/app/layout.tsx           root layout: renders <html> and <body>
+src/app/page.tsx             /
+src/app/posts/:id/page.tsx   /posts/abc, with params.id = 'abc'
+src/app/not-found.tsx        pages that call notFound(), and unknown URLs
+src/app/error.tsx            what throws in a page or a layout below the root one
+src/app/rss/route.ts         /rss, answered by its GET(ctx)
+src/app/sitemap.ts           /sitemap.xml
+```
+
+[docs/routing.md](docs/routing.md) covers the whole scheme: catch-alls, route groups, precedence, layouts, not-found and navigation.
+
+- Pages, layouts and server actions get the request's context, `ctx`: the request, its cookies, a logger, the databases and the signed-in user, through `getRequest(ctx)`, `getDb(ctx)` and the like. The site's `src/middleware.ts` can add values of its own. See [docs/context.md](docs/context.md).
+- CMS content comes through the stores in `@reeywhaar/bananacms/stores`: `new PostStore(getDb(ctx))`. A site's own Node scripts, which have no request, open the databases with `openDatabases()` from there, as the demo's seed does.
+- Pages and layouts declare their title and other `<head>` tags with `metadata` or `generateMetadata()`, as in Next.js ([docs/routing.md](docs/routing.md#metadata)).
+- `route.ts` files answer HTTP requests with a function per method, and a `sitemap.ts` serves `sitemap.xml` ([docs/routing.md](docs/routing.md#route-handlers)).
+- `src/cms.ts` names the languages content is translated into, with `createCMS({ locales })`.
+- Client components can use `useRouter()`, `useSearchParams()`, `usePathname()`, `useNavigationPending()` and `<Link>` from `@reeywhaar/bananacms/client`. Pages, middleware and server actions can call `redirect()`.
+- The site's own database migrations go in `src/lib/migrations/`, named `<Date.now()>_<name>.ts`. See [docs/migrations.md](docs/migrations.md).
+- Add `"@reeywhaar/bananacms/types"` to `compilerOptions.types` in the site's tsconfig.
+- Tailwind v4 is built in. Import a CSS file containing `@import 'tailwindcss'` from the root layout.
+- CSS modules (`*.module.css`) work in server and client components alike. For Sass (`.scss`, `.sass`), add `sass` to the site's devDependencies. The demo styles its block frames and its loading bar this way.
+- Fonts are self-hosted from [Fontsource](https://fontsource.org) packages: import a font's CSS from the root layout, like `@fontsource-variable/noto-sans-display/wdth.css`, and name its family in CSS. Its files are served from the site, like its other assets. The demo does this.
+- The `paths` in the site's `tsconfig.json`, like `"@app/*": ["./src/*"]`, work in imports, and in CSS too: Sass's `@use '@app/styles/mixins.scss'` included.
+
+## Docs
+
+- [docs/routing.md](docs/routing.md): how files in `src/app/` become routes.
+- [docs/context.md](docs/context.md): the request's `ctx`, middleware, server actions and logging.
+- [docs/migrations.md](docs/migrations.md): database migrations, and the timestamp ids they need.
+- [docs/snapshots-and-backups.md](docs/snapshots-and-backups.md): copies of the site's data, kept beside it and sent away.
+- [docs/conventions.md](docs/conventions.md): commits, comments and code style.
+
+## How it works
+
+- `cms/src/framework/`: RSC plumbing adapted from the `@vitejs/plugin-rsc` starter. `entry.rsc.tsx` builds each request's `ctx`, runs the middleware, and handles RSC rendering and server actions. `entry.ssr.tsx` renders HTML, and `entry.browser.tsx` handles hydration and client navigation. `app.tsx` sends `/manage` to the admin and everything else to the site's routes, whose metadata `metadata.ts` resolves and `metadata-tags.tsx` renders. `route-handlers.ts` answers `route.ts` and `sitemap.ts` URLs. `routes.ts` finds those with `import.meta.glob`, and `route-table.ts` matches URLs to them with `URLPattern`. The admin and each page and layout are separate server chunks, so the site's and the admin's stylesheets stay separate.
+- `cms/src/cli/`: the commander CLI. `vite-config.ts` is the Vite config every site runs with, and `site-services.ts` what `dev` and `start` run around the server: the `.pid` file, the snapshots and backups, and the shutdown.
+- `cms/src/lib/` and `cms/src/services/`: the data layer: SQLite through `@libsql/client` and drizzle, the schema and migrations in `lib/`, and the stores with their query builder in `services/`. `framework/databases.ts` opens both databases on first use and runs the migrations.
+- `cms/src/screens/Manage/` and `cms/src/components/`: the admin: its screens and components, which read through `ctx` and write through server actions. `screens/Manage/ManageApp.tsx` routes `/manage` URLs to the screens.
+- `cms/src/lib/auth.ts`: sessions, in the `auth` cookie and derived.db's `authtoken` table, the gate that sends visitors of `/manage` to its login page, and the passwords set at the links of `user create` and `user reset`, whose tokens `services/PasswordTokenStore.ts` keeps in derived.db, hashed. `lib/assetDelivery.ts` serves uploaded files and image variants at `/d/…`, and `lib/assetFastPath.ts` serves a variant that's already encoded straight from its file in `ASSETS_DIRECTORY`, ahead of the databases and the session.
+- `cms/src/lib/logger/`: the logger, with children whose labels join: `[Request] [Auth]`.
+- Streamed blocks need JavaScript to swap in, so browsers without it are redirected to `?__nojs`, where the whole page is sent at once.
+
+## The demo
+
+A site of recipes and early films, in English, French and Spanish, whose content all comes from the CMS: `npm run demo:seed` writes it from `demo/seed/`, which [its README](demo/seed/README.md) describes. `/manage` is the admin, where the user demo, password demo, edits it.
+
+- Each page's URL starts with its language: `/en`, `/fr`, `/es`. `/` goes to the one the browser asks for first, which `src/middleware.ts` puts in `ctx`.
+- The home page's hero, poll and ripeness guide are the blocks of the CMS's "Main page". A vote is a server action that updates the poll's counts, kept as JSON in one of its blocks, and the slider is a client component.
+- `/recipes` and `/movies` list a category's posts, and each post's page shows its blocks: text as markdown, HTML or plain, images in variants for each pixel density, galleries, a recipe card as a PDF, and links. Drafts show only to a signed-in user.
+- The tags have pages, `/search` searches the posts' texts in the page's language, and `/credits` names the author of each photo and film still.
+
+## Releasing
+
+`npm run release -- <major|minor|patch|prealpha>`, on a clean working tree, bumps the version in `cms/package.json`, as `prealpha` does from 0.0.1-alpha.5 to 0.0.1-alpha.6. It commits the bump as `Release <version>`, tags the commit with the version, and pushes both. The tag starts [the publish workflow](.github/workflows/publish.yml), which publishes the package to GitHub Packages under the dist-tag of its prerelease, like `alpha`, or else `latest`.
+
+A site installs it with an `.npmrc` that routes the `@reeywhaar` scope there, and a `GITHUB_TOKEN` with the `read:packages` scope in the environment:
 
 ```
 @reeywhaar:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
-GitHub Packages requires authentication even for public packages. Create a personal access token with the `read:packages` scope at https://github.com/settings/tokens and export it as `GITHUB_TOKEN` before installing:
+Or from the tarball `npm run tgz:pack` makes, `private/bananacms.tgz`: `"@reeywhaar/bananacms": "file:<its path>"` in the site's dependencies.
 
-```bash
-npm install @reeywhaar/bananacms
-```
+The CLI and the framework run as TypeScript source. That works inside this workspace, but Node won't strip types in `node_modules`, so the package needs a build step before a site can run it as a dependency.
 
-Then follow [Writing a consumer](#writing-a-consumer) to wire up `src/cms.ts` and `next.config.ts`.
+## Dev container
 
-### For local development of this repo
-
-```bash
-git clone git@github.com:Reeywhaar/bananacms.git
-cd bananacms
-npm install
-
-# Link the package into the demo consumer.
-cd demo && npm install && cd ..
-```
-
-The second `npm install` creates `demo/node_modules/@reeywhaar/bananacms` as a symlink to the repo root via the `"@reeywhaar/bananacms": "file:.."` dependency in [demo/package.json](demo/package.json).
-
-## Environment
-
-Each consumer owns a `.env`. A template is provided:
-
-```bash
-cp demo/.env.example demo/.env
-```
-
-| Variable                 | Required | Notes                                                                              |
-| ------------------------ | -------- | ---------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_SERVER_URL` | yes      | Public origin (e.g. `http://localhost:3000`). Used for CORS, metadata, asset URLs. |
-| `ALLOWED_HOSTS`          | no       | Extra dev-mode hostnames, comma-separated.                                         |
-| `DATA_PATH`              | yes      | Directory for data storage. SQLite database is stored inside as `database.db`.     |
-| `ASSETS_DIRECTORY`       | yes      | Directory for asset storage.                                                       |
-| `SERVER_PORT`            | no       | Public (front server) port (default `3000`). CMS zone binds `SERVER_PORT + 1`, consumer zone `SERVER_PORT + 2`. |
-| `CMS_INTERNAL_URL`       | no       | Derived from `SERVER_PORT` by default.                                             |
-| `LOG_FORMAT`             | no       | `dev` or `json`. Defaults: `dev` in development, `json` in production.             |
-| `LOG_LEVEL`              | no       | `debug` / `info` / `warn` / `error`. Default `info`.                               |
-| `NO_COLOR`               | no       | Disable ANSI colors in the dev log formatter.                                      |
-| `SNAPSHOTS_COUNT`        | no       | Enable [automatic DB snapshots](#database-snapshots) and keep at most this many. `0` or unset disables. |
-| `SNAPSHOTS_DELAY`        | no       | Seconds between the first DB write and the snapshot capturing it (default `600`).  |
-| `BACKUP_URL`             | no       | A [backup agent](#offsite-backups) to post archives to. Unset, bananacms takes no backups. |
-| `BACKUP_MODE`            | no       | `main`, `relaxed` (default) or `all` — what the archive carries and what makes one happen. |
-
-## Quick start
-
-From the repo root, after [Installation](#for-local-development-of-this-repo) and copying `demo/.env.example` → `demo/.env`:
-
-```bash
-# Seed the dev DB from the committed snapshot in seed/database.sql.
-# (For an empty schema with no data, swap `db:seed` for `migrate`.)
-npm run demo -- db:seed
-
-# Create an admin user.
-npm run demo -- db:set-user admin hunter2
-
-# Start both zones.
-npm run demo -- dev
-```
-
-`npm run demo` is a thin wrapper for `cd demo && node ../src/cli/index.ts`; everything after `--` is passed to the CLI.
-
-You should see:
-
-```
-bananacms [development]
-  CMS zone:      http://localhost:4001
-  Consumer zone: http://localhost:3000
-[cms]  ▲ Next.js 16.x — Turbopack
-[cms]  - Local:        http://localhost:4001
-[demo] ▲ Next.js 16.x — Turbopack
-[demo] - Local:        http://localhost:3000
-```
-
-Then:
-
-- http://localhost:3000 → public site served by the consumer zone
-- http://localhost:3000/manage → admin UI (rewritten to the CMS zone)
-- http://localhost:3000/manage/login → sign in with the user you created
-
----
-
-## Writing a consumer
-
-A consumer is a Next.js 16 app with a `src/cms.ts` that calls `createCMS()` and a
-`next.config.ts` that uses `createConfig()` from `@reeywhaar/bananacms` to wire the rewrites.
-
-Minimum setup:
-
-```ts
-// src/cms.ts
-import { createCMS } from '@reeywhaar/bananacms'
-
-export const cms = createCMS({
-  locales: {
-    default: 'en',
-    locales: [{ code: 'en' }],
-  },
-})
-```
-
-```ts
-// next.config.ts
-import { createConfig } from '@reeywhaar/bananacms'
-import './src/cms' // side-effect: calls createCMS before the rest of config resolves
-
-export default createConfig()
-```
-
-```ts
-// src/proxy.ts
-import { combineProxies } from '@reeywhaar/bananacms/runtime'
-
-export default combineProxies(/* your middleware chain */)
-
-// Static literal required by Next.js
-export const config = {
-  matcher: '/((?!manage|api|d/|cms-static|_next|.*\\..*).*)',
-}
-```
-
-Everything under `/manage`, `/api`, and `/d` is then handled by the CMS zone
-via rewrites — you don't write any routes for those paths.
-
-### Using CMS services in consumer code
-
-```tsx
-// Server component in app/[locale]/page.tsx
-import { getServices } from '@reeywhaar/bananacms/runtime'
-import { PostStore } from '@reeywhaar/bananacms/stores'
-
-export default async function Page() {
-  const { db } = await getServices()
-  const posts = await new PostStore(db).getPublic()
-  return (
-    <ul>
-      {posts.map((p) => (
-        <li key={p.id}>{p.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-### Package exports
-
-| Path                           | What's there                                                                                                                          | Loaded by                    |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| `@reeywhaar/bananacms`         | `createCMS`, `getCMS`, `createConfig`, `cmsRewrites`, `mergeRewrites`, all config types                                               | Next config loader + bundler |
-| `@reeywhaar/bananacms/runtime` | `getServices`, asset helpers, block types, `combineProxies`, middleware factories                                                     | bundler only                 |
-| `@reeywhaar/bananacms/stores`  | `PostStore`, `CategoryStore`, `BlockStore`, `AssetStore`, `PageStore`, `TagStore`, `UserStore`, `AuthTokenStore`, `LocalizationStore` | bundler only                 |
-
-The split exists so Next.js's config transpiler (which pulls `@reeywhaar/bananacms` into
-CJS at boot) doesn't eagerly load request-time code like DB services.
-
----
-
-## CLI reference
-
-Always run from the consumer directory (`cd demo && cms <command>`), or via
-the `demo:*` scripts at the repo root.
-
-| Command                                        | Purpose                                                                                                                            |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `cms dev`                                      | Boot CMS + consumer zones (dev mode).                                                                                              |
-| `cms start`                                    | Same, production mode.                                                                                                             |
-| `cms build`                                    | Build both zones.                                                                                                                  |
-| `cms migrate [--force]`                        | Apply SQL migrations to `DATA_PATH/database.db`.                                                                                   |
-| `cms db:set-user <name> <password>`            | Create or update an admin user.                                                                                                    |
-| `cms db:seed`                                  | Apply `seed/database.sql` from the `@reeywhaar/bananacms` package, but only if `DATA_PATH/database.db` is absent or has no tables. |
-| `cms db:cleanup [--dry-run]`                   | Remove orphaned posts, blocks, assets, then `VACUUM`.                                                                              |
-| `cms db:backfill-image-dimensions [--dry-run]` | Populate width/height on image assets using `sharp`.                                                                               |
-| `cms assets:cleanup [--dry-run]`               | Remove files in `ASSETS_DIRECTORY` with no DB record.                                                                              |
-| `cms snapshot list`                            | List [database snapshots](#database-snapshots), newest first.                                                                      |
-| `cms snapshot view <n> [--raw]`                | Print snapshot `n` (1 = newest) as a full SQL dump; `--raw` prints the stored file instead (a diff for all but the oldest).        |
-| `cms snapshot restore <n>`                     | Replace `DATA_PATH/database.db` with snapshot `n`. Stop the app first; the current state is snapshotted before it is replaced.     |
-| `cms backup now`                               | Build an archive of the databases and post it to `BACKUP_URL`, changed or not. Safe while the app is running.                     |
-
----
-
-## Database snapshots
-
-Set `SNAPSHOTS_COUNT` (e.g. `5`) to enable automatic snapshots of `DATA_PATH/database.db` into `DATA_PATH/snapshots/`. `derived.db` holds only regenerable data and is not snapshotted.
-
-- A snapshot is taken at app start, and another one `SNAPSHOTS_DELAY` seconds (default 600) after each burst of writes — many edits inside the window collapse into one snapshot. Unchanged database states are never snapshotted twice.
-- Snapshots are deterministic SQL dumps stored as text: the oldest is a full `.sql` dump, each newer one a `.diff` against its predecessor (`snapshot_YYYYMMDD_HHmmssSSS.sql|diff`, UTC). When the count exceeds `SNAPSHOTS_COUNT`, the two oldest are merged into a new full dump.
-- `cms snapshot restore <n>` rebuilds the chosen snapshot into a temp database, integrity-checks it, and atomically swaps it in — after snapshotting the current state, so a restore is itself restorable. The command refuses to run while the app is up (tracked via a `.pid` file in the consumer directory), and requires the CLI to run on the same host/container as the app.
-
-## Offsite backups
-
-Snapshots protect against a bad edit; they live on the same disk as the database. Set `BACKUP_URL` to a backup agent and bananacms will also post it a gzipped tar of the databases whenever there is something new to send.
-
-```
-bananacms ──POST archive──▶ agent ──▶ wherever the agent was told
-           (no credential)   (holds the token, names the file, prunes old ones)
-```
-
-bananacms holds no credential, no bucket and no retention policy. It decides *when* to back up and what goes in the archive; everything after that belongs to the agent — so a compromised container cannot read, overwrite or delete a single existing backup. It can only hand over one more archive.
-
-- **Each copy is made with `VACUUM INTO`**, so what leaves is a consistent database that opens on its own. A WAL database is three files with committed state spread across them, and a file-level copy of a running instance is a copy of a moment that never existed. The archive holds `database.db` (and `derived.db`, mode depending) at mode `0600`, with no directory entries, so it extracts straight back over a data directory.
-- **Assets need no separate backup.** Asset bytes live in the database (`asset_blob`); `ASSETS_DIRECTORY` is a regenerable cache of originals and encoded variants.
-- **A copy goes out only when `database.db` has changed.** Every five minutes bananacms checks `PRAGMA data_version` — a read, not a copy — and only when that moves does it vacuum the database and hash it, sending only if the digest differs from the one the agent last accepted. An instance nobody has touched since Tuesday sends nothing. The digest is recorded only *after* the agent accepts, so a rejected upload is retried rather than forgotten.
-- **A restart does not cost a redundant archive.** The digest lives in `backup_state` in `derived.db`, on the same volume as the data, so it survives a container restart — and because it is taken from the `VACUUM INTO` bytes rather than the file on disk, the shutdown WAL checkpoint rewriting `database.db` does not read as a change. After a restart the first pass re-reads the database rather than trusting its in-memory change counter, since a restart may be onto a volume nobody has a copy of. If `derived.db` is lost, the backup state is recreated empty and one redundant archive goes out — never a missed one.
-- **The five minutes are also the throttle.** Nothing reacts to a write directly, so an editor saving six times in a minute produces one archive holding all six. The first pass is immediate, and a last one runs at shutdown. Neither interval is a setting: what you choose is the promise you want, and that is the mode.
-
-| `BACKUP_MODE`         | Carries                     | Sends when                                     |
-| --------------------- | --------------------------- | ---------------------------------------------- |
-| `main`                | `database.db`               | `database.db` changed                          |
-| `relaxed` *(default)* | both                        | `database.db` changed                          |
-| `all`                 | both                        | `database.db` changed, **or** half an hour has passed |
-
-`all` is the only mode that sends when nothing has changed. An agent told how often to expect an archive can report a bananacms that has stopped backing up; with copies arriving only when somebody edits a post, it cannot tell a broken instance from a quiet one.
-
-## Seed database
-
-The repo ships a committed SQL dump at [seed/database.sql](seed/database.sql) that `cms db:seed` applies to a fresh `DATA_PATH/database.db`. Run it from the consumer after `migrate` is _not_ needed — the dump includes the full schema.
-
-To regenerate the seed from the current dev DB (at repo root):
-
-```bash
-npm run seed:create
-```
-
-This calls [scripts/create_seed](scripts/create_seed), which takes a `.backup` copy of `DATA_PATH/database.db` (default `private/database.db`), strips `user` + `authtoken` rows, and writes `seed/database.sql`. The live DB is never modified.
-
-## Development
-
-```bash
-npm run tsc      # type-check both zones
-npm run lint     # eslint both zones
-```
-
-ESLint rule enforces that `src/` never imports from `demo/` (one-way package
-boundary). TypeScript checks each zone independently against its own tsconfig.
-
-### Known trade-offs
-
-- **Child processes in dev.** Next 16's Turbopack has a process-global
-  singleton worker pool — two Next instances in one Node process crash with
-  "Worker creator already registered". The CLI spawns each zone as its own
-  child so Turbopack is isolated. SQLite handles cross-process access fine.
-- **Block matchers are not yet pluggable** — custom block types need
-  package-level changes. The built-in `matchers` array in
-  [src/lib/blocks/declarations.ts](src/lib/blocks/declarations.ts) is fixed
-  (text, group, image, meta) and isn't exported from `@reeywhaar/bananacms/runtime`.
-
-These are tracked and will be addressed in follow-up work.
-
----
-
-## License
-
-ISC (see [package.json](package.json))
+`.devcontainer/` runs the repo in a Debian container with the latest Node, in VS Code or any editor that supports dev containers. The `node_modules` folders and `demo/dist` live in Docker volumes named after the repo's folder, and so does the shell history.

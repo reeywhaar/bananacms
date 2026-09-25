@@ -1,15 +1,8 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "plugins": [{ "name": "next" }],
-    "paths": {
-      "@app/*": ["./src/*"],
-      "@cms/*": ["../src/*"]
-    }
+    "types": ["node", "@reeywhaar/bananacms/types"],
+    "paths": { "@app/*": ["./src/*"] }
   },
-  "include": [
-    "./**/*",
-    "./.next/types/**/*.ts"
-  ],
-  "exclude": ["node_modules"]
+  "include": ["src", "test", "scripts", "seed"]
 }

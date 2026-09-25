@@ -1,0 +1,21 @@
+@use '@app/styles/mixins.scss' as *;
+
+.bar {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 0.25rem;
+  opacity: 0;
+  transition: opacity 150ms;
+  @include stripes($amber);
+}
+
+.pending {
+  opacity: 1;
+  animation: slide 1s linear infinite;
+}
+
+@keyframes slide {
+  to {
+    background-position: -2.83rem 0;
+  }
+}

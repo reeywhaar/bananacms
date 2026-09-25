@@ -1,10 +1,9 @@
 #!/bin/bash
 
 sudo chmod -R 777 node_modules
+sudo chmod -R 777 cms/node_modules
 sudo chmod -R 777 demo/node_modules
-sudo chmod -R 777 src/.next
-sudo chmod -R 777 demo/.next
-sudo chmod -R 777 dist
+sudo chmod -R 777 demo/dist
 sudo chmod -R 777 /home_volume
 
 if [ -f ~/.zsh_history ]; then

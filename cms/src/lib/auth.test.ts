@@ -12,10 +12,12 @@ import {
   LINK_GONE,
   logIn,
   logOut,
+  manageGate,
   passwordTokenUserName,
   setPasswordWithToken,
 } from './auth.ts'
 import { getLogger, getCookies, getAuth } from '../framework/context.ts'
+import { redirectTarget } from '../framework/redirect.ts'
 
 // a user whose stored hash is the scrypt of the password's SHA-256 hex
 async function addUser(testDb: TestDb, name: string, password: string) {
@@ -103,6 +105,60 @@ describe('authenticate', () => {
     ])
     const stored = await new AuthTokenStore(testDb.derivedDb).getTokenData(token)
     expect(stored?.expiresAt).toBe(getAuth(ctx)!.tokenExpiresAt)
+  })
+})
+
+describe('manageGate', () => {
+  const METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+
+  // what the gate does with a request: lets it on to the page, or redirects it
+  async function gate(testDb: TestDb, path: string, method: string, cookie?: string) {
+    const { ctx } = createTestContext({ testDb, url: `http://site.test${path}`, method, cookie })
+    await authenticate(ctx, async () => new Response())
+    try {
+      await manageGate(ctx, async () => new Response('page'))
+      return 'page'
+    } catch (error) {
+      const target = redirectTarget(error)
+      if (!target) throw error
+      return target.url
+    }
+  }
+
+  it('sends a request without a session to the login page, whatever its method', async () => {
+    using testDb = await createTestDb()
+    for (const method of METHODS) {
+      expect(await gate(testDb, '/manage/e/post?page=2', method), method).toBe(
+        '/manage/login?next=%2Fmanage%2Fe%2Fpost%3Fpage%3D2',
+      )
+    }
+  })
+
+  it('opens the login page and the pages of the links to anyone, for their actions too', async () => {
+    using testDb = await createTestDb()
+    for (const path of ['/manage/login', '/manage/invite', '/manage/recover']) {
+      for (const method of ['GET', 'POST']) {
+        expect(await gate(testDb, `${path}?token=x`, method), `${method} ${path}`).toBe('page')
+      }
+    }
+  })
+
+  it('lets a signed-in user in, and sends them from the login page to `next`', async () => {
+    using testDb = await createTestDb()
+    const { id } = await addUser(testDb, 'alice', 'secret')
+    const { token } = await new AuthTokenStore(testDb.derivedDb).issue(id)
+    for (const method of METHODS) {
+      expect(await gate(testDb, '/manage/e/post', method, `auth=${token}`), method).toBe('page')
+    }
+    expect(
+      await gate(testDb, '/manage/login?next=%2Fmanage%2Fe%2Fpost', 'GET', `auth=${token}`),
+    ).toBe('/manage/e/post')
+  })
+
+  it("leaves the site's pages alone", async () => {
+    using testDb = await createTestDb()
+    expect(await gate(testDb, '/en/recipes', 'POST')).toBe('page')
+    expect(await gate(testDb, '/managers', 'GET')).toBe('page')
   })
 })
 

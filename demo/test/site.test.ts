@@ -164,6 +164,21 @@ describe('bananacms dev', () => {
     const gate = await get('/manage/e/post')
     expect(gate.status).toBe(307)
     expect(gate.headers.get('location')).toBe('/manage/login?next=%2Fmanage%2Fe%2Fpost')
+    // and so does a request by any other method, like a server action, after which
+    // the page renders
+    const other = (method: string, path = '/manage/e/post', init: RequestInit = {}) =>
+      fetch(server.url + path, { method, redirect: 'manual', ...init })
+    expect((await other('DELETE')).status).toBe(307)
+    const formPost = await other('POST', '/manage/e/post', { body: new FormData() })
+    expect(formPost.status).toBe(303)
+    expect(formPost.headers.get('location')).toBe('/manage/login?next=%2Fmanage%2Fe%2Fpost')
+    const actionCall = await other('POST', '/manage/e/post_.rsc', {
+      headers: { 'x-rsc-action': 'any' },
+      body: '[]',
+    })
+    const actionPayload = await actionCall.text()
+    expect(actionPayload).toContain('/manage/login?next=%2Fmanage%2Fe%2Fpost')
+    expect(actionPayload).not.toContain('Banana pancakes')
 
     const loginUrl = `${server.url}/manage/login?next=%2Fmanage%2Fe%2Fpost`
     const loginPage = await html('/manage/login?next=%2Fmanage%2Fe%2Fpost')

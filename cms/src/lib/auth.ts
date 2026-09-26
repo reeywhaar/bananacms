@@ -5,7 +5,6 @@ import {
   getDb,
   getDerivedDb,
   getLogger,
-  getRequest,
   getUrl,
   setAuth,
   type Auth,
@@ -156,13 +155,14 @@ export async function logOut(ctx: Context): Promise<void> {
 }
 
 // /manage needs a signed-in user, but for the login page and the pages of the
-// invitations and recovery links. A page request without a session goes to the
-// login page, with the page it asked for in `next`, and the login page sends a
-// signed-in user on there. Server actions can be posted to any URL, so they check
-// getAuth(ctx) themselves (requireAuth).
+// invitations and recovery links. A request without a session goes to the login
+// page, with the page it asked for in `next`, whatever its method: a server action
+// posted to an admin page renders that page after it runs. The login page sends a
+// signed-in user on to `next`. Server actions can be posted to any URL, so they
+// check getAuth(ctx) themselves too (requireAuth).
 export const manageGate: Middleware = async (ctx, next) => {
   const { pathname, search } = getUrl(ctx)
-  if (getRequest(ctx).method !== 'GET' || !isManagePath(pathname)) return next()
+  if (!isManagePath(pathname)) return next()
   const path = pathname.replace(/\/+$/, '')
   const open = path === LOGIN_PATH || Object.values(PASSWORD_TOKEN_PATHS).includes(path)
   if (!getAuth(ctx) && !open) {

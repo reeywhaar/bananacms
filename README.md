@@ -378,6 +378,14 @@ npm run start          # bananacms start: serves dist/ on $PORT, or 3000
 - **Snapshots and backups** keep their formats, so the snapshots already there restore as before.
 - **The environment:** `NEXT_PUBLIC_SERVER_URL` is `SERVER_URL`, and `ALLOWED_HOSTS` works as it did, for `dev`. `SERVER_PORT` and `CMS_INTERNAL_URL` go, since one server serves it all, on `-p` or `$PORT`.
 - **The code:** `next.config.ts` and `createConfig()` go, as the CMS brings the Vite config. `src/cms.ts` keeps `createCMS({ locales })`. `src/proxy.ts` becomes `src/middleware.ts`, and `getServices()` becomes the context: `new PostStore(getDb(ctx))`. The asset helpers and block types of `@reeywhaar/bananacms/runtime` are in `@reeywhaar/bananacms`, and `combineProxies()` goes with the zones. Routes and Next's APIs map as the table in [docs/routing.md](docs/routing.md#migrating-from-nextjs) lists: `[id]` folders become `:id`, `next/navigation` becomes `@reeywhaar/bananacms/client`, and so on.
+- **Going back** to alpha.5: it doesn't run on the databases as the new version leaves them, since they keep sessions' tokens hashed, in `authtoken.tokenHash`, where alpha.5 reads `authtoken.token`. Either restore both databases from a backup taken before the move, or undo that one change, which keeps what was edited since. With the site stopped, end the sessions and give the column its name back, as the migration's own `down` does, and forget that the migration ran, so that moving again runs it again:
+
+  ```sh
+  sqlite3 derived.db "DELETE FROM authtoken; ALTER TABLE authtoken RENAME COLUMN tokenHash TO token"
+  sqlite3 database.db "DELETE FROM migrations WHERE id = 1790450351289"
+  ```
+
+  Everyone signs in again. alpha.5 leaves the new `password_token` table alone, and runs only the migrations it knows.
 
 ## The demo
 

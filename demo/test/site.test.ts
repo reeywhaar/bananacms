@@ -109,6 +109,12 @@ describe('bananacms dev', () => {
     }
   })
 
+  it('serves the files of public/ as they are, at their path', async () => {
+    const response = await get('/robots.txt')
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('User-agent: *\nAllow: /\n')
+  })
+
   it("searches the posts' texts in the page's language", async () => {
     expect(await html('/fr/search?q=banane')).toContain('Pain à la banane')
     expect(await html('/en/search?q=zebra')).toContain('Nothing matches that.')
@@ -244,6 +250,12 @@ describe('bananacms build + start', () => {
   it('serves the built site', async () => {
     expect(await html('/en/recipes')).toContain('Banana pancakes')
     expect((await fetch(`${server.url}/a/b/c/d`)).status).toBe(404)
+  })
+
+  it('serves the files of public/, which the build copies', async () => {
+    const response = await fetch(`${server.url}/robots.txt`)
+    expect(response.status).toBe(200)
+    expect(await response.text()).toBe('User-agent: *\nAllow: /\n')
   })
 
   it('serves the sitemap, with each page in each language', async () => {

@@ -156,6 +156,7 @@ my-site/
   src/index.css
   src/app/layout.tsx     the root layout
   src/app/page.tsx       /
+  public/                files served as they are, optional: public/favicon.ico is /favicon.ico
 ```
 
 ```json
@@ -295,6 +296,7 @@ src/app/sitemap.ts           /sitemap.xml
 - `src/cms.ts` names the languages content is translated into, with `createCMS({ locales })`.
 - Client components can use `useRouter()`, `useSearchParams()`, `usePathname()`, `useNavigationPending()` and `<Link>` from `@reeywhaar/bananacms/client`. Pages, middleware and server actions can call `redirect()`.
 - The site's own database migrations go in `src/lib/migrations/`, named `<Date.now()>_<name>.ts`. See [docs/migrations.md](docs/migrations.md).
+- Files in the site's `public/` are served as they are, at their path: `public/robots.txt` is `/robots.txt`, and `public/assets/logo.png` is `/assets/logo.png`, for an `<img>`, a CSS `url()` or an icon alike. `build` copies them into `dist/client`, which `start` serves ahead of the pages. The demo serves its `robots.txt` this way.
 - Tailwind v4 is built in. Import a CSS file containing `@import 'tailwindcss'` from the root layout.
 - CSS modules (`*.module.css`) work in server and client components alike. For Sass (`.scss`, `.sass`), add `sass` to the site's devDependencies. The demo styles its block frames and its loading bar this way.
 - Fonts are self-hosted from [Fontsource](https://fontsource.org) packages: import a font's CSS from the root layout, like `@fontsource-variable/noto-sans-display/wdth.css`, and name its family in CSS. Its files are served from the site, like its other assets. The demo does this.

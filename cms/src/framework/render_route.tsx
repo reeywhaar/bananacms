@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { ClientRedirect } from './client-redirect.tsx'
+import { ClientRedirect } from './client_redirect.tsx'
 import { setResponseRedirect, setResponseStatus, type Context } from './context.ts'
-import { isNotFoundError } from './not-found.ts'
+import { isNotFoundError } from './not_found.ts'
 import { redirectTarget } from './redirect.ts'
 
 // Renders a page by calling it, so a notFound() or redirect() from the page's own

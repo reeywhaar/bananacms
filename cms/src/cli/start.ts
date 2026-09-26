@@ -9,7 +9,7 @@ import {
   printUsersHint,
   shutDownOnSignals,
   startSiteServices,
-} from './site-services.ts'
+} from './site_services.ts'
 
 export async function start(
   root: string,

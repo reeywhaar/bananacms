@@ -20,4 +20,4 @@ export { hashUserPassword } from './services/password.ts'
 export { AttributeStore, type AttributeData, AttributeQuery } from './services/AttributeStore.ts'
 
 // for a site's own Node scripts, which have no request to get the databases from
-export { openDatabases } from './cli/site-databases.ts'
+export { openDatabases } from './cli/site_databases.ts'

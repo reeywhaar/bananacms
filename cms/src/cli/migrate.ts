@@ -9,7 +9,7 @@ import {
   openDerivedDb,
   runMigrations,
 } from '../lib/db/client.ts'
-import { openSiteDatabases, siteMigrationsPath } from './site-databases.ts'
+import { openSiteDatabases, siteMigrationsPath } from './site_databases.ts'
 
 // Runs the CMS's migrations and the site's that haven't run yet, as the server does
 // on its first request, then checks the foreign keys. With `force`, every

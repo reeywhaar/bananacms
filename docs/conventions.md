@@ -19,6 +19,12 @@ These are enforced by the tooling:
 - Node runs the TypeScript source directly, stripping the types. So code uses erasable syntax only: no enums, namespaces or parameter properties. Relative imports keep their `.ts` and `.tsx` extensions, and type-only imports use `import type`. `tsconfig.base.json` checks all three.
 - Unit tests sit next to the code as `*.test.ts`. End-to-end tests of the demo live in `demo/test/`.
 
+## File names
+
+The words of a code file's name are joined with underscores, like `route_handlers.ts`, and never with dashes. A file named after the component, class or function it exports takes that name as it is, like `PostCard.tsx`, `AssetStore.ts` or `getAssetUrl.ts`.
+
+A site's `src/app/` is the exception, since its names are routes: `not-found.tsx`, `global-error.tsx` and `global-not-found.tsx` are the files the framework looks for, and a folder's name is its URL's segment, like `server-error-page/`.
+
 ## Migrations
 
 A migration's id is `Date.now()` at the time you create it, 13 digits, as in `1790312345678_post_summary.ts`. [migrations.md](migrations.md) explains why, and covers the rest.

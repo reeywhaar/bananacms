@@ -27,7 +27,7 @@ export type { Metadata, ResolvedMetadata, ResolvingMetadata } from './framework/
 export type { Sitemap } from './framework/sitemap.ts'
 export type { LogFields, Logger } from './lib/logger/Logger.ts'
 export { defineAction } from './framework/actions.ts'
-export { notFound } from './framework/not-found.ts'
+export { notFound } from './framework/not_found.ts'
 export { permanentRedirect, redirect } from './framework/redirect.ts'
 export { createMigration, type Migration } from './lib/migrations/migration.ts'
 
@@ -37,7 +37,7 @@ export {
   type CMSConfig,
   type CMSLocale,
   type CMSLocalesConfig,
-} from './framework/cms-config.ts'
+} from './framework/cms_config.ts'
 
 // assets and blocks, for rendering CMS content
 export { getAssetUrl, getOptimizedAssetSrcSet, getOptimizedAssetUrl } from './lib/getAssetUrl.ts'

@@ -1,5 +1,5 @@
 import { createBuilder } from 'vite'
-import { createViteConfig } from './vite-config.ts'
+import { createViteConfig } from './vite_config.ts'
 
 export async function build(root: string): Promise<void> {
   // builds all three environments (rsc, ssr, client) into dist/

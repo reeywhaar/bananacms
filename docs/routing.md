@@ -275,6 +275,6 @@ Still to come: `loading.tsx`, `robots.ts`, `generateStaticParams`, and parallel 
 
 ## Where it lives
 
-- [`cms/src/framework/route-table.ts`](../cms/src/framework/route-table.ts): folder names to URL patterns, matching and precedence.
+- [`cms/src/framework/route_table.ts`](../cms/src/framework/route_table.ts): folder names to URL patterns, matching and precedence.
 - [`cms/src/framework/routes.ts`](../cms/src/framework/routes.ts): finds the site's files with `import.meta.glob`.
 - [`cms/src/framework/app.tsx`](../cms/src/framework/app.tsx): renders a matched page inside its layouts, and handles not-found.

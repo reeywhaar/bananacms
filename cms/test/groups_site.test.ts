@@ -5,11 +5,11 @@ import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { logLines, siteCli } from './cli.ts'
 
-// End-to-end tests on the site in cms/test/groups-site, laid out like
+// End-to-end tests on the site in cms/test/groups_site, laid out like
 // vyrtsev-bananacms: no src/app/layout.tsx, a root layout in the (main) group and
 // another in showcase/, and a global-not-found.tsx.
 
-const { startServer } = siteCli(fileURLToPath(new URL('groups-site', import.meta.url)))
+const { startServer } = siteCli(fileURLToPath(new URL('groups_site', import.meta.url)))
 const dataPath = mkdtempSync(join(tmpdir(), 'bananacms-groups-'))
 let server: Awaited<ReturnType<typeof startServer>>
 const request = (path: string) => fetch(server.url + path, { redirect: 'manual' })

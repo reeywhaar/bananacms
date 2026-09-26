@@ -1,4 +1,4 @@
-import type { CMSConfig } from './cms-config.ts'
+import type { CMSConfig } from './cms_config.ts'
 
 const siteConfigModules = import.meta.glob<Record<string, unknown>>('/src/cms.ts', {
   eager: true,

@@ -8,7 +8,7 @@ import { snapshotsConfig } from '../lib/snapshots/config.ts'
 import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
 import { SnapshotStore } from '../lib/snapshots/store.ts'
 import { migrate } from './migrate.ts'
-import { openSiteDatabases } from './site-databases.ts'
+import { openSiteDatabases } from './site_databases.ts'
 import { backupNow, listSnapshotsCommand, restoreSnapshot, viewSnapshot } from './snapshot.ts'
 
 let root: string

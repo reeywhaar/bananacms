@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { checkServerEnv } from './site-services.ts'
+import { checkServerEnv } from './site_services.ts'
 
 afterEach(() => vi.unstubAllEnvs())
 

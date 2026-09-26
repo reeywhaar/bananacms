@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { hashPassword, sha256hex } from '../services/password.ts'
 import { PasswordTokenStore } from '../services/PasswordTokenStore.ts'
 import { UserStore } from '../services/UserStore.ts'
-import { openSiteDatabases } from './site-databases.ts'
+import { openSiteDatabases } from './site_databases.ts'
 import { createUser, resetUser } from './user.ts'
 
 let root: string

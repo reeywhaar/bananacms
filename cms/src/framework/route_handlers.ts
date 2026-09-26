@@ -1,5 +1,5 @@
 import { getRequest, type Context } from './context.ts'
-import { isNotFoundError } from './not-found.ts'
+import { isNotFoundError } from './not_found.ts'
 import type { SitemapModule } from './routes.ts'
 import { sitemapXml } from './sitemap.ts'
 

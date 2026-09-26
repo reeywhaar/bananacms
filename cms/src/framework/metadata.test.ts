@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { MetadataTags } from './metadata-tags.tsx'
+import { MetadataTags } from './metadata_tags.tsx'
 import {
   emptyMetadataChain,
   extendMetadata,
@@ -10,7 +10,7 @@ import {
   type MetadataExports,
   type ResolvedMetadata,
 } from './metadata.ts'
-import { notFound } from './not-found.ts'
+import { notFound } from './not_found.ts'
 
 // Chains segments as app.tsx does, each one in a folder below the one before,
 // unless it's marked as a page beside the last layout, in its folder

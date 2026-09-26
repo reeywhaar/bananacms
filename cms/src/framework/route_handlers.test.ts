@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createTestContext } from '../test/context.ts'
 import { getRequest, getUrl } from './context.ts'
-import { answer, sitemapHandlers, type RouteHandlers } from './route-handlers.ts'
+import { answer, sitemapHandlers, type RouteHandlers } from './route_handlers.ts'
 
 const run = (method: string, handlers: RouteHandlers) =>
   answer(createTestContext({ method }).ctx, handlers, '/src/app/api/route.ts')

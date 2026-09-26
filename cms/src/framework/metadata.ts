@@ -1,7 +1,7 @@
 // A page's metadata: its <title>, description, Open Graph tags, icons and the
 // like. Pages, layouts and not-found pages declare it as in Next.js, by exporting
 // `metadata`, or `generateMetadata(props, parent)`, which returns it
-// (docs/routing.md#metadata). metadata-tags.tsx renders the result.
+// (docs/routing.md#metadata). metadata_tags.tsx renders the result.
 
 // Like Next's Metadata, for the fields sites use
 export type Metadata = {

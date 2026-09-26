@@ -14,7 +14,7 @@ import {
   ErrorBoundary,
   type ErrorComponent,
   type ErrorPageProps,
-} from './error-boundary.tsx'
+} from './error_boundary.tsx'
 import { NavigationContext, RouterContext, type Router } from './navigation.ts'
 import { createRscRenderRequest, isAssetPath, isManagePath } from './request.ts'
 

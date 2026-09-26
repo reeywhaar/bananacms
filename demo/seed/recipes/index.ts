@@ -1,13 +1,13 @@
 import { category, image, text } from '../content.ts'
-import bananaBread from './banana-bread.ts'
-import bananaPancakes from './banana-pancakes.ts'
-import bananaSmoothie from './banana-smoothie.ts'
-import banoffeePie from './banoffee-pie.ts'
+import bananaBread from './banana_bread.ts'
+import bananaPancakes from './banana_pancakes.ts'
+import bananaSmoothie from './banana_smoothie.ts'
+import banoffeePie from './banoffee_pie.ts'
 import crepes from './crepes.ts'
-import friedPlantains from './fried-plantains.ts'
+import friedPlantains from './fried_plantains.ts'
 import gazpacho from './gazpacho.ts'
 import ratatouille from './ratatouille.ts'
-import spanishTortilla from './spanish-tortilla.ts'
+import spanishTortilla from './spanish_tortilla.ts'
 
 export default category('recipes', {
   name: { en: 'Recipes', fr: 'Recettes', es: 'Recetas' },

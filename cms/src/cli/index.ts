@@ -90,7 +90,7 @@ db.command('cleanup')
   .description('delete posts in no category, and blocks, attributes and assets that nothing uses')
   .option('--dry-run', 'list them, and change nothing')
   .action(async (options: { dryRun?: boolean }) => {
-    const { cleanupDatabase } = await import('./db-cleanup.ts')
+    const { cleanupDatabase } = await import('./db_cleanup.ts')
     await cleanupDatabase(process.cwd(), options)
   })
 
@@ -103,7 +103,7 @@ backfill
   .description('fill in the width and height of image assets that have none')
   .option('--dry-run', 'list them, and change nothing')
   .action(async (options: { dryRun?: boolean }) => {
-    const { backfillImageDimensions } = await import('./db-backfill.ts')
+    const { backfillImageDimensions } = await import('./db_backfill.ts')
     await backfillImageDimensions(process.cwd(), options)
   })
 
@@ -112,7 +112,7 @@ backfill
   .description("fill in audio assets' duration, bitrate, sample rate, channels, codec and tags")
   .option('--dry-run', 'list them, and change nothing')
   .action(async (options: { dryRun?: boolean }) => {
-    const { backfillAudioMeta } = await import('./db-backfill.ts')
+    const { backfillAudioMeta } = await import('./db_backfill.ts')
     await backfillAudioMeta(process.cwd(), options)
   })
 
@@ -120,7 +120,7 @@ backfill
   .command('post-fts')
   .description('build the search index of every post again')
   .action(async () => {
-    const { backfillPostFts } = await import('./db-backfill.ts')
+    const { backfillPostFts } = await import('./db_backfill.ts')
     await backfillPostFts(process.cwd())
   })
 
@@ -129,7 +129,7 @@ backfill
   .description('give the migrations table the ids the migration files have, for an older database')
   .option('--dry-run', 'list them, and change nothing')
   .action(async (options: { dryRun?: boolean }) => {
-    const { backfillMigrationIds } = await import('./db-backfill.ts')
+    const { backfillMigrationIds } = await import('./db_backfill.ts')
     await backfillMigrationIds(process.cwd(), options)
   })
 
@@ -160,7 +160,7 @@ program
   .description('delete the files that belong to no asset')
   .option('--dry-run', 'list them, and change nothing')
   .action(async (options: { dryRun?: boolean }) => {
-    const { cleanupAssets } = await import('./assets-cleanup.ts')
+    const { cleanupAssets } = await import('./assets_cleanup.ts')
     await cleanupAssets(process.cwd(), options)
   })
 

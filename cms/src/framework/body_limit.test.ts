@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { declaredOverLimit, limitBody, type BodyLimit } from './body-limit.ts'
+import { declaredOverLimit, limitBody, type BodyLimit } from './body_limit.ts'
 
 const post = (body: BodyInit, headers: Record<string, string> = {}) =>
   new Request('http://site.test/', { method: 'POST', body, headers })

@@ -18,8 +18,8 @@ import {
   MAX_BODY_BYTES,
   payloadTooLarge,
   type BodyLimit,
-} from './body-limit.ts'
-import { cmsMiddleware, since } from './cms-middleware.ts'
+} from './body_limit.ts'
+import { cmsMiddleware, since } from './cms_middleware.ts'
 import {
   Context,
   createRequestContext,
@@ -41,11 +41,11 @@ import {
   type DatabasesOpener,
 } from './databases.ts'
 import { runMiddleware, type Middleware } from './middleware.ts'
-import { isNotFoundError } from './not-found.ts'
-import { documentResponse, redirectResponse } from './redirect-response.ts'
+import { isNotFoundError } from './not_found.ts'
+import { documentResponse, redirectResponse } from './redirect_response.ts'
 import { redirectTarget } from './redirect.ts'
-import { answer, sitemapHandlers } from './route-handlers.ts'
-import type { Route } from './route-table.ts'
+import { answer, sitemapHandlers } from './route_handlers.ts'
+import type { Route } from './route_table.ts'
 import { isManagePath, isNojs, parseRenderRequest, type RenderRequest } from './request.ts'
 import { loadRouteHandlers, loadSitemap, matchRoute, type RouteMatch } from './routes.ts'
 
@@ -62,7 +62,7 @@ export type RscPayload = {
   // styles.
   rootLayout?: string
   // where the browser goes instead of rendering `root`: set by a redirect() from
-  // middleware or a server action (redirect-response.ts)
+  // middleware or a server action (redirect_response.ts)
   redirect?: string
   // the URL isn't a page but a route.ts's or a sitemap.ts's, which the browser
   // loads as a document instead
@@ -93,7 +93,7 @@ const siteMiddleware: readonly Middleware[] =
   )[0]?.default ?? []
 
 // Builds the request's ctx, and runs the CMS's middleware, then the site's, then
-// a route.ts or sitemap.ts (route-handlers.ts), or the page or action (handler
+// a route.ts or sitemap.ts (route_handlers.ts), or the page or action (handler
 // below).
 async function handleRequest(request: Request): Promise<Response> {
   let renderRequest: RenderRequest
@@ -263,7 +263,7 @@ async function handler(
   })
 }
 
-// Serves a route.ts, or a sitemap.ts as its sitemap.xml (route-handlers.ts). A
+// Serves a route.ts, or a sitemap.ts as its sitemap.xml (route_handlers.ts). A
 // client-side navigation to one gets a payload that has the browser load the URL
 // as a document.
 async function serveRoute(ctx: Context, route: Route): Promise<Response> {

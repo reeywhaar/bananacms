@@ -1,6 +1,6 @@
 import { constants } from 'node:os'
 import type { Transaction } from '@libsql/client'
-import { openSiteDatabases } from './site-databases.ts'
+import { openSiteDatabases } from './site_databases.ts'
 
 // Deletes what nothing points to any more, in one transaction: posts in no category,
 // blocks with no parent, which can take several rounds as blocks nest, attributes

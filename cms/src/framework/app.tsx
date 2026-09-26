@@ -1,17 +1,17 @@
 import { Fragment, type ReactNode } from 'react'
 import type { Context } from './context.ts'
 import { getUrl } from './context.ts'
-import { ErrorBoundary, type ErrorComponent } from './error-boundary.tsx'
-import { MetadataTags } from './metadata-tags.tsx'
+import { ErrorBoundary, type ErrorComponent } from './error_boundary.tsx'
+import { MetadataTags } from './metadata_tags.tsx'
 import {
   emptyMetadataChain,
   extendMetadata,
   type MetadataChain,
   type ResolvedMetadata,
 } from './metadata.ts'
-import { isNotFoundError } from './not-found.ts'
+import { isNotFoundError } from './not_found.ts'
 import { redirectTarget } from './redirect.ts'
-import { renderRoute } from './render-route.tsx'
+import { renderRoute } from './render_route.tsx'
 import { isManagePath, isNojs, MANAGE_PATH, toNojsUrl } from './request.ts'
 import {
   loadErrorPages,
@@ -76,7 +76,7 @@ export async function renderApp(
 
   // Metadata resolves before rendering, so a notFound() or redirect() from a
   // generateMetadata() decides the response, client navigation included: a 404,
-  // or a redirect, which the redirects middleware sends (cms-middleware.ts). Any
+  // or a redirect, which the redirects middleware sends (cms_middleware.ts). Any
   // other error it throws renders in the page's place, for an error.tsx to catch.
   const outcome: PageOutcome = page
     ? await pageOutcome(

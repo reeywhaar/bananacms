@@ -9,7 +9,7 @@ import { ProgressOverlayProvider } from '../../components/ProgressOverlay/Progre
 import { ToastProvider } from '../../components/Toast/Toast.tsx'
 import { TopLoader } from '../../components/TopLoader/TopLoader.tsx'
 import type { Context } from '../../framework/context.ts'
-import { getSiteConfig } from '../../framework/site-config.ts'
+import { getSiteConfig } from '../../framework/site_config.ts'
 import { AdminBar } from './AdminBar/AdminBar.tsx'
 import { BreadcrumbsProvider } from './BreadCrumbs/Breadcrumbs.tsx'
 import { getAuth } from '../../framework/context.ts'

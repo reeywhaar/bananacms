@@ -1,5 +1,5 @@
 import type { Context } from '../../../../framework/context.ts'
-import { notFound } from '../../../../framework/not-found.ts'
+import { notFound } from '../../../../framework/not_found.ts'
 import { Client } from './Client.tsx'
 import { WithBreadcrumbs } from '../../BreadCrumbs/Breadcrumbs.tsx'
 import { routing } from '../../routing.ts'

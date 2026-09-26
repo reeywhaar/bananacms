@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Alias } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
-import { parseJsonc, tsconfigAliases } from './tsconfig-paths.ts'
+import { parseJsonc, tsconfigAliases } from './tsconfig_paths.ts'
 
 const dirs: string[] = []
 afterEach(() => {

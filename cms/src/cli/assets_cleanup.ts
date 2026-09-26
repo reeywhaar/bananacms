@@ -1,6 +1,6 @@
 import { lstat, readdir, unlink } from 'node:fs/promises'
 import path from 'node:path'
-import { assetsDirectory, openSiteDatabases } from './site-databases.ts'
+import { assetsDirectory, openSiteDatabases } from './site_databases.ts'
 
 // Deletes the files in ASSETS_DIRECTORY that belong to no asset in the database: the
 // cached originals, named <id>, and the image variants, named <id>-<hash>. Links go

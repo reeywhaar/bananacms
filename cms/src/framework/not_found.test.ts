@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isNotFoundError, notFound } from './not-found.ts'
+import { isNotFoundError, notFound } from './not_found.ts'
 
 describe('notFound', () => {
   it('throws an error that isNotFoundError recognizes', () => {

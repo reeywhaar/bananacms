@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react'
 import type { Context } from './context.ts'
 import type { MetadataExports } from './metadata.ts'
-import type { RouteHandlers } from './route-handlers.ts'
+import type { RouteHandlers } from './route_handlers.ts'
 import type { Sitemap } from './sitemap.ts'
-import type { ErrorComponent } from './error-boundary.tsx'
-import { createRoutes, findRoute, folderFiles, type Params, type Route } from './route-table.ts'
+import type { ErrorComponent } from './error_boundary.tsx'
+import { createRoutes, findRoute, folderFiles, type Params, type Route } from './route_table.ts'
 
 // The site's file routes: src/app/**/page.tsx, layout.tsx, error.tsx and
 // not-found.tsx, global-not-found.tsx, and the route.ts and sitemap.ts files (the
 // scheme is in docs/routing.md).
 
-export type { Params } from './route-table.ts'
+export type { Params } from './route_table.ts'
 export type SearchParams = Record<string, string | string[]>
 
 // `ctx` is the request's context (docs/context.md). As in Next 15+, params and

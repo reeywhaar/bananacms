@@ -9,7 +9,7 @@ import { createRootLogger } from '../lib/logger/root.ts'
 import { snapshotsConfig } from '../lib/snapshots/config.ts'
 import { readRunningPid, removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
 import { takeSnapshot } from '../lib/snapshots/setup.ts'
-import { dataPath } from './site-databases.ts'
+import { dataPath } from './site_databases.ts'
 
 // What `dev` and `start` can't run without, and what each is
 const REQUIRED_ENV: Record<string, string> = {

@@ -18,7 +18,7 @@ The content is TypeScript, so the compiler checks it: `npm run typecheck` names 
 
 ## Adding a post
 
-1. Copy a post of the category, like `recipes/gazpacho.ts`, to a file named after the new post's slug, and give `post()` that slug.
+1. Copy a post of the category, like `recipes/gazpacho.ts`, to a file named after the new post's slug, with underscores for its dashes (`recipes/banana_bread.ts` for `banana-bread`), and give `post()` that slug.
 2. Import it in the category's `index.ts`, and put it in `posts` where the site should list it.
 3. Put its images in `files/`, and add each image to `credits.ts`: `image()` fails for an image without a credit.
 

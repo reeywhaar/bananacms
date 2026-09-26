@@ -13,11 +13,11 @@ import path from 'node:path'
 import sharp from 'sharp'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseMigrationFileName } from '../lib/migrations/migration.ts'
-import { cleanupAssets } from './assets-cleanup.ts'
-import { backfillAudioMeta, backfillImageDimensions, backfillMigrationIds } from './db-backfill.ts'
-import { cleanupDatabase } from './db-cleanup.ts'
+import { cleanupAssets } from './assets_cleanup.ts'
+import { backfillAudioMeta, backfillImageDimensions, backfillMigrationIds } from './db_backfill.ts'
+import { cleanupDatabase } from './db_cleanup.ts'
 import { addMigration, checkMigrations, migrate } from './migrate.ts'
-import { openSiteDatabases } from './site-databases.ts'
+import { openSiteDatabases } from './site_databases.ts'
 
 // Each test gets a site directory of its own, with its data and assets in it
 let root: string

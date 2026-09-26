@@ -47,4 +47,4 @@ A second signal exits straight away, without the rest. The data is safe in the `
 - [`cms/src/lib/snapshots/`](../cms/src/lib/snapshots/): the dumps, the files and their diffs, the store that writes, merges and restores them, and the scheduler.
 - [`cms/src/lib/backup/`](../cms/src/lib/backup/): the archives, the tar writer, and the loop that sends them.
 - [`cms/src/framework/databases.ts`](../cms/src/framework/databases.ts): the scheduler, started with the site's databases, which the requests' writes wake.
-- [`cms/src/cli/site-services.ts`](../cms/src/cli/site-services.ts): what `dev` and `start` run around the server: the `.pid` file, the snapshots as the site starts and stops, the backup loop, and the shutdown. [`cli/snapshot.ts`](../cms/src/cli/snapshot.ts): the `snapshot` and `backup` commands.
+- [`cms/src/cli/site_services.ts`](../cms/src/cli/site_services.ts): what `dev` and `start` run around the server: the `.pid` file, the snapshots as the site starts and stops, the backup loop, and the shutdown. [`cli/snapshot.ts`](../cms/src/cli/snapshot.ts): the `snapshot` and `backup` commands.

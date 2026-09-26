@@ -1,13 +1,13 @@
 import { category, image, text } from '../content.ts'
-import aTripToTheMoon from './a-trip-to-the-moon.ts'
-import aliceInWonderland from './alice-in-wonderland.ts'
+import aTripToTheMoon from './a_trip_to_the_moon.ts'
+import aliceInWonderland from './alice_in_wonderland.ts'
 import frankenstein from './frankenstein.ts'
-import lesVampires from './les-vampires.ts'
+import lesVampires from './les_vampires.ts'
 import nosferatu from './nosferatu.ts'
-import theArrivalOfATrain from './the-arrival-of-a-train.ts'
-import theCabinetOfDrCaligari from './the-cabinet-of-dr-caligari.ts'
-import theGreatTrainRobbery from './the-great-train-robbery.ts'
-import workersLeavingTheLumiereFactory from './workers-leaving-the-lumiere-factory.ts'
+import theArrivalOfATrain from './the_arrival_of_a_train.ts'
+import theCabinetOfDrCaligari from './the_cabinet_of_dr_caligari.ts'
+import theGreatTrainRobbery from './the_great_train_robbery.ts'
+import workersLeavingTheLumiereFactory from './workers_leaving_the_lumiere_factory.ts'
 
 // in the order they came out
 export default category('movies', {

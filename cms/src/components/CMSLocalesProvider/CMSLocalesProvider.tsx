@@ -1,6 +1,6 @@
 'use client'
 
-import type { CMSLocalesConfig } from '../../framework/cms-config.ts'
+import type { CMSLocalesConfig } from '../../framework/cms_config.ts'
 import { invariant } from '../../utils/invariant.ts'
 import { createContext, type FC, type PropsWithChildren, use } from 'react'
 

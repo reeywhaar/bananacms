@@ -169,7 +169,7 @@ In development, React copies every server component's props into the data it sen
 
 - [`cms/src/framework/context.ts`](../cms/src/framework/context.ts): `Context`, `required()`, and the CMS's values.
 - [`cms/src/framework/entry.rsc.tsx`](../cms/src/framework/entry.rsc.tsx): the app context, each request's context, the middleware chain, and the actions' scopes.
-- [`cms/src/framework/middleware.ts`](../cms/src/framework/middleware.ts) and [`cms-middleware.ts`](../cms/src/framework/cms-middleware.ts): the `Middleware` type, and the CMS's own.
+- [`cms/src/framework/middleware.ts`](../cms/src/framework/middleware.ts) and [`cms_middleware.ts`](../cms/src/framework/cms_middleware.ts): the `Middleware` type, and the CMS's own.
 - [`cms/src/framework/actions.ts`](../cms/src/framework/actions.ts): `defineAction()`.
 - [`cms/src/framework/databases.ts`](../cms/src/framework/databases.ts): the databases, opened once, and each request's handles on them.
 - [`cms/src/framework/cookies.ts`](../cms/src/framework/cookies.ts): `Cookies`.

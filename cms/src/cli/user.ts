@@ -5,7 +5,7 @@ import {
   type PasswordTokenKind,
 } from '../services/PasswordTokenStore.ts'
 import { UserStore } from '../services/UserStore.ts'
-import { openSiteDatabases } from './site-databases.ts'
+import { openSiteDatabases } from './site_databases.ts'
 
 // `user create <name>`: prints an invitation, a link where the user sets the
 // password they sign in with, which creates them. The databases in DATA_PATH are

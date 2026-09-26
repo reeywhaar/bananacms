@@ -7,7 +7,7 @@ import { describeAudio, readAudioMeta } from '../lib/audioMeta.ts'
 import { post } from '../lib/db/schema.ts'
 import { cmsMigrations } from '../lib/migrations/index.ts'
 import { PostSearchStore } from '../services/PostSearchStore.ts'
-import { assetsDirectory, openSiteDatabases, siteMigrationsPath } from './site-databases.ts'
+import { assetsDirectory, openSiteDatabases, siteMigrationsPath } from './site_databases.ts'
 
 // The `db backfill` commands, which fill in what older databases lack. Each can run
 // while the site does.

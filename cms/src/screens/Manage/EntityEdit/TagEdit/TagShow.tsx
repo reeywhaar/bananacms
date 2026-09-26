@@ -1,7 +1,7 @@
 import type { Context } from '../../../../framework/context.ts'
 import { TagStore } from '../../../../services/TagStore.ts'
 import { PostStore } from '../../../../services/PostStore.ts'
-import { notFound } from '../../../../framework/not-found.ts'
+import { notFound } from '../../../../framework/not_found.ts'
 import { Link } from '../../../../framework/link.tsx'
 import { WithBreadcrumbs } from '../../BreadCrumbs/Breadcrumbs.tsx'
 import { routing } from '../../routing.ts'

@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import rsc from '@vitejs/plugin-rsc'
 import { fileURLToPath } from 'node:url'
 import type { InlineConfig } from 'vite'
-import { tsconfigAliases } from './tsconfig-paths.ts'
+import { tsconfigAliases } from './tsconfig_paths.ts'
 
 // The Vite config every site runs with: the CMS owns the RSC plumbing, and a
 // site provides its routes in src/app/ (framework/routes.ts).

@@ -4,8 +4,8 @@ import {
   printUsersHint,
   shutDownOnSignals,
   startSiteServices,
-} from './site-services.ts'
-import { createViteConfig, frameworkFile } from './vite-config.ts'
+} from './site_services.ts'
+import { createViteConfig, frameworkFile } from './vite_config.ts'
 
 export async function dev(
   root: string,

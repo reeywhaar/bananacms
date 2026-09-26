@@ -2,7 +2,7 @@ import type { Db, DerivedDb } from '../lib/db/client.ts'
 import type { Logger } from '../lib/logger/Logger.ts'
 import { Cookies } from './cookies.ts'
 import type { RedirectTarget } from './redirect.ts'
-import type { Params } from './route-table.ts'
+import type { Params } from './route_table.ts'
 
 // What a piece of work was given, passed to it first and never stored: a bag of
 // values by key. A child scope sets what it changes and reads the rest from its

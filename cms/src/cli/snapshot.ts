@@ -7,7 +7,7 @@ import { snapshotsConfig, snapshotsDirFor, type SnapshotsConfig } from '../lib/s
 import { listSnapshots } from '../lib/snapshots/files.ts'
 import { readRunningPid } from '../lib/snapshots/pidfile.ts'
 import { SnapshotStore } from '../lib/snapshots/store.ts'
-import { dataPath } from './site-databases.ts'
+import { dataPath } from './site_databases.ts'
 
 // The `snapshot` and `backup` commands. Snapshots are in DATA_PATH/snapshots,
 // numbered from 1, the newest.

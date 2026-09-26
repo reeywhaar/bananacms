@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createRoutes, findRoute, folderFiles } from './route-table.ts'
+import { createRoutes, findRoute, folderFiles } from './route_table.ts'
 
 const routes = createRoutes([
   '/src/app/page.tsx',

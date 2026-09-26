@@ -5,7 +5,7 @@ import { errorFields } from '../lib/logger/Logger.ts'
 import { getLogger, getRequest, isRscRequest, setDatabases } from './context.ts'
 import { requestDatabases } from './databases.ts'
 import type { Middleware } from './middleware.ts'
-import { redirectResponse } from './redirect-response.ts'
+import { redirectResponse } from './redirect_response.ts'
 import { redirectTarget } from './redirect.ts'
 
 // Logs each request as it starts (debug, with the client's details) and once its
@@ -31,7 +31,7 @@ const requestLog: Middleware = async (ctx, next) => {
 }
 
 // Turns a redirect() from the middleware after it, or from a page or action before
-// it starts rendering, into its response (redirect-response.ts).
+// it starts rendering, into its response (redirect_response.ts).
 const redirects: Middleware = async (ctx, next) => {
   try {
     return await next()

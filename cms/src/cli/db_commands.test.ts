@@ -131,6 +131,18 @@ describe('db migration check', () => {
     )
   })
 
+  it('takes a quoted name for the same name as a bare one', async () => {
+    await migrate(root)
+    await sql(`
+      ALTER TABLE migrations RENAME TO migrations_before;
+      CREATE TABLE "migrations" ( id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE );
+      INSERT INTO "migrations" SELECT * FROM migrations_before;
+      DROP TABLE migrations_before;
+    `)
+    await checkMigrations(root)
+    expect(printed().at(-1)).toMatch(/^bananacms: the databases are what the \d+ migrations make$/)
+  })
+
   it('needs the databases', async () => {
     await expect(checkMigrations(root)).rejects.toThrow('No database at')
   })

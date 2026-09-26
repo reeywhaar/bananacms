@@ -101,6 +101,9 @@ async function schemaOf(client: Client): Promise<Map<string, string>> {
       `${String(row.type)} ${String(row.name)}`,
       String(row.sql ?? '')
         .replace(/\s+/g, ' ')
+        // a name is the same name quoted or bare: a database made elsewhere can say
+        // CREATE TABLE "migrations" where the migrations say CREATE TABLE migrations
+        .replace(/(["`])([A-Za-z_][A-Za-z0-9_]*)\1/g, '$2')
         .trim(),
     ]),
   )

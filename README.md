@@ -120,7 +120,7 @@ cd bananacms
 npm install
 ```
 
-npm's workspaces link `cms/` into `node_modules/@reeywhaar/bananacms`, where the demo finds it through its dependency `"@reeywhaar/bananacms": "*"`. A site of your own can live here the same way: a folder with a `package.json` like the demo's, added to `workspaces` in the root `package.json`.
+npm's workspaces link `cms/` into `node_modules/@reeywhaar/bananacms`, where the demo finds it through its dependency `"@reeywhaar/bananacms": "*"`. A site of your own can live here the same way: a folder with a `package.json` like the demo's, added to `workspaces` in the root `package.json`, and a `tsconfig.json` that extends `../tsconfig.base.json`, as the demo's does, so TypeScript takes the package from its source ([Development](#development)).
 
 ### As a dependency
 

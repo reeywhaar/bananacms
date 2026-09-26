@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { PostSearchStore } from './PostSearchStore.ts'
 import { PostStore } from './PostStore.ts'
 import { createTestDb, type TestDb } from '../test/db.ts'
 import {
@@ -548,6 +549,39 @@ describe('PostStore.query', () => {
         .first()
       expect(next?.name).toBe('Banana')
     })
+  })
+})
+
+describe('PostStore.query textSearch', () => {
+  // Apple has the text "hello", Banana the text "banana", and each its name
+  async function seedIndex(testDb: TestDb): Promise<void> {
+    await seedPosts(testDb)
+    await seedBlocks(testDb)
+    const search = new PostSearchStore(testDb.db)
+    for (const id of [POST_A, POST_B, POST_C]) await search.rebuildPostIndex(id)
+  }
+  const namesFor = async (testDb: TestDb, query: string) =>
+    (await new PostStore(testDb.db).query().textSearch(query).all()).map((p) => p.name)
+
+  it('finds the posts with every word, each as the start of a word', async () => {
+    using testDb = await createTestDb()
+    await seedIndex(testDb)
+    expect(await namesFor(testDb, 'hel')).toEqual(['Apple'])
+    expect(await namesFor(testDb, 'apple hello')).toEqual(['Apple'])
+    expect(await namesFor(testDb, 'hello banana')).toEqual([])
+  })
+
+  it('takes whatever is typed as words, FTS5 syntax included', async () => {
+    using testDb = await createTestDb()
+    await seedIndex(testDb)
+    const posts = () => new PostStore(testDb.db).query()
+    for (const query of ['(', 'a"b', '*', 'NEAR(a b', 'AND', 'NOT banana', '"', '  ']) {
+      await expect(posts().textSearch(query).all(), query).resolves.toEqual(expect.any(Array))
+      await expect(posts().textSearch(query).count(), query).resolves.toEqual(expect.any(Number))
+    }
+    // AND is a word like the others, and no post has one starting so
+    expect(await namesFor(testDb, 'banana AND')).toEqual([])
+    expect(await namesFor(testDb, '"banana"')).toEqual(['Banana'])
   })
 })
 

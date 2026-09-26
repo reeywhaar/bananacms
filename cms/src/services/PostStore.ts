@@ -608,23 +608,14 @@ function toIso(d: string | Date): string {
 }
 
 /**
- * Rewrites a user-supplied search string into an FTS5 prefix query so that
- * partial words match (e.g. "banana" also finds "bananas").
- *
- * Rules:
- * - FTS5 boolean operators (AND, OR, NOT, NEAR) are passed through unchanged.
- * - Quoted phrases ("…") are passed through unchanged.
- * - Tokens already ending with `*` are passed through unchanged.
- * - All other tokens get `*` appended.
+ * Turns what someone typed into an FTS5 query for the posts with every word in
+ * it, each as the start of a word: "banana" also finds "bananas". Each word goes
+ * in as an FTS5 string, with its quotes doubled, so nothing typed is FTS5 syntax:
+ * a bracket, a star or an AND is part of a word like any other letter. With no
+ * words, it's the empty string, which matches nothing.
  */
 function prepareFtsQuery(query: string): string {
-  return query
-    .trim()
-    .split(/\s+/)
-    .map((token) => {
-      if (/^(AND|OR|NOT|NEAR)$/i.test(token)) return token
-      if (token.startsWith('"') || token.endsWith('*')) return token
-      return token + '*'
-    })
-    .join(' ')
+  const words = query.split(/\s+/).filter(Boolean)
+  if (words.length === 0) return '""'
+  return words.map((word) => `"${word.replaceAll('"', '""')}"*`).join(' ')
 }

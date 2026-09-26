@@ -112,6 +112,10 @@ describe('bananacms dev', () => {
   it("searches the posts' texts in the page's language", async () => {
     expect(await html('/fr/search?q=banane')).toContain('Pain à la banane')
     expect(await html('/en/search?q=zebra')).toContain('Nothing matches that.')
+    // what a visitor types is words, even when it looks like FTS5's syntax
+    for (const q of ['(', 'a"b', '*', 'NOT banana']) {
+      expect((await get(`/en/search?q=${encodeURIComponent(q)}`)).status, q).toBe(200)
+    }
   })
 
   it("counts a vote in the Main page's poll, which keeps its counts in the CMS", async () => {

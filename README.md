@@ -349,6 +349,7 @@ The CLI reads the site's `.env`, and the environment's variables go over it.
 | `SERVER_URL`       | the site's address, like `https://example.com`, which the links of `user create` and `user reset` go on; unset, they're paths                   |
 | `ALLOWED_HOSTS`    | the hostnames `dev` answers besides `localhost` and IP addresses, comma-separated, like `corben.local`; `.example.com` takes its subdomains too |
 | `PORT`             | the port `start` listens on when `-p` doesn't say, 3000 when unset                                                                              |
+| `HOST`             | the address `start` listens on when `--host` doesn't say; unset, every interface                                                                |
 | `LOG_LEVEL`        | the lowest log level written: `debug`, `info` (default), `warn` or `error`                                                                      |
 | `LOG_FORMAT`       | `dev` for one line per entry, `json` for one JSON object; production defaults to `json`                                                         |
 | `NO_COLOR`         | set, the `dev` log format writes no colors                                                                                                      |
@@ -365,6 +366,8 @@ npm run start          # bananacms start: serves dist/ on $PORT, or 3000
 ```
 
 - `start` serves static files from `dist/client` only, and hands every other request to the app. Put a reverse proxy in front for TLS and connection limits, and set `SERVER_URL` to the site's address.
+- `start` listens on every interface unless `--host` or `$HOST` names one, so in a container it takes connections as it is, on `-p`, `$PORT` or 3000.
+- What `start` needs is `dist/` and the production `node_modules`, with the variables in the environment or in a `.env` in its working directory, where it keeps a `.pid` file while it runs. The site's `package.json`, `tsconfig.json` and `src/` can stay behind: the build has the site's migrations as well as its pages. A Docker image can copy those two folders and run `node_modules/.bin/bananacms start`.
 - `DATA_PATH` is the site's data: keep it on a disk that lasts, and turn on snapshots, and backups to an agent ([docs/snapshots-and-backups.md](docs/snapshots-and-backups.md)). `ASSETS_DIRECTORY` is a cache: the uploads live in the database too, and the variants are encoded again when asked for.
 - `dev` and `start` stop on Ctrl-C or SIGTERM, and `dev` on `q` too. They stop taking requests, take a last snapshot and send a last backup when those are on, fold each database's `-wal` file into its `.db` file, and exit with 0. A second signal exits straight away ([docs/snapshots-and-backups.md](docs/snapshots-and-backups.md#stopping)).
 - `dev --host` opens the dev server to the network, and it serves the files in the site's workspace to whoever reaches it, so keep it to networks you trust. It answers requests by IP address, and by the names `ALLOWED_HOSTS` lists. `start` is what serves a site in production.

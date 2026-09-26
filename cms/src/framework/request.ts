@@ -22,9 +22,12 @@ export function isNojs(url: URL): boolean {
   return url.searchParams.has(NOJS_PARAM)
 }
 
-// the same URL in no-JS mode, e.g. /page2 -> /page2?__nojs
+// The same page in no-JS mode, as a URL of only its query, like ?__nojs, or
+// ?a=1&__nojs for /page2?a=1. The browser takes the rest from the page, so the
+// refresh stays on it, whatever its path is: a path like //example.org would
+// otherwise read as another host.
 export function toNojsUrl(url: URL): string {
-  return `${url.pathname}${url.search ? `${url.search}&` : '?'}${NOJS_PARAM}`
+  return `${url.search ? `${url.search}&` : '?'}${NOJS_PARAM}`
 }
 
 // Parsed request information used to route between RSC/SSR rendering and action handling.

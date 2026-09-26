@@ -60,9 +60,14 @@ describe('no-JS mode', () => {
     expect(isNojs(new URL('http://site.test/page2'))).toBe(false)
   })
 
-  it('keeps the rest of the URL', () => {
-    expect(toNojsUrl(new URL('http://site.test/page2'))).toBe('/page2?__nojs')
-    expect(toNojsUrl(new URL('http://site.test/page2?a=1'))).toBe('/page2?a=1&__nojs')
+  it('is the query, with the rest of the URL left to the page it refreshes', () => {
+    expect(toNojsUrl(new URL('http://site.test/page2'))).toBe('?__nojs')
+    expect(toNojsUrl(new URL('http://site.test/page2?a=1'))).toBe('?a=1&__nojs')
+    // a path that would read as another host stays out of it
+    const target = toNojsUrl(new URL('http://site.test//example.org'))
+    expect(new URL(target, 'http://site.test//example.org').href).toBe(
+      'http://site.test//example.org?__nojs',
+    )
   })
 })
 

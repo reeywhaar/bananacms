@@ -160,6 +160,16 @@ describe('no-JS mode', () => {
     // with JavaScript, a script puts it in place
     expect(await (await request('/streamed')).text()).toContain('<script')
   })
+
+  it('reloads a browser with JavaScript off into it on the same page, whatever its path', async () => {
+    expect(await (await request('/posts/1?a=1')).text()).toContain(
+      'content="0; url=?a=1&amp;__nojs"',
+    )
+    // a path that reads as another host once it's the whole URL
+    const page = await (await request('//example.org')).text()
+    expect(page).toContain('content="0; url=?__nojs"')
+    expect(page).not.toContain('url=//')
+  })
 })
 
 describe('sitemaps', () => {

@@ -83,7 +83,7 @@ private/                   not in git: local files, like the tarball tgz:pack ma
 
 ## Requirements
 
-- Node 26 or newer. The CLI and the framework are TypeScript, which Node runs by stripping the types.
+- Node 26 or newer, which the CLI runs on.
 - npm.
 
 ## Quick start
@@ -184,7 +184,7 @@ my-site/
 }
 ```
 
-The `tsconfig.json` takes the CMS's ambient types, and runs as the CMS's code does: Node strips the types, so code uses erasable syntax only, and imports keep their `.ts` and `.tsx` extensions. `paths` are optional, and work in CSS too.
+The `tsconfig.json` takes the CMS's ambient types. Vite compiles the site's code, so its imports can leave out their extensions, and a type can come in a plain import. The site's migrations are the exception: the CLI's database commands import `src/lib/migrations/*.ts` with Node, which strips their types and does nothing more. So a migration, and what it imports, keeps the extensions of its relative imports, takes types with `import type`, and uses erasable syntax only, with no enums or namespaces ([docs/migrations.md](docs/migrations.md#writing-one)). `verbatimModuleSyntax` and `erasableSyntaxOnly` hold all of a site's code to those rules, as this repo does, and a site can leave them out. `paths` are optional, and work in CSS too.
 
 ```json
 {

@@ -67,6 +67,7 @@ export default createMigration({
 
 - `up` makes the change and `down` undoes it. Both get a transaction on `database.db`, and a client for `derived.db` as their second argument.
 - `foreignKeys: false` runs the migration with foreign keys off. A migration that rebuilds a table (a new table, a copy of the rows, a drop of the old one and a rename) needs it: with foreign keys on, dropping the old table fires `ON DELETE CASCADE` and deletes the rows that reference it.
+- The CLI's database commands, like `db migration run`, import a site's migrations with Node, which strips their types and does nothing more. So a migration, and what it imports, keeps the extensions of its relative imports (`./helpers.ts`), takes types with `import type`, and uses erasable syntax only, with no enums or namespaces. The rest of a site goes through Vite, which needs none of that.
 - In the CMS, a migration imports `createMigration` from `./migration.ts`, and `index.ts` gets an import and a line for it.
 
 ## Where it lives

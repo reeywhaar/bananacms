@@ -173,5 +173,5 @@ In development, React copies every server component's props into the data it sen
 - [`cms/src/framework/actions.ts`](../cms/src/framework/actions.ts): `defineAction()`.
 - [`cms/src/framework/databases.ts`](../cms/src/framework/databases.ts): the databases, opened once, and each request's handles on them.
 - [`cms/src/framework/cookies.ts`](../cms/src/framework/cookies.ts): `Cookies`.
-- [`cms/src/lib/auth.ts`](../cms/src/lib/auth.ts): sessions, in the `auth` cookie and the `authtoken` table, and the `/manage` gate.
+- [`cms/src/lib/auth.ts`](../cms/src/lib/auth.ts): sessions, in the `auth` cookie and the `authtoken` table, which keeps their tokens' SHA-256, the login and its throttle, and the `/manage` gate.
 - [`cms/src/lib/logger/`](../cms/src/lib/logger/): the logger and its formats; [`cms/src/lib/db/queryLog.ts`](../cms/src/lib/db/queryLog.ts): query logging.

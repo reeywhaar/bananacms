@@ -26,6 +26,7 @@ import m17831245380 from './017831245380_drop_duplicate_indexes.ts'
 import m17834727000 from './017834727000_asset_blob.ts'
 import m1788736982582 from './1788736982582_derived_backup_state.ts'
 import m1790392565582 from './1790392565582_derived_password_token.ts'
+import m1790450351289 from './1790450351289_derived_authtoken_hash.ts'
 
 // The CMS's migrations, listed statically so they're part of the production
 // bundle. A new migration goes in a new <Date.now()>_<name>.ts file and a line
@@ -58,4 +59,5 @@ export const cmsMigrations: MigrationEntry[] = [
   { id: 17834727000, name: 'asset_blob', migration: m17834727000 },
   { id: 1788736982582, name: 'derived_backup_state', migration: m1788736982582 },
   { id: 1790392565582, name: 'derived_password_token', migration: m1790392565582 },
+  { id: 1790450351289, name: 'derived_authtoken_hash', migration: m1790450351289 },
 ]

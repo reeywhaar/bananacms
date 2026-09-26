@@ -110,6 +110,19 @@ it("shows a link whose token isn't one as expired", async () => {
   expect(await (await get('/manage/recover')).text()).toContain('Link expired')
 })
 
+it('makes a name wait after 5 wrong passwords, and says for how long', async () => {
+  await setPassword(await link('create', 'erin'), 'erins-password')
+  for (let i = 1; i < 5; i++) {
+    expect(await (await logIn('erin', 'wrong')).text()).toContain('Wrong username or password.')
+  }
+  expect(await (await logIn('erin', 'wrong')).text()).toContain(
+    'Too many wrong passwords. Try again in 15 minutes.',
+  )
+  const right = await logIn('erin', 'erins-password')
+  expect(right.status).toBe(200)
+  expect(right.headers.get('set-cookie')).toBeNull()
+})
+
 it('takes a body over 1 MB from a signed-in user, up to 100 MB', async () => {
   const session = cookieOf(await setPassword(await link('create', 'carol'), 'carols-password'))
   const page = await (await get('/posts/1')).text()

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { describe, expect, it } from 'vitest'
 import { authtoken } from './db/derivedSchema.ts'
+import { MAX_FAILURES, WINDOW_MS } from './LoginThrottle.ts'
 import { AuthTokenStore } from '../services/AuthTokenStore.ts'
 import { hashPassword, sha256hex } from '../services/password.ts'
 import { PasswordTokenStore } from '../services/PasswordTokenStore.ts'
@@ -36,7 +37,7 @@ describe('logIn', () => {
     const { id } = await addUser(testDb, 'alice', 'secret')
     const { ctx, entries } = createTestContext({ testDb })
 
-    expect(await logIn(ctx, 'alice', 'secret')).toBe(true)
+    expect(await logIn(ctx, 'alice', 'secret')).toEqual({ ok: true })
     expect(getAuth(ctx)?.user).toEqual({ id, name: 'alice' })
     expect(getCookies(ctx).setCookieHeaders).toEqual([
       `auth=${getAuth(ctx)?.token}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax`,
@@ -53,13 +54,29 @@ describe('logIn', () => {
     await addUser(testDb, 'alice', 'secret')
     const { ctx, entries } = createTestContext({ testDb })
 
-    expect(await logIn(ctx, 'alice', 'wrong')).toBe(false)
-    expect(await logIn(ctx, 'bob', 'secret')).toBe(false)
+    expect(await logIn(ctx, 'alice', 'wrong')).toEqual({ ok: false, waitMs: 0 })
+    expect(await logIn(ctx, 'bob', 'secret')).toEqual({ ok: false, waitMs: 0 })
     expect(getAuth(ctx)).toBeUndefined()
     expect(getCookies(ctx).setCookieHeaders).toEqual([])
     expect(
       entries.filter((entry) => entry.level === 'warn').map((entry) => entry.args.reason),
     ).toEqual(['badPassword', 'unknownUser'])
+  })
+  it('makes a name wait after too many wrong passwords, and then turns away the right one', async () => {
+    using testDb = await createTestDb()
+    await addUser(testDb, 'carol', 'secret')
+    const { ctx, entries } = createTestContext({ testDb })
+
+    for (let i = 1; i < MAX_FAILURES; i++) {
+      expect(await logIn(ctx, 'carol', 'wrong')).toEqual({ ok: false, waitMs: 0 })
+    }
+    const last = await logIn(ctx, 'carol', 'wrong')
+    expect(last.ok === false && last.waitMs > 0 && last.waitMs <= WINDOW_MS).toBe(true)
+    expect((await logIn(ctx, 'carol', 'secret')).ok).toBe(false)
+    expect(getAuth(ctx)).toBeUndefined()
+    expect(entries.filter((entry) => entry.message === 'login.throttled')).toHaveLength(1)
+    // another name tries as before
+    expect(await logIn(ctx, 'alice', 'wrong')).toEqual({ ok: false, waitMs: 0 })
   })
 })
 
@@ -96,7 +113,7 @@ describe('authenticate', () => {
     await testDb.derivedDb
       .update(authtoken)
       .set({ expiresAt: soon })
-      .where(eq(authtoken.token, token))
+      .where(eq(authtoken.tokenHash, sha256hex(token)))
 
     const { ctx } = await authenticated(testDb, `auth=${token}`)
     expect(getAuth(ctx)!.tokenExpiresAt > soon).toBe(true)
@@ -180,7 +197,7 @@ describe('logOut', () => {
 
 describe('setPasswordWithToken', () => {
   const logsIn = async (testDb: TestDb, name: string, password: string) =>
-    logIn(createTestContext({ testDb }).ctx, name, password)
+    (await logIn(createTestContext({ testDb }).ctx, name, password)).ok
 
   it("creates an invitation's user, and signs in as them", async () => {
     using testDb = await createTestDb()

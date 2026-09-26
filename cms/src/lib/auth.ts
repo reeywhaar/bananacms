@@ -22,9 +22,10 @@ import {
 } from '../services/PasswordTokenStore.ts'
 import { UserStore } from '../services/UserStore.ts'
 import { ApiError } from './api/error.ts'
+import { LoginThrottle } from './LoginThrottle.ts'
 
-// Sessions for CMS users: a token in derived.db's authtoken table, sent back in the
-// `auth` cookie.
+// Sessions for CMS users: a token in the `auth` cookie, whose SHA-256 derived.db's
+// authtoken table keeps (AuthTokenStore).
 export const AUTH_COOKIE = 'auth'
 
 export const LOGIN_PATH = `${MANAGE_PATH}/login`
@@ -63,21 +64,35 @@ export const authenticate: Middleware = async (ctx, next) => {
   return next()
 }
 
+// the wrong passwords the server has seen lately, by username
+const loginThrottle = new LoginThrottle()
+
+// How a login went: a session started, or none did, with how long the name waits
+// before its next try once it has had too many wrong passwords, 0 before that.
+export type LoginResult = { ok: true } | { ok: false; waitMs: number }
+
 // Checks a name and password against the user table, and on a match starts a
-// session.
-export async function logIn(ctx: Context, name: string, password: string): Promise<boolean> {
+// session. A name that has to wait (LoginThrottle) is turned away unchecked.
+export async function logIn(ctx: Context, name: string, password: string): Promise<LoginResult> {
   const log = getLogger(ctx).child('Auth')
   log.info('login.attempt', { username: name })
+  const waitMs = loginThrottle.waitMs(name)
+  if (waitMs > 0) {
+    log.warn('login.throttled', { username: name, waitMs })
+    return { ok: false, waitMs }
+  }
   const user = await new UserStore(getDb(ctx)).findByName(name)
   const ok = await verifyPassword(sha256hex(password), user?.password_hash ?? DUMMY_HASH)
   if (!user || !ok) {
+    loginThrottle.fail(name)
     log.warn('login.failure', { username: name, reason: user ? 'badPassword' : 'unknownUser' })
-    return false
+    return { ok: false, waitMs: loginThrottle.waitMs(name) }
   }
 
+  loginThrottle.succeed(name)
   await startSession(ctx, user)
   log.info('login.success', { userId: user.id, username: name })
-  return true
+  return { ok: true }
 }
 
 async function startSession(ctx: Context, user: { id: string; name: string }): Promise<void> {

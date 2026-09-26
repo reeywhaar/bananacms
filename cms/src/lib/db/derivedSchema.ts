@@ -6,7 +6,8 @@ export const authtoken = sqliteTable(
   'authtoken',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    token: text('token').notNull().unique(),
+    // the SHA-256 hex of the session's token, which only the cookie holds
+    tokenHash: text('tokenHash').notNull().unique(),
     userId: text('userId').notNull(),
     expiresAt: text('expiresAt').notNull(),
   },

@@ -29,11 +29,15 @@ export const login = defineAction(
   async (ctx, _state: LoginState, formData: FormData): Promise<LoginState> => {
     const username = String(formData.get('username') ?? '')
     const password = String(formData.get('password') ?? '')
-    if (await logIn(ctx, username, password)) {
-      redirect(pathAfterLogin(getUrl(ctx).searchParams.get('next')))
-    }
+    const result = await logIn(ctx, username, password)
+    if (result.ok) redirect(pathAfterLogin(getUrl(ctx).searchParams.get('next')))
     await sleep(500) // slows down password guessing a little
-    return { error: 'Wrong username or password.', username }
+    if (result.waitMs === 0) return { error: 'Wrong username or password.', username }
+    const minutes = Math.ceil(result.waitMs / 60_000)
+    return {
+      error: `Too many wrong passwords. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+      username,
+    }
   },
   { public: true },
 )

@@ -1,6 +1,7 @@
 import { getUrl, type Context, type Metadata } from '@reeywhaar/bananacms'
 
-export const metadata: Metadata = { title: '404 | Groups' }
+// robots of its own, which the CMS keeps in place of its noindex
+export const metadata: Metadata = { title: '404 | Groups', robots: { index: false, follow: true } }
 
 // for URLs with no route: the whole document, since no layout wraps it
 export default function GlobalNotFound({ ctx }: { ctx: Context }) {

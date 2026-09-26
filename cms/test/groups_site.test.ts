@@ -61,6 +61,9 @@ describe('not found', () => {
         heading: 'Main not found',
       })
     }
+    // and keeps it out of search engines, as Next does
+    expect((await page('/posts/missing')).html).toContain('<meta name="robots" content="noindex"/>')
+    expect((await page('/posts/1')).html).not.toContain('name="robots"')
   })
 
   it("renders it inside the layouts down to its folder for a notFound() from generateMetadata(), and in the page's place for one from the page", async () => {
@@ -80,6 +83,10 @@ describe('not found', () => {
       heading: 'Nothing anywhere',
     })
     expect(notFound.header).toBeUndefined()
+    // robots of its own, in place of the CMS's noindex
+    expect(notFound.html.match(/<meta name="robots"[^>]*>/g)).toEqual([
+      '<meta name="robots" content="noindex, follow"/>',
+    ])
     expect(notFound.html).toMatch(/^<!DOCTYPE html><html lang="en"><head><meta charSet="UTF-8"\/>/)
     // it gets the request's ctx
     expect(notFound.html).toContain('No page at <!-- -->/nope')

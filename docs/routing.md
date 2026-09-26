@@ -101,6 +101,7 @@ A page that calls `notFound()` gets the not-found page closest to it: the `not-f
 - **Its title** goes through the template of the layout in its own folder too, as in Next.js: a `(main)/not-found.tsx` with `title: '404'` under a `(main)/layout.tsx` with the template `'%s | Site'` is "404 | Site".
 - **A URL with no route** gets `src/app/global-not-found.tsx`, if the site has one: the whole document, with no layout around it, so it renders `<html>` and `<body>` itself. It gets `ctx` as a prop, and its metadata is its own. Otherwise the URL gets `src/app/not-found.tsx`, inside the root layout.
 - **The status:** the response is a 404 whenever `notFound()` comes from `generateMetadata()`, which runs before rendering. From the page's own body, the HTML response is a 404 when it runs outside a Suspense boundary; the response headers go out once that part of the page has rendered. On client-side navigation the not-found page renders in place, and the response status plays no part.
+- **Search engines** get `<meta name="robots" content="noindex">` in a not-found page's head, as in Next, unless the page's metadata sets `robots` itself.
 - A site with no not-found page for a URL gets a plain "404: This page could not be found." page.
 
 ## Errors

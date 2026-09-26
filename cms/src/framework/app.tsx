@@ -149,7 +149,7 @@ export async function renderApp(
     const metadata = await notFoundMetadata()
     const { tree, rootLayout } = inLayouts(
       <>
-        <MetadataTags metadata={metadata} />
+        <NotFoundTags metadata={metadata} />
         <NotFound ctx={ctx} />
       </>,
       notFound.depth,
@@ -173,7 +173,7 @@ export async function renderApp(
       ),
       async () => (
         <>
-          <MetadataTags metadata={await notFoundMetadata()} />
+          <NotFoundTags metadata={await notFoundMetadata()} />
           <NotFound ctx={ctx} />
         </>
       ),
@@ -182,6 +182,14 @@ export async function renderApp(
 
   const { tree, rootLayout } = inLayouts(<PageRoot />, folders.length)
   return { root: tree, status: outcome.kind === 'error' ? 500 : 200, rootLayout }
+}
+
+// A not-found page's tags, with robots set to noindex, as Next sets them, unless
+// its metadata names robots of its own
+function NotFoundTags(props: { metadata: ResolvedMetadata }) {
+  return (
+    <MetadataTags metadata={{ ...props.metadata, robots: props.metadata.robots ?? 'noindex' }} />
+  )
 }
 
 // A URL with no route, on a site with a src/app/global-not-found.tsx: that's the
@@ -198,7 +206,7 @@ async function renderGlobalNotFound(
     root: (
       <>
         {DOCUMENT_TAGS}
-        <MetadataTags metadata={metadata} />
+        <NotFoundTags metadata={metadata} />
         <GlobalNotFound ctx={ctx} />
       </>
     ),

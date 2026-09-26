@@ -49,6 +49,7 @@ describe('metadata', () => {
       const html = await response.text()
       expect(html, path).toContain('Nothing here')
       expect(html, path).toContain('<title>Not found | Fixture</title>')
+      expect(html, path).toContain('<meta name="robots" content="noindex"/>')
       expect(html, path).not.toContain('Post ')
     }
     // metadata resolves before rendering, so client-side navigation gets the 404 too

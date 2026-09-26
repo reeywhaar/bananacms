@@ -1,4 +1,5 @@
 import type { Client, Transaction } from '@libsql/client'
+import { docsUrl } from '../docsUrl.ts'
 
 export interface Migration {
   /**
@@ -32,7 +33,7 @@ export function parseMigrationFileName(file: string): { id: number; name: string
   if (match && String(id).length === 13) return { id, name: match[2] }
   const name = match?.[2] ?? base.replace(/\.[jt]s$/, '')
   throw new Error(
-    `Migration file "${file}" needs a Date.now() id, 13 digits: name it like "${Date.now()}_${name}.ts" (see docs/migrations.md)`,
+    `Migration file "${file}" needs a Date.now() id, 13 digits: name it like "${Date.now()}_${name}.ts" (see ${docsUrl('migrations.md')})`,
   )
 }
 

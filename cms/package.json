@@ -3,6 +3,10 @@
   "version": "0.0.1-alpha.5",
   "description": "A CMS and React Server Components framework on Vite",
   "license": "ISC",
+  "homepage": "https://github.com/Reeywhaar/bananacms/tree/newbanana#readme",
+  "bugs": {
+    "url": "https://github.com/Reeywhaar/bananacms/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Reeywhaar/bananacms.git",

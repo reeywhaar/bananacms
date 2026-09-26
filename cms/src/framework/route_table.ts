@@ -1,3 +1,5 @@
+import { docsUrl } from '../lib/docsUrl.ts'
+
 // File routes, as a table from route files to URL patterns. Every
 // src/app/**/page.tsx is a page, wrapped in the layout.tsx files of its folder
 // and the folders above it. A route.ts answers its folder's URL with a function
@@ -76,7 +78,9 @@ function rejectDuplicates(routes: Route[]): void {
     )
     const other = files.get(urls)
     if (other) {
-      throw new Error(`${other} and ${route.file} serve the same URLs (see docs/routing.md)`)
+      throw new Error(
+        `${other} and ${route.file} serve the same URLs (see ${docsUrl('routing.md')})`,
+      )
     }
     files.set(urls, route.file)
   }
@@ -123,7 +127,7 @@ function parseFolder(folder: string): Segment | undefined {
   // catches Next.js-style names, e.g. ones left over from a migration
   if (/^\[.*\]$/.test(folder)) {
     throw new Error(
-      `Route folder "${folder}" uses Next.js syntax: name it like ":id", ":slug+" or ":slug*" (see docs/routing.md)`,
+      `Route folder "${folder}" uses Next.js syntax: name it like ":id", ":slug+" or ":slug*" (see ${docsUrl('routing.md')})`,
     )
   }
   return { type: 'static', value: folder }

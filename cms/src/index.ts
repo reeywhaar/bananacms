@@ -1,5 +1,5 @@
 // Server API for sites: server components, server actions, middleware and migrations.
-// the request's context (docs/context.md)
+// the request's context: https://github.com/Reeywhaar/bananacms/blob/newbanana/docs/context.md
 export {
   Context,
   getAuth,

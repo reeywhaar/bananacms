@@ -1,5 +1,6 @@
 import { Command, Help, InvalidArgumentError } from 'commander'
 import pkg from '../../package.json' with { type: 'json' }
+import { docsUrl } from '../lib/docsUrl.ts'
 
 // Commands run in the site directory. Its .env is optional:
 // the environment may provide the variables instead.
@@ -53,7 +54,7 @@ const db = program
 
 const migration = db
   .command('migration')
-  .description("the CMS's and the site's migrations (docs/migrations.md)")
+  .description(`the CMS's and the site's migrations (${docsUrl('migrations.md')})`)
 
 migration
   .command('run')

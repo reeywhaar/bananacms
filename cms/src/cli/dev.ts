@@ -1,4 +1,7 @@
+import path from 'node:path'
 import { createServer, isRunnableDevEnvironment, type ViteDevServer } from 'vite'
+import { pidFilePath } from '../lib/snapshots/pidfile.ts'
+import { assetsDirectory, dataPath } from './site_databases.ts'
 import {
   checkServerEnv,
   printUsersHint,
@@ -25,6 +28,11 @@ export async function dev(
       cors: false,
       // the hostnames it answers besides localhost and IP addresses (ALLOWED_HOSTS)
       allowedHosts: allowedHosts(),
+      // The files the server writes as it runs aren't the site's code, and a change
+      // to one reloads nothing. Tailwind, which watches the site's files for its
+      // classes, would otherwise have the RSC environment reload at a database's
+      // write, under the requests in flight.
+      watch: { ignored: [serverFiles(root)] },
     },
   })
   for (const listener of process.listeners('SIGTERM')) {
@@ -80,4 +88,14 @@ function allowedHosts(): string[] {
     .split(',')
     .map((host) => host.trim())
     .filter(Boolean)
+}
+
+// Whether `file` is one the server writes: the databases in DATA_PATH, their
+// snapshots included, the uploads and variants in ASSETS_DIRECTORY, and the .pid file
+function serverFiles(root: string): (file: string) => boolean {
+  const directories = [dataPath(root), assetsDirectory(root)].filter((dir) => dir !== undefined)
+  const pidFile = pidFilePath(root)
+  return (file) =>
+    file === pidFile ||
+    directories.some((dir) => file === dir || file.startsWith(`${dir}${path.sep}`))
 }

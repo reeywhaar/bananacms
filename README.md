@@ -340,19 +340,20 @@ Run it in the site directory. It reads the site's `.env`.
 
 The CLI reads the site's `.env`, and the environment's variables go over it.
 
-| Variable           |                                                                                                                               |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| `DATA_PATH`        | directory for the SQLite databases (`database.db` and `derived.db`), created on first use; `dev` and `start` need it          |
-| `ASSETS_DIRECTORY` | directory that caches uploaded files and the image variants made from them; `dev` and `start` need it                         |
-| `SERVER_URL`       | the site's address, like `https://example.com`, which the links of `user create` and `user reset` go on; unset, they're paths |
-| `PORT`             | the port `start` listens on when `-p` doesn't say, 3000 when unset                                                            |
-| `LOG_LEVEL`        | the lowest log level written: `debug`, `info` (default), `warn` or `error`                                                    |
-| `LOG_FORMAT`       | `dev` for one line per entry, `json` for one JSON object; production defaults to `json`                                       |
-| `NO_COLOR`         | set, the `dev` log format writes no colors                                                                                    |
-| `SNAPSHOTS_COUNT`  | how many snapshots of `database.db` to keep, in `DATA_PATH/snapshots`; unset or 0, none are taken                             |
-| `SNAPSHOTS_DELAY`  | how many seconds after a write its snapshot is taken, 600 by default                                                          |
-| `BACKUP_URL`       | a backup agent that takes archives of the databases in a multipart POST; unset, none are sent                                 |
-| `BACKUP_MODE`      | `main` sends `database.db`, `relaxed` (the default) adds `derived.db`, `all` also sends every half hour                       |
+| Variable           |                                                                                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATA_PATH`        | directory for the SQLite databases (`database.db` and `derived.db`), created on first use; `dev` and `start` need it                            |
+| `ASSETS_DIRECTORY` | directory that caches uploaded files and the image variants made from them; `dev` and `start` need it                                           |
+| `SERVER_URL`       | the site's address, like `https://example.com`, which the links of `user create` and `user reset` go on; unset, they're paths                   |
+| `ALLOWED_HOSTS`    | the hostnames `dev` answers besides `localhost` and IP addresses, comma-separated, like `corben.local`; `.example.com` takes its subdomains too |
+| `PORT`             | the port `start` listens on when `-p` doesn't say, 3000 when unset                                                                              |
+| `LOG_LEVEL`        | the lowest log level written: `debug`, `info` (default), `warn` or `error`                                                                      |
+| `LOG_FORMAT`       | `dev` for one line per entry, `json` for one JSON object; production defaults to `json`                                                         |
+| `NO_COLOR`         | set, the `dev` log format writes no colors                                                                                                      |
+| `SNAPSHOTS_COUNT`  | how many snapshots of `database.db` to keep, in `DATA_PATH/snapshots`; unset or 0, none are taken                                               |
+| `SNAPSHOTS_DELAY`  | how many seconds after a write its snapshot is taken, 600 by default                                                                            |
+| `BACKUP_URL`       | a backup agent that takes archives of the databases in a multipart POST; unset, none are sent                                                   |
+| `BACKUP_MODE`      | `main` sends `database.db`, `relaxed` (the default) adds `derived.db`, `all` also sends every half hour                                         |
 
 ## Running in production
 
@@ -364,13 +365,13 @@ npm run start          # bananacms start: serves dist/ on $PORT, or 3000
 - `start` serves static files from `dist/client` only, and hands every other request to the app. Put a reverse proxy in front for TLS and connection limits, and set `SERVER_URL` to the site's address.
 - `DATA_PATH` is the site's data: keep it on a disk that lasts, and turn on snapshots, and backups to an agent ([docs/snapshots-and-backups.md](docs/snapshots-and-backups.md)). `ASSETS_DIRECTORY` is a cache: the uploads live in the database too, and the variants are encoded again when asked for.
 - `dev` and `start` stop on Ctrl-C or SIGTERM, and `dev` on `q` too. They stop taking requests, take a last snapshot and send a last backup when those are on, fold each database's `-wal` file into its `.db` file, and exit with 0. A second signal exits straight away ([docs/snapshots-and-backups.md](docs/snapshots-and-backups.md#stopping)).
-- `dev --host` opens the dev server to the network, and it serves the files in the site's workspace to whoever reaches it, so keep it to networks you trust. `start` is what serves a site in production.
+- `dev --host` opens the dev server to the network, and it serves the files in the site's workspace to whoever reaches it, so keep it to networks you trust. It answers requests by IP address, and by the names `ALLOWED_HOSTS` lists. `start` is what serves a site in production.
 
 ## Moving a site from bananacms on Next.js
 
 - **The data:** point `DATA_PATH` at the folder with the site's `database.db` and `derived.db`, and `ASSETS_DIRECTORY` at its assets. If its `migrations` table lists ids like 1 to 20, run `bananacms db backfill migration-ids` first ([docs/migrations.md](docs/migrations.md#the-older-ids)). Then `bananacms db migration run` brings the databases up to date, and `bananacms db migration check` says whether they're what the migrations make. The users sign in as before, and their sessions carry on.
 - **Snapshots and backups** keep their formats, so the snapshots already there restore as before.
-- **The environment:** `NEXT_PUBLIC_SERVER_URL` is `SERVER_URL`. `SERVER_PORT`, `CMS_INTERNAL_URL` and `ALLOWED_HOSTS` go, since one server serves it all, on `-p` or `$PORT`.
+- **The environment:** `NEXT_PUBLIC_SERVER_URL` is `SERVER_URL`, and `ALLOWED_HOSTS` works as it did, for `dev`. `SERVER_PORT` and `CMS_INTERNAL_URL` go, since one server serves it all, on `-p` or `$PORT`.
 - **The code:** `next.config.ts` and `createConfig()` go, as the CMS brings the Vite config. `src/cms.ts` keeps `createCMS({ locales })`. `src/proxy.ts` becomes `src/middleware.ts`, and `getServices()` becomes the context: `new PostStore(getDb(ctx))`. The asset helpers and block types of `@reeywhaar/bananacms/runtime` are in `@reeywhaar/bananacms`, and `combineProxies()` goes with the zones. Routes and Next's APIs map as the table in [docs/routing.md](docs/routing.md#migrating-from-nextjs) lists: `[id]` folders become `:id`, `next/navigation` becomes `@reeywhaar/bananacms/client`, and so on.
 
 ## The demo

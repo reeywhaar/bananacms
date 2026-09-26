@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync, utimesSync } from 'node:fs'
+import { get } from 'node:http'
 import { tmpdir } from 'node:os'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { join } from 'node:path'
@@ -16,7 +17,7 @@ const request = (path: string, init: RequestInit = {}) =>
   fetch(server.url + path, { redirect: 'manual', ...init })
 
 beforeAll(async () => {
-  server = await startServer('dev', dataPath)
+  server = await startServer('dev', dataPath, { ALLOWED_HOSTS: 'corben.local, .example.test' })
 })
 
 afterAll(() => {
@@ -68,6 +69,28 @@ describe('metadata', () => {
     const response = await submitForm(`${server.url}/posts/old`, html, 'Touch', {})
     expect(response.status).toBe(303)
     expect(response.headers.get('location')).toBe('/posts/new')
+  })
+})
+
+describe('the dev server', () => {
+  // the status of a GET / sent with `host` as its Host header, which fetch() leaves alone
+  const statusFor = (host: string) =>
+    new Promise<number>((resolve, reject) => {
+      const url = new URL(server.url)
+      const request = get(
+        { host: url.hostname, port: url.port, path: '/', headers: { host } },
+        (response) => {
+          response.resume()
+          resolve(response.statusCode ?? 0)
+        },
+      )
+      request.on('error', reject)
+    })
+
+  it('answers the hostnames ALLOWED_HOSTS gives it, and refuses others', async () => {
+    expect(await statusFor('corben.local')).toBe(200)
+    expect(await statusFor('www.example.test')).toBe(200)
+    expect(await statusFor('evil.example')).toBe(403)
   })
 })
 

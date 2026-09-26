@@ -23,6 +23,8 @@ export async function dev(
       // Pages and their assets come from this one server, so it needs no CORS, and
       // OPTIONS requests reach the site's route.ts handlers, as in production.
       cors: false,
+      // the hostnames it answers besides localhost and IP addresses (ALLOWED_HOSTS)
+      allowedHosts: allowedHosts(),
     },
   })
   for (const listener of process.listeners('SIGTERM')) {
@@ -68,4 +70,14 @@ async function runningApp(server: ViteDevServer): Promise<{ close(): Promise<voi
     resolved.id,
   )
   return module.default
+}
+
+// ALLOWED_HOSTS, comma-separated, like `corben.local` for the name another machine
+// reaches the dev server by. A name with a leading dot, like `.example.com`, takes
+// its subdomains too, as Vite's server.allowedHosts does.
+function allowedHosts(): string[] {
+  return (process.env.ALLOWED_HOSTS ?? '')
+    .split(',')
+    .map((host) => host.trim())
+    .filter(Boolean)
 }

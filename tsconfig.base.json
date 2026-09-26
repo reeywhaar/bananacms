@@ -3,6 +3,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "customConditions": ["bananacms-source"],
     "lib": ["ESNext", "DOM"],
     "jsx": "react-jsx",
     "strict": true,

@@ -1,10 +1,18 @@
-import type { Plugin } from 'vite'
+import { defaultServerConditions, type Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
+
+// Tests import @reeywhaar/bananacms from its source, as the rest of this repo does:
+// the exports' "bananacms-source" condition
+const fromSource = {
+  resolve: { conditions: ['bananacms-source', ...defaultServerConditions] },
+  ssr: { resolve: { conditions: ['bananacms-source', ...defaultServerConditions] } },
+}
 
 export default defineConfig({
   test: {
     projects: [
       {
+        ...fromSource,
         plugins: [emptyModule('server-only')],
         test: {
           name: 'cms',
@@ -17,6 +25,7 @@ export default defineConfig({
       // and against the demo, one site at a time: their dev servers all watch the
       // CMS's files, and a test that touches one reloads each of them.
       {
+        ...fromSource,
         test: {
           name: 'cms-e2e',
           include: ['cms/test/**/*.test.ts'],
@@ -27,6 +36,7 @@ export default defineConfig({
         },
       },
       {
+        ...fromSource,
         test: {
           name: 'demo',
           include: ['demo/test/**/*.test.ts'],

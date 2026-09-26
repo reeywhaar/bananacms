@@ -20,18 +20,33 @@
   },
   "files": [
     "bin",
-    "src",
-    "!src/**/*.test.ts",
-    "!src/test"
+    "dist"
   ],
   "exports": {
-    ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./types": "./src/types.d.ts",
-    "./stores": "./src/stores.ts"
+    ".": {
+      "bananacms-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "bananacms-source": "./src/client.ts",
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./types": {
+      "bananacms-source": "./src/types.d.ts",
+      "types": "./dist/types.d.ts"
+    },
+    "./stores": {
+      "bananacms-source": "./src/stores.ts",
+      "types": "./dist/stores.d.ts",
+      "default": "./dist/stores.js"
+    }
   },
   "scripts": {
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/copy_build_files.ts",
+    "prepack": "npm run build"
   },
   "peerDependencies": {
     "react": "^19.3.0",

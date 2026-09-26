@@ -60,7 +60,7 @@ export async function dev(
 async function runningApp(server: ViteDevServer): Promise<{ close(): Promise<void> } | undefined> {
   const environment = server.environments.rsc
   if (!environment || !isRunnableDevEnvironment(environment)) return undefined
-  const resolved = await environment.pluginContainer.resolveId(frameworkFile('entry.rsc.tsx'))
+  const resolved = await environment.pluginContainer.resolveId(frameworkFile('entry.rsc'))
   if (!resolved || !environment.runner.evaluatedModules.getModuleById(resolved.id)) {
     return undefined
   }

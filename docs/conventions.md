@@ -17,6 +17,7 @@ These are enforced by the tooling:
 
 - Prettier formats everything: single quotes, no semicolons, trailing commas, 100 columns. Run `npm run format`, or `npm run format:check` to check only.
 - Node runs the TypeScript source directly, stripping the types. So code uses erasable syntax only: no enums, namespaces or parameter properties. Relative imports keep their `.ts` and `.tsx` extensions, and type-only imports use `import type`. `tsconfig.base.json` checks all three.
+- A Node script in this repo that imports `@reeywhaar/bananacms` runs with `--conditions=bananacms-source`, as the demo's `seed` script does, so it gets the source rather than a build ([the README](../README.md#development) says why).
 - Unit tests sit next to the code as `*.test.ts`. End-to-end tests of the demo live in `demo/test/`.
 
 ## File names

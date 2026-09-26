@@ -15,13 +15,17 @@ export async function seedDemo(dataPath: string): Promise<void> {
       ([key]) => key !== 'NODE_ENV' && key !== 'TEST' && !key.startsWith('VITEST'),
     ),
   )
-  await promisify(execFile)(process.execPath, ['scripts/seed.ts'], {
-    cwd: demoRoot,
-    env: {
-      ...env,
-      DATA_PATH: dataPath,
-      ASSETS_DIRECTORY: path.join(dataPath, 'assets'),
-      PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+  await promisify(execFile)(
+    process.execPath,
+    ['--conditions=bananacms-source', 'scripts/seed.ts'],
+    {
+      cwd: demoRoot,
+      env: {
+        ...env,
+        DATA_PATH: dataPath,
+        ASSETS_DIRECTORY: path.join(dataPath, 'assets'),
+        PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+      },
     },
-  })
+  )
 }

@@ -2,7 +2,7 @@
 
 A CMS and a React Server Components framework on Vite 8, in one package, `@reeywhaar/bananacms`, plus a demo site built on it. A site is its routes in `src/app/`, as in the Next.js App Router, and the CMS brings the admin at `/manage`, the stores that read its content, the files and images at `/d/`, and a CLI that runs it all as one server. It opens the databases of the package's releases up to 0.0.1-alpha.5, which run on Next.js, as they are.
 
-> **Status:** alpha. The package doesn't run from `node_modules` yet ([As a dependency](#as-a-dependency)), so a site lives in this repo's workspace for now, as the demo does.
+> **Status:** alpha. What the package exports can change from one release to the next.
 
 ## Contents
 
@@ -66,6 +66,8 @@ cms/                       the package, @reeywhaar/bananacms
   src/services/            the stores and their query builder
   src/screens/Manage/      the admin's screens, and src/components/ their parts
   src/*.ts                 the package's exports: index.ts, client.ts, stores.ts, types.d.ts
+  dist/                    not in git: the build a site installs, JavaScript and type declarations
+  scripts/                 the build's copy of what tsc doesn't write
   test/                    end-to-end tests, and the sites they run: site/ and groups_site/
 demo/                      a site built on it
   src/                     its routes, blocks, components, cms.ts and middleware.ts
@@ -132,12 +134,14 @@ npm's workspaces link `cms/` into `node_modules/@reeywhaar/bananacms`, where the
 GitHub Packages needs a token even for public packages: create one with the `read:packages` scope at https://github.com/settings/tokens, and export it as `GITHUB_TOKEN` before installing.
 
 ```sh
-npm install @reeywhaar/bananacms react react-dom
+npm install @reeywhaar/bananacms@alpha react react-dom
 ```
+
+The releases are prereleases for now, under the dist-tag `alpha`, which a plain `npm install @reeywhaar/bananacms` or a range like `*` doesn't pick.
 
 A site can also install the tarball `npm run tgz:pack` makes in this repo, `private/bananacms.tgz`, with `"@reeywhaar/bananacms": "file:<its path>"` in its dependencies.
 
-It doesn't run from `node_modules` yet. The CLI and the framework ship as TypeScript, and Node won't strip types in `node_modules`, so `bananacms` stops with `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. The package needs a build step first.
+The package ships its build, JavaScript and type declarations in `dist/`, so a site's typecheck covers its own code, and reads only the package's declarations.
 
 ## Setting up a site
 
@@ -165,7 +169,7 @@ my-site/
     "start": "bananacms start"
   },
   "dependencies": {
-    "@reeywhaar/bananacms": "*",
+    "@reeywhaar/bananacms": "alpha",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3"
@@ -393,24 +397,27 @@ A site of recipes and early films, in English, French and Spanish, whose content
 
 Run these from the repo root.
 
-| Script                          |                                                                                       |
-| ------------------------------- | ------------------------------------------------------------------------------------- |
-| `npm run dev \| build \| start` | run the demo through the CLI (`build` typechecks first)                               |
-| `npm run demo:seed`             | make the demo's databases again from `demo/seed/` ([its README](demo/seed/README.md)) |
-| `npm test`                      | unit tests (`cms/src/**/*.test.ts`) and end-to-end tests (`cms/test/`, `demo/test/`)  |
-| `npm run test:watch`            | the same in watch mode                                                                |
-| `npm run typecheck`             | TypeScript 7 over both workspaces                                                     |
-| `npm run format`                | Prettier (`format:check` only checks)                                                 |
-| `npm run release -- <bump>`     | release a new version of the package ([Releasing](#releasing))                        |
-| `npm run tgz:pack`              | pack the package into `private/bananacms.tgz`, the tarball a release publishes        |
+| Script                          |                                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------- |
+| `npm run dev \| build \| start` | run the demo through the CLI (`build` typechecks first)                                |
+| `npm run demo:seed`             | make the demo's databases again from `demo/seed/` ([its README](demo/seed/README.md))  |
+| `npm test`                      | unit tests (`cms/src/**/*.test.ts`) and end-to-end tests (`cms/test/`, `demo/test/`)   |
+| `npm run test:watch`            | the same in watch mode                                                                 |
+| `npm run typecheck`             | TypeScript 7 over both workspaces                                                      |
+| `npm run format`                | Prettier (`format:check` only checks)                                                  |
+| `npm run release -- <bump>`     | release a new version of the package ([Releasing](#releasing))                         |
+| `npm run build -w cms`          | build the package into `cms/dist/`, which `npm pack` and `npm publish` do first        |
+| `npm run tgz:pack`              | pack the package, built, into `private/bananacms.tgz`, the tarball a release publishes |
 
 The end-to-end tests run the real CLI (`bananacms dev`, then `build` and `start`) against the demo, and against the sites in `cms/test/`, whose routes reach the framework's corners: `site/`, and `groups_site/`, laid out with root layouts in route groups. Each server gets a throwaway database, and the tests use it over HTTP the way a browser without JavaScript would. The demo's tests also seed a database from `demo/seed/` and check it against the migrations and the seed, so a seed left behind by a change to the CMS fails them.
+
+In this repo, everything runs the CMS from its source, and the build is only for a site that installs the package: the exports' `bananacms-source` condition points `@reeywhaar/bananacms` at `cms/src/`. The TypeScript config turns it on (`customConditions`), as do the Vite config the CLI runs with and the tests' config. The CLI's own process gets it from `bin/bananacms.js`, which runs the source here and `dist/` in a site's `node_modules`. A Node script that imports the package, like the demo's seed, runs with `node --conditions=bananacms-source`.
 
 [docs/conventions.md](docs/conventions.md) has the conventions for commits, comments, code and file names.
 
 ## Releasing
 
-`npm run release -- <major|minor|patch|prealpha>`, on a clean working tree, bumps the version in `cms/package.json`, as `prealpha` does from 0.0.1-alpha.5 to 0.0.1-alpha.6. It commits the bump as `Release <version>`, tags the commit with the version, and pushes both. The tag starts [the publish workflow](.github/workflows/publish.yml), which publishes the package to GitHub Packages under the dist-tag of its prerelease, like `alpha`, or else `latest`. A site installs it as [As a dependency](#as-a-dependency) says.
+`npm run release -- <major|minor|patch|prealpha>`, on a clean working tree, bumps the version in `cms/package.json`, as `prealpha` does from 0.0.1-alpha.5 to 0.0.1-alpha.6. It commits the bump as `Release <version>`, tags the commit with the version, and pushes both. The tag starts [the publish workflow](.github/workflows/publish.yml), which builds the package and publishes it to GitHub Packages under the dist-tag of its prerelease, like `alpha`, or else `latest`. A site installs it as [As a dependency](#as-a-dependency) says.
 
 ## Dev container
 

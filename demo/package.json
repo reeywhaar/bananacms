@@ -7,7 +7,7 @@
     "dev": "bananacms dev",
     "build": "bananacms build",
     "start": "bananacms start",
-    "seed": "node scripts/seed.ts",
+    "seed": "node --conditions=bananacms-source scripts/seed.ts",
     "typecheck": "tsc"
   },
   "dependencies": {

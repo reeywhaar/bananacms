@@ -1,5 +1,7 @@
-// Client API for sites ('use client' components). Link works in server components too.
+// Client API for sites ('use client' components). Link and the asset URLs work in
+// server components too.
 export { Link } from './framework/link.tsx'
+export { getAssetUrl, getOptimizedAssetSrcSet, getOptimizedAssetUrl } from './lib/getAssetUrl.ts'
 export type { ErrorComponent, ErrorPageProps } from './framework/error_boundary.tsx'
 export {
   useNavigationPending,

@@ -71,6 +71,17 @@ describe('metadata', () => {
   })
 })
 
+describe('client components', () => {
+  it('build asset URLs with the helpers from the client entry', async () => {
+    const html = await (await request('/')).text()
+    const id = '01a0d75d-70c6-75de-bf9b-e42213d15194'
+    expect(html).toContain(`href="/d/${id}"`)
+    expect(html).toMatch(
+      new RegExp(`srcSet="/d/${id}/\\w+\\?res=%401x 1x, /d/${id}/\\w+\\?res=%402x 2x"`),
+    )
+  })
+})
+
 describe('requests without a session', () => {
   // the post page, and the action id in its form with the button `button`
   const formOf = async (button: string) => {

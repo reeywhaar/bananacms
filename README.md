@@ -139,7 +139,7 @@ npm install @reeywhaar/bananacms@alpha react react-dom
 
 The releases are prereleases for now, under the dist-tag `alpha`, which a plain `npm install @reeywhaar/bananacms` or a range like `*` doesn't pick.
 
-A site can also install the tarball `npm run tgz:pack` makes in this repo, `private/bananacms.tgz`, with `"@reeywhaar/bananacms": "file:<its path>"` in its dependencies.
+A site can also install the tarball `npm run tgz:pack` makes in this repo, `private/bananacms.tgz`, with `"@reeywhaar/bananacms": "file:<its path>"` in its dependencies. To take a newer tarball from the same path, a site runs `npm install <its path>` again: a plain `npm install` keeps the package the lockfile has, as the path and the version haven't changed.
 
 The package ships its build, JavaScript and type declarations in `dist/`, so a site's typecheck covers its own code, and reads only the package's declarations.
 

@@ -95,6 +95,15 @@ describe('the dev server', () => {
 })
 
 describe('client components', () => {
+  it('render when a server component loads one with React.lazy, next to a server component a page imports as it renders', async () => {
+    const html = (await (await request('/imports')).text()).replaceAll('<!-- -->', '')
+    expect(html).toContain('Lazy clicks: 0')
+    expect(html).toContain('<p>Imported for the page</p>')
+    // the payload names the client component, for the browser to load
+    const payload = await (await request('/imports_.rsc')).text()
+    expect(payload).toContain('LazyCounter')
+  })
+
   it('build asset URLs with the helpers from the client entry', async () => {
     const html = await (await request('/')).text()
     const id = '01a0d75d-70c6-75de-bf9b-e42213d15194'

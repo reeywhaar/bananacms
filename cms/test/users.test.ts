@@ -109,3 +109,18 @@ it("shows a link whose token isn't one as expired", async () => {
   expect(await (await get('/manage/invite?token=nope')).text()).toContain('Link expired')
   expect(await (await get('/manage/recover')).text()).toContain('Link expired')
 })
+
+it('takes a body over 1 MB from a signed-in user, up to 100 MB', async () => {
+  const session = cookieOf(await setPassword(await link('create', 'carol'), 'carols-password'))
+  const page = await (await get('/posts/1')).text()
+  const post = (cookie?: string) =>
+    submitForm(
+      `${server.url}/posts/1`,
+      page,
+      'Touch',
+      { filler: 'x'.repeat(2 * 1024 * 1024) },
+      cookie,
+    )
+  expect((await post(session)).status).toBe(200)
+  expect((await post()).status).toBe(413)
+})

@@ -71,6 +71,55 @@ describe('metadata', () => {
   })
 })
 
+describe('requests without a session', () => {
+  // the post page, and the action id in its form with the button `button`
+  const formOf = async (button: string) => {
+    const html = await (await request('/posts/1')).text()
+    const form = [...html.matchAll(/<form\b[^>]*>([\s\S]*?)<\/form>/g)]
+      .map((match) => match[1])
+      .find((inner) => inner.includes(`>${button}<`))
+    return { html, actionId: /name="\$ACTION_ID_([^"]+)"/.exec(form ?? '')?.[1] }
+  }
+
+  it('run a public action, and are turned away from the others before they run', async () => {
+    const { html } = await formOf('Boom')
+    expect((await submitForm(`${server.url}/posts/1`, html, 'Touch', {})).status).toBe(200)
+    // boom throws as it runs, which would answer with a 500
+    expect((await submitForm(`${server.url}/posts/1`, html, 'Boom', {})).status).toBe(401)
+  })
+
+  it("are turned away from an action that isn't public when JavaScript calls it", async () => {
+    const { actionId } = await formOf('Boom')
+    expect(actionId).toBeDefined()
+    const call = await request('/posts/1_.rsc', {
+      method: 'POST',
+      headers: { 'x-rsc-action': actionId! },
+      body: '[]',
+    })
+    expect(call.status).toBe(401)
+  })
+
+  it('send bodies of up to 1 MB, whether they say their length or stream', async () => {
+    const tooBig = 'x'.repeat(1024 * 1024 + 1)
+    expect((await request('/api/hello', { method: 'POST', body: tooBig })).status).toBe(413)
+    const streamed = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(tooBig))
+        controller.close()
+      },
+    })
+    const response = await request('/api/hello', {
+      method: 'POST',
+      body: streamed,
+      duplex: 'half',
+    } as RequestInit)
+    expect(response.status).toBe(413)
+    const within = 'x'.repeat(1024 * 1024)
+    const taken = await request('/api/hello', { method: 'POST', body: within })
+    expect(await taken.text()).toBe(`hello got ${within}`)
+  })
+})
+
 describe('route handlers', () => {
   it("answers with the function for the request's method, which reads the request from ctx", async () => {
     expect(await (await request('/api/hello?q=1')).json()).toEqual({ name: 'hello', q: '1' })

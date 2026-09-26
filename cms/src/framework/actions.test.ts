@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createTestContext } from '../test/context.ts'
-import { defineAction, invokeAction } from './actions.ts'
+import { defineAction, invokeAction, isPublicAction } from './actions.ts'
 import { getUrl } from './context.ts'
 
 describe('defineAction', () => {
@@ -24,5 +24,14 @@ describe('defineAction', () => {
   it('fails without the ctx from the CMS, whatever the arguments', async () => {
     const action = defineAction(async (_ctx, value: unknown) => value)
     await expect(action({ looks: 'like a context' })).rejects.toThrow('takes its ctx from the CMS')
+  })
+})
+
+describe('isPublicAction', () => {
+  it('is true only for an action defineAction made public', () => {
+    expect(isPublicAction(defineAction(async () => {}, { public: true }))).toBe(true)
+    expect(isPublicAction(defineAction(async () => {}))).toBe(false)
+    expect(isPublicAction(async () => {})).toBe(false)
+    expect(isPublicAction(undefined)).toBe(false)
   })
 })

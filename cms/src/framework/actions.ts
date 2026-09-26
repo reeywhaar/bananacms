@@ -1,24 +1,40 @@
 import { Context } from './context.ts'
 
+// Symbol.for, so that an action defined before the dev server reloads this module
+// keeps its mark
+const PUBLIC_ACTION = Symbol.for('bananacms.publicAction')
+
 // Defines a server action that gets the request's ctx before its own arguments.
 // Callers pass only the arguments: `login(formData)` runs `fn(ctx, formData)`.
 //
 //   'use server'
-//   export const vote = defineAction(async (ctx, formData: FormData) => { … })
+//   export const vote = defineAction(async (ctx, formData: FormData) => { … }, { public: true })
 //
 // The ctx comes from the CMS, which runs every action with the request's ctx after
 // the browser's arguments (invokeAction). A browser's arguments are plain data, so
-// it can't send a Context itself.
+// it can't send a Context itself. A visitor without a session can run only a
+// `public` action: the CMS turns the call away before it decodes the arguments.
 export function defineAction<Args extends unknown[], Result>(
   fn: (ctx: Context, ...args: Args) => Promise<Result>,
+  options: { public?: boolean } = {},
 ): (...args: Args) => Promise<Result> {
-  return async (...args) => {
+  const action = async (...args: Args) => {
     const ctx = args.at(-1)
     if (!(ctx instanceof Context)) {
       throw new Error('A defineAction() action takes its ctx from the CMS, as the last argument')
     }
     return fn(ctx, ...(args.slice(0, -1) as Args))
   }
+  if (options.public) Object.defineProperty(action, PUBLIC_ACTION, { value: true })
+  return action
+}
+
+// whether a visitor without a session can run `action`: one defineAction made public
+export function isPublicAction(action: unknown): boolean {
+  return (
+    typeof action === 'function' &&
+    (action as { [PUBLIC_ACTION]?: boolean })[PUBLIC_ACTION] === true
+  )
 }
 
 // Runs a server action as the CMS does, with `ctx` after its arguments. `action` is

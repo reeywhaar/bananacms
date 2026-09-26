@@ -10,12 +10,20 @@ import type { ReactNode } from 'react'
 import type { ReactFormState } from 'react-dom/client'
 import { errorFields } from '../lib/logger/Logger.ts'
 import { createRootLogger } from '../lib/logger/root.ts'
-import { invokeAction } from './actions.ts'
+import { invokeAction, isPublicAction } from './actions.ts'
 import { renderApp } from './app.tsx'
+import {
+  declaredOverLimit,
+  limitBody,
+  MAX_BODY_BYTES,
+  payloadTooLarge,
+  type BodyLimit,
+} from './body-limit.ts'
 import { cmsMiddleware, since } from './cms-middleware.ts'
 import {
   Context,
   createRequestContext,
+  getAuth,
   getCookies,
   getLogger,
   getRequest,
@@ -96,6 +104,13 @@ async function handleRequest(request: Request): Promise<Response> {
     return new Response('Bad Request', { status: 400 })
   }
 
+  // the body's limit depends on the session, which the middleware looks up before
+  // anything reads the body
+  const limit: BodyLimit = {
+    maxBytes: () => (getAuth(ctx) ? MAX_BODY_BYTES.signedIn : MAX_BODY_BYTES.signedOut),
+    exceeded: false,
+  }
+  renderRequest = { ...renderRequest, request: limitBody(renderRequest.request, limit) }
   const { url } = renderRequest
   const match = isManagePath(url.pathname) ? undefined : matchRoute(url.pathname)
   const ctx = createRequestContext(appContext, {
@@ -108,11 +123,19 @@ async function handleRequest(request: Request): Promise<Response> {
     }),
     rsc: renderRequest.isRsc,
   })
-  const response = await runMiddleware(ctx, [...cmsMiddleware, ...siteMiddleware], () =>
-    match && match.route.kind !== 'page'
-      ? serveRoute(ctx, match.route)
-      : handler(ctx, renderRequest, match),
-  )
+  const response = await runMiddleware(ctx, [...cmsMiddleware, ...siteMiddleware], async () => {
+    if (declaredOverLimit(renderRequest.request, limit)) return payloadTooLarge()
+    try {
+      const response =
+        match && match.route.kind !== 'page'
+          ? await serveRoute(ctx, match.route)
+          : await handler(ctx, renderRequest, match)
+      return limit.exceeded ? payloadTooLarge() : response
+    } catch (error) {
+      if (limit.exceeded) return payloadTooLarge()
+      throw error
+    }
+  })
   return withCookies(response, getCookies(ctx).setCookieHeaders)
 }
 
@@ -130,8 +153,10 @@ async function handler(
   let actionStatus: number | undefined
   if (renderRequest.isAction === true) {
     if (renderRequest.actionId) {
-      // action is called via `ReactClient.setServerCallback`.
+      // action is called via `ReactClient.setServerCallback`, naming itself in a
+      // header, so a call that isn't allowed is turned away before its body is read
       const actionId = renderRequest.actionId
+      if (!(await actionAllowed(ctx, actionId))) return unauthorized()
       const contentType = request.headers.get('content-type')
       const body = contentType?.startsWith('multipart/form-data')
         ? await request.formData()
@@ -153,8 +178,10 @@ async function handler(
       }
     } else {
       // a server function called via `<form action={...}>` before hydration
-      // (e.g. with JavaScript off), aka progressive enhancement.
+      // (e.g. with JavaScript off), aka progressive enhancement. The form's fields
+      // name the action, and one that isn't allowed goes before React decodes them.
       const formData = await request.formData()
+      if (!(await actionAllowed(ctx, formActionId(formData)))) return unauthorized()
       const decodedAction = await decodeAction(formData)
       try {
         const result = await runAction(ctx, formActionId(formData), (actionCtx) =>
@@ -246,6 +273,24 @@ async function serveRoute(ctx: Context, route: Route): Promise<Response> {
       ? sitemapHandlers(await loadSitemap(route))
       : await loadRouteHandlers(route)
   return answer(ctx, handlers, route.file)
+}
+
+// Whether the request may run the action `actionId` names: any action with a
+// session, and without one only a public one (defineAction's `public`), which an
+// id of no action isn't either
+async function actionAllowed(ctx: Context, actionId: string | undefined): Promise<boolean> {
+  if (getAuth(ctx)) return true
+  if (actionId === undefined) return false
+  return isPublicAction(await loadServerAction(actionId).catch(() => undefined))
+}
+
+// The answer to an action the request may not run. Its body may be unread, so the
+// connection closes after it, as it does for a body over the limit.
+function unauthorized(): Response {
+  return new Response('Unauthorized', {
+    status: 401,
+    headers: { 'content-type': 'text/plain', connection: 'close' },
+  })
 }
 
 // Runs a server action with a ctx of its own, whose logger is labeled

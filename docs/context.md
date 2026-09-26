@@ -86,14 +86,25 @@ export default async function PostPage({ ctx, params }: PageProps<{ id: string }
 
 import { defineAction, getAuth } from '@reeywhaar/bananacms'
 
+// runs only for a signed-in user
 export const rename = defineAction(async (ctx, formData: FormData) => {
-  if (!getAuth(ctx)) throw new Error('Not signed in')
+  const { user } = getAuth(ctx)!
   // …
 })
+
+// runs for anyone
+export const vote = defineAction(
+  async (ctx, option: string) => {
+    // …
+  },
+  { public: true },
+)
 ```
 
 - The CMS runs every action with its `ctx` as an extra last argument, after the browser's, and `defineAction` moves it to the front. A form posted without JavaScript reaches the action through React already bound to its arguments, and the `ctx` lands after those all the same. What the browser sends is plain data, so it can't pass a `Context` itself.
-- A server action can be called from any page, so one that needs a signed-in user checks `getAuth(ctx)` itself.
+- A visitor without a session can run only a public action, like the login, the password form of an invitation, or the demo's vote. Any other call gets a 401 before its arguments are decoded: a call from the page's JavaScript names its action in a header, and goes before its body is read, and a form posted without JavaScript goes once its fields have named the action. A server function written without `defineAction`, or inline in a component, isn't public.
+- A server action can be called from any page, so one that needs a particular user checks `getAuth(ctx)` itself.
+- A request's body can take up to 100 MB with a session and 1 MB without. A larger one gets a 413, unread when its `Content-Length` says so, and cut off where it passes the limit otherwise.
 
 ## Middleware
 

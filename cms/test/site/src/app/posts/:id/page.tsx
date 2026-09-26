@@ -1,5 +1,5 @@
 import { notFound, redirect, type Metadata, type PageProps } from '@reeywhaar/bananacms'
-import { touch } from '../../../actions.ts'
+import { boom, touch } from '../../../actions.ts'
 
 type Props = PageProps<{ id: string }>
 
@@ -19,6 +19,9 @@ export default async function PostPage({ params }: Props) {
       <h1>Post {id}</h1>
       <form action={touch}>
         <button>Touch</button>
+      </form>
+      <form action={boom}>
+        <button>Boom</button>
       </form>
     </>
   )

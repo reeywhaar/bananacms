@@ -23,7 +23,8 @@ import { MANAGE_PATH } from '../../framework/request.ts'
 // its action is done, and the field's default value comes from this state.
 export type LoginState = { error: string; username: string }
 
-// Signs in, and goes on to the page in the login page's `next` parameter.
+// Signs in, and goes on to the page in the login page's `next` parameter. Public:
+// it's what a visitor without a session posts.
 export const login = defineAction(
   async (ctx, _state: LoginState, formData: FormData): Promise<LoginState> => {
     const username = String(formData.get('username') ?? '')
@@ -34,10 +35,12 @@ export const login = defineAction(
     await sleep(500) // slows down password guessing a little
     return { error: 'Wrong username or password.', username }
   },
+  { public: true },
 )
 
 // Sets the password with the token of an invitation or a recovery link, whose
-// page the form is on, and goes on to the admin signed in (setPasswordWithToken)
+// page the form is on, and goes on to the admin signed in (setPasswordWithToken).
+// Public: the token is what lets it in.
 export const setPassword = defineAction(
   async (ctx, _state: { error: string }, formData: FormData): Promise<{ error: string }> => {
     const password = String(formData.get('password') ?? '')
@@ -48,6 +51,7 @@ export const setPassword = defineAction(
     if (error) return { error }
     redirect(MANAGE_PATH)
   },
+  { public: true },
 )
 
 // Ends the session. The login page it goes to comes back to the current page.

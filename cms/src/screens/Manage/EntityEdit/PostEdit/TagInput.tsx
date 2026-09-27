@@ -1,6 +1,6 @@
 'use client'
 
-import { type FC, type KeyboardEvent, useMemo, useState } from 'react'
+import { type FC, type KeyboardEvent, useId, useMemo, useRef, useState } from 'react'
 import type { TagData } from '#cms/services/TagStore.ts'
 
 type TagInputProps = {
@@ -12,6 +12,8 @@ type TagInputProps = {
 export const TagInput: FC<TagInputProps> = ({ tags, value, onChange }) => {
   const [query, setQuery] = useState('')
   const [focused, setFocused] = useState(false)
+  const inputId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const tagsById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags])
   const selected = value.map((id) => tagsById.get(id)).filter((t): t is TagData => !!t)
@@ -41,11 +43,21 @@ export const TagInput: FC<TagInputProps> = ({ tags, value, onChange }) => {
     }
   }
 
+  // The label names the input alone: a label's control is its first labelable
+  // element, and around the box that's the first tag's remove button, which a
+  // click on the box's padding would press.
   return (
     <div className="input-cnt">
-      <label className="label">
-        <span>Tags</span>
-        <div className="w-full p-1 border border-gray-300 rounded flex flex-wrap gap-1 items-center">
+      <div className="label">
+        <label htmlFor={inputId} className="text-sm">
+          Tags
+        </label>
+        <div
+          className="w-full p-1 border border-gray-300 rounded flex flex-wrap gap-1 items-center"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) inputRef.current?.focus()
+          }}
+        >
           {selected.map((tag) => (
             <span
               key={tag.id}
@@ -64,6 +76,8 @@ export const TagInput: FC<TagInputProps> = ({ tags, value, onChange }) => {
           ))}
           <div className="relative flex-1 min-w-[8rem]">
             <input
+              id={inputId}
+              ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -90,7 +104,7 @@ export const TagInput: FC<TagInputProps> = ({ tags, value, onChange }) => {
             )}
           </div>
         </div>
-      </label>
+      </div>
     </div>
   )
 }

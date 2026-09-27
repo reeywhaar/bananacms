@@ -28,7 +28,7 @@ export const LocaleSwitch: FC<LocaleSwitchProps> = ({ active, onChange, isFilled
             onChange(locale.code)
           }}
           className={`relative text-xs font-medium uppercase leading-4 transition-colors ${
-            isFilled(locale.code) ? 'text-green-600' : 'text-gray-400'
+            isFilled(locale.code) ? 'text-translated' : 'text-gray-400'
           }`}
         >
           {locale.code}

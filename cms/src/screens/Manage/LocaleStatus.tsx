@@ -22,7 +22,7 @@ export const LocaleStatus: FC<LocaleStatusProps> = ({ text, translationKey, tran
       {locales.map((locale) => (
         <span
           key={locale.code}
-          className={isFilled(locale.code) ? 'text-green-600' : 'text-gray-300'}
+          className={isFilled(locale.code) ? 'text-translated' : 'text-gray-300'}
         >
           {locale.code}
         </span>

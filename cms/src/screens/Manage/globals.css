@@ -27,6 +27,10 @@
      warmed with a tenth of Tailwind's orange-500. */
   --color-danger: color-mix(in oklab, rgb(236 47 4), oklch(70.5% 0.213 47.604) 10%);
   --color-danger-hover: color-mix(in oklab, var(--color-danger) 80%, black);
+
+  /* a language a text is translated into, in the language switch and labels:
+     Tailwind's green-600, warmed with a fifth of a yellowish grey */
+  --color-translated: color-mix(in oklab, oklch(62.7% 0.194 149.214), oklch(72% 0.06 95) 20%);
 }
 
 /* fills for buttons and selections, which lean a little to the link color, or

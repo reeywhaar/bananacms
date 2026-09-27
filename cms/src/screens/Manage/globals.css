@@ -22,10 +22,14 @@
   /* links, and a darker mix of their color on hover */
   --color-link: rgb(169 105 6);
   --color-link-hover: color-mix(in oklab, var(--color-link) 75%, black);
+
+  /* destructive actions, and a darker mix of their color on hover */
+  --color-danger: rgb(236 47 4);
+  --color-danger-hover: color-mix(in oklab, var(--color-danger) 80%, black);
 }
 
 /* fills for buttons and selections, which lean a little to the link color, or
-   to a darker red, towards the bottom */
+   to black, towards the bottom */
 @utility gradient-accent {
   background-origin: border-box;
   background-image: linear-gradient(
@@ -39,8 +43,8 @@
   background-origin: border-box;
   background-image: linear-gradient(
     170deg in oklab,
-    --theme(--color-red-500),
-    color-mix(in oklab, --theme(--color-red-500), --theme(--color-red-700) 10%)
+    var(--color-danger),
+    color-mix(in oklab, var(--color-danger), black 10%)
   );
 }
 
@@ -84,7 +88,7 @@ body {
   }
 
   .button-sm-danger {
-    @apply px-2 py-1 rounded border border-gray-300 text-red-500 hover:text-red-700 text-xs;
+    @apply px-2 py-1 rounded border border-gray-300 text-danger hover:text-danger-hover text-xs;
   }
 
   .input-cnt {

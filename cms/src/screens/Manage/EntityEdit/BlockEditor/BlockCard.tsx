@@ -224,10 +224,12 @@ const BlockSummary: FC<{
   return null
 }
 
+// A word too long for the card, like a URL, breaks where it has to, rather than
+// being cut off at its edge. So does one in RenderedSummary.
 const PlainSummary: FC<{ text: string; missing: boolean }> = ({ text, missing }) =>
   text ? (
     <p
-      className={`line-clamp-3 whitespace-pre-line text-sm ${missing ? 'text-gray-400' : 'text-gray-700'}`}
+      className={`line-clamp-3 whitespace-pre-line wrap-anywhere text-sm ${missing ? 'text-gray-400' : 'text-gray-700'}`}
     >
       {text}
     </p>
@@ -251,7 +253,7 @@ const RenderedSummary: FC<{ html: string; missing: boolean }> = ({ html, missing
   if (whole === null) return null
   return (
     <div
-      className={`pointer-events-none line-clamp-3 text-sm ${prose} ${missing ? 'text-gray-400' : 'text-gray-700'}`}
+      className={`pointer-events-none line-clamp-3 wrap-anywhere text-sm ${prose} ${missing ? 'text-gray-400' : 'text-gray-700'}`}
       dangerouslySetInnerHTML={{ __html: whole }}
     />
   )
@@ -313,8 +315,9 @@ const ImageSummary: FC<{
   const name = file?.name ?? content.name
 
   return (
-    <div className="flex min-w-0 items-start gap-4">
-      <div className="flex size-50 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-100 p-3">
+    // on a phone, the details go under the image, having no room beside it
+    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+      <div className="flex h-50 w-full shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-100 p-3 sm:w-50">
         {src ? (
           <img
             ref={img}
@@ -332,52 +335,52 @@ const ImageSummary: FC<{
           <span className="text-xs text-gray-400">No image</span>
         )}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm">
-        {name && <span className="truncate text-gray-700">{name}</span>}
-        <dl className={`grid gap-x-4 gap-y-1 ${detailsGrid(withStatus)}`}>
-          <Detail
-            label="Alt"
-            withStatus={withStatus}
-            status={
-              <LocaleStatus
-                text={content.alt}
-                translationKey={'block:' + block.id + ':alt'}
-                translations={translations}
-              />
-            }
-          >
-            <span className={alt.text && !alt.missing ? '' : 'text-gray-400'}>
-              {alt.text || '—'}
-            </span>
+      <dl className={`grid min-w-0 flex-1 gap-x-4 gap-y-1 text-sm ${detailsGrid(withStatus)}`}>
+        {name && (
+          <Detail label="File" withStatus={withStatus}>
+            {name}
           </Detail>
-          {type && (
-            <Detail label="Type" withStatus={withStatus}>
-              {type}
-            </Detail>
-          )}
-          {dimensions && (
-            <Detail label="Dimensions" withStatus={withStatus}>
-              {dimensions.width} × {dimensions.height}
-            </Detail>
-          )}
-          {bytes != null && (
-            <Detail label="Size" withStatus={withStatus}>
-              {formatSize(bytes)}
-            </Detail>
-          )}
-          <Detail label="Resolution" withStatus={withStatus}>
-            {settings.resolution ?? '@1x'}
+        )}
+        <Detail
+          label="Alt"
+          withStatus={withStatus}
+          status={
+            <LocaleStatus
+              text={content.alt}
+              translationKey={'block:' + block.id + ':alt'}
+              translations={translations}
+            />
+          }
+        >
+          <span className={alt.text && !alt.missing ? '' : 'text-gray-400'}>{alt.text || '—'}</span>
+        </Detail>
+        {type && (
+          <Detail label="Type" withStatus={withStatus}>
+            {type}
           </Detail>
-          <Detail label="Output" withStatus={withStatus}>
-            {settings.outputAs ? formatLabel(settings.outputAs) : 'Original'}
+        )}
+        {dimensions && (
+          <Detail label="Dimensions" withStatus={withStatus}>
+            {dimensions.width} × {dimensions.height}
           </Detail>
-          {settings.maxSize && (
-            <Detail label="Max size" withStatus={withStatus}>
-              {settings.maxSize.width} × {settings.maxSize.height}
-            </Detail>
-          )}
-        </dl>
-      </div>
+        )}
+        {bytes != null && (
+          <Detail label="Size" withStatus={withStatus}>
+            {formatSize(bytes)}
+          </Detail>
+        )}
+        <Detail label="Resolution" withStatus={withStatus}>
+          {settings.resolution ?? '@1x'}
+        </Detail>
+        <Detail label="Output" withStatus={withStatus}>
+          {settings.outputAs ? formatLabel(settings.outputAs) : 'Original'}
+        </Detail>
+        {settings.maxSize && (
+          <Detail label="Max size" withStatus={withStatus}>
+            {settings.maxSize.width} × {settings.maxSize.height}
+          </Detail>
+        )}
+      </dl>
     </div>
   )
 }
@@ -390,8 +393,8 @@ const Detail: FC<{
   children: ReactNode
 }> = ({ label, withStatus, status, children }) => (
   <>
-    <dt className="truncate text-gray-500">{label}</dt>
-    {withStatus && <span className="self-center">{status}</span>}
-    <dd className="truncate text-gray-800">{children}</dd>
+    <dt className="wrap-anywhere text-gray-500">{label}</dt>
+    {withStatus && <span className="flex h-5 items-center">{status}</span>}
+    <dd className="wrap-anywhere text-gray-800">{children}</dd>
   </>
 )

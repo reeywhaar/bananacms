@@ -58,9 +58,9 @@ export const MetaView: FC<MetaViewProps> = ({
                 attr.translatable && locale !== defaultLocale ? translated(attr, locale) : attr.text
               return (
                 <div key={attr.id} className="contents">
-                  <dt className="truncate text-gray-500">{attr.key || '—'}</dt>
+                  <dt className="wrap-anywhere text-gray-500">{attr.key || '—'}</dt>
                   {withStatus && (
-                    <span className="self-center">
+                    <span className="flex h-5 items-center">
                       {attr.translatable && (
                         <LocaleStatus
                           text={attr.text}
@@ -70,7 +70,7 @@ export const MetaView: FC<MetaViewProps> = ({
                       )}
                     </span>
                   )}
-                  <dd className={`truncate ${text ? 'text-gray-800' : 'text-gray-400'}`}>
+                  <dd className={`wrap-anywhere ${text ? 'text-gray-800' : 'text-gray-400'}`}>
                     {text || attr.text}
                   </dd>
                 </div>

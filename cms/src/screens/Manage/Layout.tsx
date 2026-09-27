@@ -27,7 +27,7 @@ export default function ManageLayout({ ctx, children }: { ctx: Context; children
             <title>Manage</title>
           </head>
           <body>
-            <TopLoader color="#3b82f6" />
+            <TopLoader color="var(--color-accent-600)" />
             <ProgressOverlayProvider>
               <ToastProvider>
                 <AdminBar user={getAuth(ctx)?.user} />

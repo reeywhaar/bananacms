@@ -228,7 +228,7 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
         <div
           className={[
             'border-2 border-dashed rounded p-4 flex flex-col items-center gap-2 cursor-pointer transition-colors',
-            dragging ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-400',
+            dragging ? 'border-accent-500 bg-accent-50' : 'border-gray-200 hover:border-gray-400',
           ]
             .filter(Boolean)
             .join(' ')}

@@ -4,6 +4,22 @@
 @source '..';
 @source '../../components';
 
+/* The admin's accent, and its shades mixed from it: with white for fills, and
+   with black for text and fills that carry white text. static, so the base the
+   shades mix from is on :root whether or not a class uses it. */
+@theme static {
+  --color-accent: #eeba1f;
+  --color-accent-50: color-mix(in oklab, var(--color-accent) 15%, white);
+  --color-accent-100: color-mix(in oklab, var(--color-accent) 30%, white);
+  --color-accent-200: color-mix(in oklab, var(--color-accent) 55%, white);
+  --color-accent-300: color-mix(in oklab, var(--color-accent) 80%, white);
+  --color-accent-500: color-mix(in oklab, var(--color-accent) 80%, black);
+  --color-accent-600: color-mix(in oklab, var(--color-accent) 65%, black);
+  --color-accent-700: color-mix(in oklab, var(--color-accent) 50%, black);
+  --color-accent-800: color-mix(in oklab, var(--color-accent) 38%, black);
+  --color-accent-900: color-mix(in oklab, var(--color-accent) 26%, black);
+}
+
 html {
   height: 100%;
 }
@@ -28,11 +44,11 @@ body {
   }
 
   .link {
-    @apply text-blue-500 hover:text-blue-700;
+    @apply text-accent-600 hover:text-accent-800;
   }
 
   .button {
-    @apply px-2 py-1 rounded border border-gray-300 text-blue-500 hover:text-blue-700 text-sm;
+    @apply px-2 py-1 rounded border border-gray-300 text-accent-600 hover:text-accent-800 text-sm;
   }
 
   .button-danger {
@@ -40,7 +56,7 @@ body {
   }
 
   .button-sm {
-    @apply px-2 py-1 rounded border border-gray-300 text-blue-500 hover:text-blue-700 text-xs;
+    @apply px-2 py-1 rounded border border-gray-300 text-accent-600 hover:text-accent-800 text-xs;
   }
 
   .button-sm-danger {

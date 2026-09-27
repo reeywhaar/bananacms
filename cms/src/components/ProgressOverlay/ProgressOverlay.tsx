@@ -58,7 +58,7 @@ export const ProgressOverlayProvider: FC<PropsWithChildren> = ({ children }) => 
         className="fixed inset-0 m-0 p-0 w-screen h-screen max-w-none max-h-none border-0 bg-transparent backdrop:bg-white/60"
       >
         <div className="w-full h-full flex items-center justify-center">
-          <div className="w-10 h-10 rounded-full border-4 border-gray-200 border-t-blue-500 animate-spin" />
+          <div className="w-10 h-10 rounded-full border-4 border-gray-200 border-t-accent-600 animate-spin" />
         </div>
       </dialog>
     </ProgressOverlayContext.Provider>

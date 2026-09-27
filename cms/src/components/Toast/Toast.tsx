@@ -95,7 +95,7 @@ export const useToast = (): ShowToast =>
   useContext(ToastContext) ?? invariant('ToastContext is not provided')
 
 const levelClasses: Record<ToastLevel, string> = {
-  info: 'bg-blue-50 border border-blue-200 text-blue-900',
+  info: 'bg-accent-50 border border-accent-200 text-accent-900',
   warn: 'bg-amber-50 border border-amber-200 text-amber-900',
   error: 'bg-red-50 border border-red-200 text-red-900',
 }

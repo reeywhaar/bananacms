@@ -119,7 +119,7 @@ export const BlockEdit: FC<BlockEditProps> = ({
 
   return (
     <div
-      className={`flex flex-col gap-3 rounded transition-colors ${dragging ? 'outline-2 outline-dashed outline-blue-300 outline-offset-4' : ''}`}
+      className={`flex flex-col gap-3 rounded transition-colors ${dragging ? 'outline-2 outline-dashed outline-accent outline-offset-4' : ''}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

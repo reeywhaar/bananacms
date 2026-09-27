@@ -100,9 +100,11 @@ export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer
       }}
       // hidden while closed, as open:flex would otherwise show it. m-auto centres
       // it, which Tailwind's reset of margins undoes, and h-fit keeps it to its
-      // contents rather than stretching it between the top and bottom insets.
-      className={`m-auto hidden h-fit max-h-[85dvh] flex-col overflow-hidden rounded-lg bg-white p-0 shadow-xl backdrop:bg-black/50 open:flex focus:outline-none ${
-        wide ? 'w-[min(42rem,calc(100vw-2rem))]' : 'w-[min(28rem,calc(100vw-2rem))]'
+      // contents rather than stretching it between the top and bottom insets. On a
+      // phone, it's 5px from the screen's edges, past the browser's max-width for
+      // a modal, which keeps it 2em and more from them.
+      className={`m-auto hidden h-fit max-h-[85dvh] max-w-none flex-col overflow-hidden rounded-lg bg-white p-0 shadow-xl backdrop:bg-black/50 open:flex focus:outline-none ${
+        wide ? 'w-[min(42rem,calc(100vw-10px))]' : 'w-[min(28rem,calc(100vw-10px))]'
       }`}
     >
       {open && (

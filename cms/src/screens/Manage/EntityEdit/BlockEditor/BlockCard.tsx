@@ -6,6 +6,8 @@ import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
 import { X } from '#cms/components/icons.tsx'
+import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { LocaleSwitch } from '#cms/screens/Manage/LocaleSwitch.tsx'
 import { MetaView } from '../Meta/MetaView.tsx'
 
 type BlockCardProps = {
@@ -18,8 +20,30 @@ type BlockCardProps = {
 
 const contentTypeLabels = { plain: 'Plain', markdown: 'Markdown', html: 'HTML' }
 
+// A text in the language shown: its translation, or, missing one, its own text,
+// which shows greyed
+type Localize = (translationKey: string, text: string) => { text: string; missing: boolean }
+
+// The block's texts that have translations: a text block's text, an image's alt,
+// and its translatable attributes, each by its key, with its own text.
+const translatableTexts = (block: BlockData) => {
+  const { content } = block
+  const texts: { key: string; text: string }[] = []
+  if (content.type === 'text') {
+    texts.push({ key: 'block:' + block.id + ':text', text: content.text })
+  }
+  if (content.type === 'image') {
+    texts.push({ key: 'block:' + block.id + ':alt', text: content.alt })
+  }
+  for (const attr of block.attributes) {
+    if (attr.translatable) texts.push({ key: 'attribute:' + attr.id + ':text', text: attr.text })
+  }
+  return texts
+}
+
 // A block to read, in brief: its type and key, its content, and its attributes. A
-// click on it, or Edit, opens it for editing.
+// click on it, or Edit, opens it for editing. With more than one language, and a
+// text that has translations, a switch shows the block in another language.
 export const BlockCard: FC<BlockCardProps> = ({
   block,
   translations,
@@ -28,7 +52,17 @@ export const BlockCard: FC<BlockCardProps> = ({
   onRemove,
 }) => {
   const [removing, setRemoving] = useState(false)
+  const { locales, default: defaultLocale } = useCMSLocales()
+  const [locale, setLocale] = useState(defaultLocale)
   const { content } = block
+
+  const texts = translatableTexts(block)
+  const isFilled = (code: string) =>
+    code === defaultLocale || texts.every((t) => !t.text || !!translations[code]?.[t.key])
+  const localize: Localize = (key, text) => {
+    const translation = locale === defaultLocale ? text : translations[locale]?.[key]
+    return translation ? { text: translation, missing: false } : { text, missing: !!text }
+  }
 
   return (
     <div
@@ -46,6 +80,11 @@ export const BlockCard: FC<BlockCardProps> = ({
           </span>
         )}
         <div className="grow" />
+        {locales.length > 1 && texts.length > 0 && (
+          <div className="-my-2">
+            <LocaleSwitch active={locale} onChange={setLocale} isFilled={isFilled} />
+          </div>
+        )}
         <button
           type="button"
           className="button-sm"
@@ -70,27 +109,40 @@ export const BlockCard: FC<BlockCardProps> = ({
           <X size={16} strokeWidth={2} />
         </button>
       </div>
-      <BlockSummary block={block} assetSizes={assetSizes} />
+      <BlockSummary block={block} assetSizes={assetSizes} localize={localize} />
       {block.attributes.length > 0 && (
-        <MetaView attributes={block.attributes} translations={translations} />
+        <MetaView attributes={block.attributes} translations={translations} locale={locale} />
       )}
     </div>
   )
 }
 
-const BlockSummary: FC<{ block: BlockData; assetSizes: Record<string, number> }> = ({
-  block,
-  assetSizes,
-}) => {
+const BlockSummary: FC<{
+  block: BlockData
+  assetSizes: Record<string, number>
+  localize: Localize
+}> = ({ block, assetSizes, localize }) => {
   const { content } = block
   if (content.type === 'text' || content.type === 'meta') {
-    return content.text ? (
-      <p className="line-clamp-3 whitespace-pre-line text-sm text-gray-700">{content.text}</p>
+    const { text, missing } =
+      content.type === 'text'
+        ? localize('block:' + block.id + ':text', content.text)
+        : { text: content.text, missing: false }
+    return text ? (
+      <p
+        className={`line-clamp-3 whitespace-pre-line text-sm ${missing ? 'text-gray-400' : 'text-gray-700'}`}
+      >
+        {text}
+      </p>
     ) : (
       <span className="text-sm italic text-gray-400">Empty</span>
     )
   }
-  if (content.type === 'image') return <ImageSummary content={content} />
+  if (content.type === 'image') {
+    return (
+      <ImageSummary content={content} alt={localize('block:' + block.id + ':alt', content.alt)} />
+    )
+  }
   if (content.type === 'asset') {
     const name = content.pendingFile?.name ?? content.name
     const size = content.pendingFile?.size ?? assetSizes[content.assetId]
@@ -106,7 +158,10 @@ const BlockSummary: FC<{ block: BlockData; assetSizes: Record<string, number> }>
 }
 
 // A new image's file shows through an object URL, and a saved one from its asset.
-const ImageSummary: FC<{ content: BlockTypeImage }> = ({ content }) => {
+const ImageSummary: FC<{ content: BlockTypeImage; alt: ReturnType<Localize> }> = ({
+  content,
+  alt,
+}) => {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -134,7 +189,11 @@ const ImageSummary: FC<{ content: BlockTypeImage }> = ({ content }) => {
       )}
       <div className="flex min-w-0 flex-col text-sm">
         {name && <span className="truncate text-gray-700">{name}</span>}
-        {content.alt && <span className="truncate text-gray-500">{content.alt}</span>}
+        {alt.text && (
+          <span className={`truncate ${alt.missing ? 'text-gray-300' : 'text-gray-500'}`}>
+            {alt.text}
+          </span>
+        )}
       </div>
     </div>
   )

@@ -11,14 +11,22 @@ type MetaViewProps = {
   keyName?: string
   attributes: AttributeData[]
   translations: Translations
+  // the language to show, when a switch around it picks it; without one, it has its own
+  locale?: string
 }
 
 // A block's key and attributes, or an entity's attributes, to read. With more than
 // one language and a translatable attribute, a switch shows the attributes in
 // another language, where one missing its translation shows its own text, greyed.
-export const MetaView: FC<MetaViewProps> = ({ keyName, attributes, translations }) => {
+export const MetaView: FC<MetaViewProps> = ({
+  keyName,
+  attributes,
+  translations,
+  locale: outerLocale,
+}) => {
   const { locales, default: defaultLocale } = useCMSLocales()
-  const [locale, setLocale] = useState(defaultLocale)
+  const [ownLocale, setLocale] = useState(defaultLocale)
+  const locale = outerLocale ?? ownLocale
 
   if (!keyName && attributes.length === 0) {
     return <span className="text-sm italic text-gray-400">No attributes</span>
@@ -53,7 +61,7 @@ export const MetaView: FC<MetaViewProps> = ({ keyName, attributes, translations 
               )
             })}
           </dl>
-          {locales.length > 1 && translatable.length > 0 && (
+          {outerLocale === undefined && locales.length > 1 && translatable.length > 0 && (
             <div className="-mt-1.5 shrink-0">
               <LocaleSwitch active={locale} onChange={setLocale} isFilled={isFilled} />
             </div>

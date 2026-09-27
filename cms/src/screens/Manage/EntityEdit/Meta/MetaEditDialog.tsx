@@ -4,6 +4,7 @@ import { type FC, useState } from 'react'
 import type { AttributeData } from '#cms/services/AttributeStore.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { Dialog } from '#cms/components/Dialog/Dialog.tsx'
+import { attributesInvalid } from '../AttributesEditor/AttributesEditor.tsx'
 import { MetaFields } from './MetaFields.tsx'
 
 type MetaEditDialogProps = {
@@ -22,8 +23,9 @@ type MetaEditDialogProps = {
 
 // Edits a copy of a block's key and attributes, or of an entity's attributes, with
 // their translations. Apply hands it back, to be written when the entity is saved;
-// closing drops it. Rendered only while it's open, so each opening starts from
-// what there is.
+// with attributes that can't be (attributesInvalid), it shows what's wrong with
+// them on their fields instead. Closing drops it. Rendered only
+// while it's open, so each opening starts from what there is.
 export const MetaEditDialog: FC<MetaEditDialogProps> = ({
   title,
   keyName,
@@ -35,6 +37,12 @@ export const MetaEditDialog: FC<MetaEditDialogProps> = ({
   const [draftKey, setDraftKey] = useState(keyName)
   const [draftAttributes, setDraftAttributes] = useState(attributes)
   const [draftTranslations, setDraftTranslations] = useState(translations)
+  const invalid = attributesInvalid(draftAttributes)
+  // Apply has been pressed, so what's wrong with the attributes shows, until it's
+  // put right: a key filled in unmarks it, and another attribute added then isn't
+  // marked before Apply is pressed again
+  const [tried, setTried] = useState(false)
+  if (tried && !invalid) setTried(false)
 
   return (
     <Dialog
@@ -51,6 +59,10 @@ export const MetaEditDialog: FC<MetaEditDialogProps> = ({
             type="button"
             className="button"
             onClick={() => {
+              if (invalid) {
+                setTried(true)
+                return
+              }
               onApply({
                 key: draftKey,
                 attributes: draftAttributes,
@@ -71,6 +83,7 @@ export const MetaEditDialog: FC<MetaEditDialogProps> = ({
         onAttributesChange={setDraftAttributes}
         translations={draftTranslations}
         onTranslationsChange={setDraftTranslations}
+        showInvalid={tried}
       />
     </Dialog>
   )

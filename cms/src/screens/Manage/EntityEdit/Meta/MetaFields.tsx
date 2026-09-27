@@ -13,6 +13,8 @@ type MetaFieldsProps = {
   onAttributesChange: (attributes: AttributeData[]) => void
   translations: Translations
   onTranslationsChange: (translations: Translations) => void
+  // marks the attributes' keys that can't be applied (AttributesEditor)
+  showInvalid?: boolean
 }
 
 // The fields for a block's key and attributes, or an entity's attributes.
@@ -23,6 +25,7 @@ export const MetaFields: FC<MetaFieldsProps> = ({
   onAttributesChange,
   translations,
   onTranslationsChange,
+  showInvalid,
 }) => (
   <div className="flex flex-col gap-3">
     {keyName !== undefined && onKeyChange && (
@@ -41,6 +44,7 @@ export const MetaFields: FC<MetaFieldsProps> = ({
       onChange={onAttributesChange}
       translations={translations}
       onTranslationsChange={onTranslationsChange}
+      showInvalid={showInvalid}
     />
   </div>
 )

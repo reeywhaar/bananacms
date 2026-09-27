@@ -8,12 +8,16 @@ import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { AutosizeTextarea } from '#cms/components/AutosizeTextarea/AutosizeTextarea.tsx'
 import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
 import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { Field } from '#cms/components/Field/Field.tsx'
 
 type AttributesEditorProps = {
   attributes: AttributeData[]
   onChange: (next: AttributeData[]) => void
   translations: Translations
   onTranslationsChange: (translations: Translations) => void
+  // shows what's wrong with the keys (attributeKeyError), once applying them has
+  // been tried
+  showInvalid?: boolean
 }
 
 export const AttributesEditor: FC<AttributesEditorProps> = ({
@@ -21,6 +25,7 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
   onChange,
   translations,
   onTranslationsChange,
+  showInvalid = false,
 }) => {
   const update = (id: string, patch: Partial<AttributeData>) => {
     onChange(attributes.map((a) => (a.id === id ? { ...a, ...patch } : a)))
@@ -56,12 +61,17 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
           // h-7.5 is the text's field at one line, which grows with more. On a phone,
           // the text goes on a line of its own, under the key and the buttons.
           <div key={attr.id} className="flex flex-wrap items-start gap-2 sm:flex-nowrap">
-            <input
-              value={attr.key}
-              onChange={(e) => update(attr.id, { key: e.target.value })}
-              placeholder="key"
-              className="input h-7.5 min-w-0 flex-1 sm:flex-[0_0_180px]"
-            />
+            <Field
+              error={showInvalid ? attributeKeyError(attributes, attr) : null}
+              className="min-w-0 flex-1 sm:flex-[0_0_180px]"
+            >
+              <input
+                value={attr.key}
+                onChange={(e) => update(attr.id, { key: e.target.value })}
+                placeholder="key"
+                className="input h-7.5"
+              />
+            </Field>
             {showTranslatable && (
               <button
                 type="button"
@@ -113,6 +123,22 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
     </div>
   )
 }
+
+// What's wrong with an attribute's key, if the store would refuse it: there's none,
+// or another attribute has it too. A value can be empty.
+export const attributeKeyError = (
+  attributes: AttributeData[],
+  attr: AttributeData,
+): string | null => {
+  const key = attr.key.trim()
+  if (!key) return 'Required'
+  if (attributes.some((a) => a.id !== attr.id && a.key.trim() === key)) return 'Used twice'
+  return null
+}
+
+// whether the store would refuse any of the attributes, which then can't be applied
+export const attributesInvalid = (attributes: AttributeData[]): boolean =>
+  attributes.some((attr) => attributeKeyError(attributes, attr) !== null)
 
 export const purgeAttributeTranslations = (
   translations: Translations,

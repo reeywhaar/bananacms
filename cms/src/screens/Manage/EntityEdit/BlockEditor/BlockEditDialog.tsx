@@ -16,6 +16,7 @@ import { TextBlockEdit } from './TextBlockEdit.tsx'
 import { ImageBlockEdit } from './ImageBlockEdit.tsx'
 import { AssetBlockEdit } from './AssetBlockEdit.tsx'
 import { MetaBlockEdit } from './MetaBlockEdit.tsx'
+import { attributesInvalid } from '../AttributesEditor/AttributesEditor.tsx'
 
 type BlockEditDialogProps = {
   block: BlockData
@@ -51,6 +52,11 @@ export const BlockEditDialog: FC<BlockEditDialogProps> = ({
 }) => {
   const [draft, setDraft] = useState(block)
   const [draftTranslations, setDraftTranslations] = useState(translations)
+  const invalid = attributesInvalid(draft.attributes)
+  // Add or Apply has been pressed, so what's wrong with the attributes shows, until
+  // it's put right, as in MetaEditDialog
+  const [tried, setTried] = useState(false)
+  if (tried && !invalid) setTried(false)
   const { content } = draft
   const assetId = content.type === 'image' || content.type === 'asset' ? content.assetId : ''
   const name = typeNames[content.type] ?? content.type
@@ -70,6 +76,10 @@ export const BlockEditDialog: FC<BlockEditDialogProps> = ({
             type="button"
             className="button"
             onClick={() => {
+              if (invalid) {
+                setTried(true)
+                return
+              }
               onApply(draft, draftTranslations)
               onClose()
             }}
@@ -115,6 +125,7 @@ export const BlockEditDialog: FC<BlockEditDialogProps> = ({
         onAttributesChange={(attributes) => setDraft((d) => ({ ...d, attributes }))}
         translations={draftTranslations}
         onTranslationsChange={setDraftTranslations}
+        showInvalid={tried}
       />
     </Dialog>
   )

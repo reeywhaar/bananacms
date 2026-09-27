@@ -31,15 +31,9 @@ import {
   getResponseStatus,
   getUrl,
   isRscRequest,
-  setDatabases,
   setLogger,
 } from './context.ts'
-import {
-  createDatabasesOpener,
-  requestDatabases,
-  setDatabasesOpener,
-  type DatabasesOpener,
-} from './databases.ts'
+import { createDatabasesOpener, setDatabasesOpener, type DatabasesOpener } from './databases.ts'
 import { runMiddleware, type Middleware } from './middleware.ts'
 import { isNotFoundError } from './not_found.ts'
 import { documentResponse, redirectResponse } from './redirect_response.ts'
@@ -82,9 +76,11 @@ export default { fetch: handleRequest, close: () => databases.close() }
 // databases (databases.ts). Every request's context is a child of it. The dev
 // server keeps the open databases across reloads of this module, and makes the
 // context itself anew, since a reloaded context.ts has new keys for its values.
-const databases: DatabasesOpener = import.meta.hot?.data.databases ?? createDatabasesOpener()
+const rootLogger = createRootLogger()
+const databases: DatabasesOpener =
+  import.meta.hot?.data.databases ?? createDatabasesOpener(rootLogger)
 if (import.meta.hot) import.meta.hot.data.databases = databases
-const appContext = setDatabasesOpener(setLogger(new Context(), createRootLogger()), databases)
+const appContext = setDatabasesOpener(setLogger(new Context(), rootLogger), databases)
 
 // the site's middleware: the default export of src/middleware.ts, if it has one
 const siteMiddleware: readonly Middleware[] =
@@ -294,7 +290,7 @@ function unauthorized(): Response {
 }
 
 // Runs a server action with a ctx of its own, whose logger is labeled
-// [Request] [Action], its queries included, and logs how it went.
+// [Request] [Action], and logs how it went.
 async function runAction<T>(
   ctx: Context,
   actionId: string | undefined,
@@ -311,7 +307,6 @@ async function runAction<T>(
   log.debug('start', { actionId })
   try {
     const actionCtx = setLogger(ctx.child(), log)
-    setDatabases(actionCtx, await requestDatabases(actionCtx))
     const result = await run(actionCtx)
     log.info('end', { durationMs: since(startedAt) })
     return result

@@ -11,6 +11,7 @@ import {
   type DerivedDb,
 } from '../lib/db/client.ts'
 import { wrapClientWithQueryLog } from '../lib/db/queryLog.ts'
+import type { Logger } from '../lib/logger/Logger.ts'
 import { createRootLogger } from '../lib/logger/root.ts'
 import { snapshotsConfig } from '../lib/snapshots/config.ts'
 import type { SnapshotScheduler } from '../lib/snapshots/scheduler.ts'
@@ -20,7 +21,7 @@ import {
   type Migration,
   type MigrationEntry,
 } from '../lib/migrations/migration.ts'
-import { getLogger, required, type Context } from './context.ts'
+import { required, type Context } from './context.ts'
 
 // the site's own migrations, src/lib/migrations/<id>_<name>.ts (docs/migrations.md),
 // bundled with the app
@@ -46,11 +47,12 @@ type Clients = {
 // snapshot takes the place of.
 export type DatabasesOpener = { open(): Promise<Clients>; close(): Promise<void> }
 
-export function createDatabasesOpener(): DatabasesOpener {
+// The queries log under `logger`, the app's, as [DB].
+export function createDatabasesOpener(logger: Logger): DatabasesOpener {
   let clients: Promise<Clients> | undefined
   return {
     open: () =>
-      (clients ??= openClients().catch((error: unknown) => {
+      (clients ??= openClients(logger).catch((error: unknown) => {
         clients = undefined
         throw error
       })),
@@ -71,19 +73,17 @@ export function setDatabasesOpener(app: Context, open: DatabasesOpener): Context
   return app.set(DATABASES, open)
 }
 
-// A request's drizzle handles, on the app's clients, logging its queries under the
-// request's logger.
+// A request's drizzle handles, on the app's clients.
 export async function requestDatabases(ctx: Context): Promise<{ db: Db; derivedDb: DerivedDb }> {
   const clients = await required<DatabasesOpener>(ctx, DATABASES).open()
-  const logger = getLogger(ctx)
-  const db = createDb(wrapClientWithQueryLog(clients.main, logger))
+  const db = createDb(clients.main)
   return {
     db: clients.onWrite ? wrapDbWithWriteHook(db, clients.onWrite) : db,
-    derivedDb: createDerivedDb(wrapClientWithQueryLog(clients.derived, logger)),
+    derivedDb: createDerivedDb(clients.derived),
   }
 }
 
-async function openClients(): Promise<Clients> {
+async function openClients(logger: Logger): Promise<Clients> {
   const siteMigrations = siteMigrationEntries()
   const dataPath = process.env.DATA_PATH
   if (!dataPath) {
@@ -99,8 +99,8 @@ async function openClients(): Promise<Clients> {
   const scheduler =
     snapshots && createSnapshotScheduler(snapshots, main, createRootLogger().child('Snapshots'))
   return {
-    main,
-    derived,
+    main: wrapClientWithQueryLog(main, logger),
+    derived: wrapClientWithQueryLog(derived, logger),
     snapshots: scheduler ?? undefined,
     onWrite: scheduler ? () => scheduler.markDirty() : undefined,
   }

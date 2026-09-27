@@ -10,8 +10,7 @@ afterEach(() => {
 })
 
 function setup() {
-  const { logger: root, entries } = captureLogger()
-  const logger = root.child('Request', { traceId: 't1' })
+  const { logger, entries } = captureLogger()
   const client = createClient({ url: ':memory:' })
   clients.push(client)
   const wrapped = wrapClientWithQueryLog(client, logger)
@@ -19,7 +18,7 @@ function setup() {
 }
 
 describe('wrapClientWithQueryLog', () => {
-  it("logs execute with sql, timing and row counts at debug, under the request's logger", async () => {
+  it('logs execute with sql, timing and row counts at debug, under the root logger', async () => {
     const { wrapped, entries } = setup()
 
     await wrapped.execute('SELECT 1 AS one')
@@ -28,8 +27,7 @@ describe('wrapClientWithQueryLog', () => {
     const entry = entries[0]
     expect(entry.level).toBe('debug')
     expect(entry.message).toBe('query')
-    expect(entry.labels).toEqual(['Request', 'DB'])
-    expect(entry.fields).toEqual({ traceId: 't1' })
+    expect(entry.labels).toEqual(['DB'])
     expect(entry.args.sql).toBe('SELECT 1 AS one')
     expect(entry.args.durationMs).toBeTypeOf('number')
     expect(entry.args.rows).toBe(1)

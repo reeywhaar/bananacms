@@ -143,7 +143,7 @@ A request's logger is labeled `[Request]`. `child(label, fields)` makes a logger
 
   `LOG_FORMAT=json` writes one JSON object per entry, with the labels as an array, `"labels":["Request","Auth"]`. It's the default in production.
 
-Every line in a request carries the request's `traceId`, which comes from an `x-trace-id` header or is a new UUID. Each line also carries `request: { method, path }` and `auth: { type }`, where the type is `user`, `guest` or `invalidToken`.
+Every line of a request's logger carries the request's `traceId`, which comes from an `x-trace-id` header or is a new UUID. Each line also carries `request: { method, path }` and `auth: { type }`, where the type is `user`, `guest` or `invalidToken`.
 
 The CMS logs this:
 
@@ -152,10 +152,10 @@ The CMS logs this:
 | `[Request]`          | `start` (debug), `end` (info), `failed` (error)                            | each request, with its status and `durationMs`; `failed` becomes a 500   |
 | `[Request] [Action]` | `start` (debug), `end` (info), `failed` (error)                            | each server action, with its name and duration                           |
 | `[Request] [Render]` | `failed` (error), `aborted` (debug)                                        | each error thrown while rendering, once; `aborted` when the browser left |
-| `[Request] [DB]`     | `query` (debug), `query.slow` (warn, 100 ms and up), `query.failed` (warn) | each query's SQL and timing; its parameters aren't logged                |
+| `[DB]`               | `query` (debug), `query.slow` (warn, 100 ms and up), `query.failed` (warn) | each query's SQL and timing; its parameters aren't logged                |
 | `[Request] [Auth]`   | `login.attempt`, `login.success`, `login.failure`, `logout`                | sessions                                                                 |
 
-A query's line has its scope's labels: an action's queries log as `[Request] [Action] [DB]`.
+The databases are the app's, so their `[DB]` is a child of the app's logger, beside `[Request]`, and a query's line has none of the request's fields.
 
 ## React's development build copies props
 

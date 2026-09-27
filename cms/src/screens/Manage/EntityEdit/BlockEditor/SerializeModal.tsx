@@ -1,8 +1,9 @@
 'use client'
 
-import { type FC, useEffect, useRef, useState } from 'react'
+import { type FC, useState } from 'react'
 import type { BlockData } from '#cms/lib/blocks/declarations.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
+import { Dialog } from '#cms/components/Dialog/Dialog.tsx'
 import { useToast } from '#cms/components/Toast/Toast.tsx'
 import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
 import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
@@ -23,28 +24,11 @@ export const SerializeModal: FC<SerializeModalProps> = ({
   onClose,
 }) => {
   const { default: defaultLocale } = useCMSLocales()
-  const dialogRef = useRef<HTMLDialogElement>(null)
   const [value, setValue] = useState(() =>
     JSON.stringify(serializeBlocks(blocks, translations, defaultLocale), null, 2),
   )
   const [saving, setSaving] = useState(false)
   const showToast = useToast()
-
-  useEffect(() => {
-    dialogRef.current?.showModal()
-  }, [])
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    const handler = () => onClose()
-    dialog.addEventListener('close', handler)
-    return () => dialog.removeEventListener('close', handler)
-  }, [onClose])
-
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
-    if (e.target === dialogRef.current) onClose()
-  }
 
   const handleSave = () => {
     setSaving(true)
@@ -62,16 +46,22 @@ export const SerializeModal: FC<SerializeModalProps> = ({
   }
 
   return (
-    <dialog
-      ref={dialogRef}
-      onCancel={(e) => {
-        e.preventDefault()
-        onClose()
-      }}
-      onClick={handleBackdropClick}
-      className="m-auto w-full max-w-2xl rounded-lg shadow-xl p-4 backdrop:bg-black/50 flex flex-col gap-3 open:flex"
+    <Dialog
+      open
+      onClose={onClose}
+      title="Blocks JSON"
+      wide
+      footer={
+        <>
+          <button type="button" className="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="button" onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </>
+      }
     >
-      <h2 className="text-sm font-semibold text-gray-700">Blocks JSON</h2>
       <textarea
         className="w-full rounded border border-gray-300 p-2 text-xs font-mono resize-y"
         rows={20}
@@ -79,14 +69,6 @@ export const SerializeModal: FC<SerializeModalProps> = ({
         onChange={(e) => setValue(e.target.value)}
         spellCheck={false}
       />
-      <div className="flex justify-end gap-2">
-        <button type="button" className="button" onClick={onClose}>
-          Cancel
-        </button>
-        <button type="button" className="button" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
-    </dialog>
+    </Dialog>
   )
 }

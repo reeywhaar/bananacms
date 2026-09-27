@@ -1,6 +1,6 @@
 'use client'
 
-import { type FC, useEffect, useMemo, useRef, useState } from 'react'
+import { type FC, useMemo, useRef, useState } from 'react'
 import {
   DndContext,
   type DragEndEvent,
@@ -21,6 +21,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { BlockData, BlockType } from '#cms/lib/blocks/declarations.ts'
+import { Dialog } from '#cms/components/Dialog/Dialog.tsx'
 
 const INDENT_PX = 20
 
@@ -38,25 +39,12 @@ type BlockReorderModalProps = {
 }
 
 export const BlockReorderModal: FC<BlockReorderModalProps> = ({ blocks, onSave, onClose }) => {
-  const dialogRef = useRef<HTMLDialogElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const initialFlat = useMemo(() => flatten(blocks), [blocks])
   const [flat, setFlat] = useState<FlatItem[]>(initialFlat)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null>(null)
   const [offsetLeft, setOffsetLeft] = useState(0)
-
-  useEffect(() => {
-    dialogRef.current?.showModal()
-  }, [])
-
-  useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    const handler = () => onClose()
-    dialog.addEventListener('close', handler)
-    return () => dialog.removeEventListener('close', handler)
-  }, [onClose])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
@@ -138,21 +126,26 @@ export const BlockReorderModal: FC<BlockReorderModalProps> = ({ blocks, onSave, 
     onClose()
   }
 
-  const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
-    if (e.target === dialogRef.current) onClose()
-  }
-
   return (
-    <dialog
-      ref={dialogRef}
-      onCancel={(e) => {
-        e.preventDefault()
-        onClose()
-      }}
-      onClick={handleBackdropClick}
-      className="m-auto w-full max-w-xl rounded-lg shadow-xl p-4 backdrop:bg-black/50 flex flex-col gap-3 open:flex"
+    <Dialog
+      open
+      onClose={onClose}
+      title="Reorder blocks"
+      wide
+      footer={
+        <>
+          <button type="button" className="button mr-auto" onClick={() => setFlat(initialFlat)}>
+            Reset
+          </button>
+          <button type="button" className="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="button" onClick={handleSave}>
+            Save
+          </button>
+        </>
+      }
     >
-      <h2 className="text-sm font-semibold text-gray-700">Reorder blocks</h2>
       <div
         ref={listRef}
         className="flex flex-col gap-1 pb-24 max-h-[70vh] overflow-y-auto overflow-x-hidden"
@@ -180,18 +173,7 @@ export const BlockReorderModal: FC<BlockReorderModalProps> = ({ blocks, onSave, 
         </DndContext>
         {visible.length === 0 && <div className="text-sm italic opacity-50">No blocks.</div>}
       </div>
-      <div className="flex justify-end gap-2">
-        <button type="button" className="button mr-auto" onClick={() => setFlat(initialFlat)}>
-          Reset
-        </button>
-        <button type="button" className="button" onClick={onClose}>
-          Cancel
-        </button>
-        <button type="button" className="button" onClick={handleSave}>
-          Save
-        </button>
-      </div>
-    </dialog>
+    </Dialog>
   )
 }
 

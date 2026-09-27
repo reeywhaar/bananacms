@@ -52,13 +52,14 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
       </div>
       <div className="flex flex-col gap-2">
         {attributes.map((attr) => (
-          // h-7.5 is the text's field at one line, which grows with more
-          <div key={attr.id} className="flex flex-row gap-2 items-start">
+          // h-7.5 is the text's field at one line, which grows with more. On a phone,
+          // the text goes on a line of its own, under the key and the buttons.
+          <div key={attr.id} className="flex flex-wrap items-start gap-2 sm:flex-nowrap">
             <input
               value={attr.key}
               onChange={(e) => update(attr.id, { key: e.target.value })}
               placeholder="key"
-              className="input-sm h-7.5 flex-[0_0_180px]"
+              className="input-sm h-7.5 min-w-0 flex-1 sm:flex-[0_0_180px]"
             />
             {showTranslatable && (
               <button
@@ -84,7 +85,7 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
               translations={translations}
               onTranslationsChange={onTranslationsChange}
               localizable={attr.translatable}
-              className="flex-1"
+              className="order-last basis-full sm:order-none sm:basis-auto sm:flex-1"
               render={(value, onChange, _, placeholder) => (
                 <AutosizeTextarea
                   value={value}

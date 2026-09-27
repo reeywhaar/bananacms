@@ -12,21 +12,22 @@ type LocaleSwitchProps = {
 
 // The site's languages, to pick one to show: each green where the text is there in
 // it, grey where it's missing, and the one shown underlined, the line hanging out
-// of the switch, so it's as tall as its text. A click on it goes no further, so
-// it doesn't reach a card or a field it sits in.
+// of the switch, so it's as tall as its text. A click anywhere on it, between the
+// languages and a little around them too, goes no further, so a near miss doesn't
+// reach a card or a field it sits in, and the pointer there isn't the card's.
 export const LocaleSwitch: FC<LocaleSwitchProps> = ({ active, onChange, isFilled }) => {
   const { locales } = useCMSLocales()
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="-m-1 flex cursor-default items-center gap-2 p-1"
+      onClick={(e) => e.stopPropagation()}
+    >
       {locales.map((locale) => (
         <button
           key={locale.code}
           type="button"
           aria-pressed={active === locale.code}
-          onClick={(e) => {
-            e.stopPropagation()
-            onChange(locale.code)
-          }}
+          onClick={() => onChange(locale.code)}
           className={`relative text-xs font-medium uppercase leading-4 transition-colors ${
             isFilled(locale.code) ? 'text-translated' : 'text-gray-400'
           }`}

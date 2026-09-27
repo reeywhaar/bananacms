@@ -17,7 +17,7 @@ export const AutosizeTextarea: FC<AutosizeTextareaProps> = ({
   placeholder,
   maxRows = 20,
   rows = 3,
-  className = 'input resize-none overflow-y-auto',
+  className = 'input block resize-none overflow-y-auto',
 }) => {
   const ref = useRef<HTMLTextAreaElement>(null)
 

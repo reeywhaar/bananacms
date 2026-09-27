@@ -247,6 +247,19 @@ export class AssetStore {
     return result
   }
 
+  async getMimes(ids: string[]): Promise<Record<string, string>> {
+    if (ids.length === 0) return {}
+    const rows = await this.db
+      .select({ id: asset.id, mime: asset.mime })
+      .from(asset)
+      .where(inArray(asset.id, ids))
+    const result: Record<string, string> = {}
+    for (const row of rows) {
+      if (row.id != null) result[row.id] = row.mime
+    }
+    return result
+  }
+
   async add(id: string, payload: AssetPayload): Promise<void> {
     await this.db.transaction(async (tx) => {
       await tx.insert(asset).values({

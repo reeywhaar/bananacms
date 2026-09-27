@@ -34,6 +34,7 @@ export const Client: FC<{
   translations?: Translations
   assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
+  assetMimes?: Record<string, string>
 }> = ({
   post,
   blocks: initialBlocks = [],
@@ -44,6 +45,7 @@ export const Client: FC<{
   translations: initialTranslations,
   assetContents = {},
   assetSizes = {},
+  assetMimes = {},
 }) => {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -193,6 +195,7 @@ export const Client: FC<{
         onTranslationsChange={setTranslations}
         assetContents={assetContents}
         assetSizes={assetSizes}
+        assetMimes={assetMimes}
       />
       <div className="h-8" />
       <div className="sticky bottom-0 -mx-4 -mb-4 flex w-full justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3 box-content">

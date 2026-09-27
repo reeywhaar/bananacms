@@ -18,6 +18,7 @@ type BlockEditProps = {
   onTranslationsChange: (translations: Translations) => void
   assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
+  assetMimes?: Record<string, string>
 }
 
 // The block being edited in the dialog: one in the list at `index`, or a new one
@@ -34,6 +35,7 @@ export const BlockEdit: FC<BlockEditProps> = ({
   onTranslationsChange,
   assetContents = {},
   assetSizes = {},
+  assetMimes = {},
 }) => {
   const [dragging, setDragging] = useState(false)
   const [editing, setEditing] = useState<Editing | null>(null)
@@ -114,13 +116,16 @@ export const BlockEdit: FC<BlockEditProps> = ({
             onTranslationsChange={onTranslationsChange}
             assetContents={assetContents}
             assetSizes={assetSizes}
+            assetMimes={assetMimes}
           />
         ) : (
           <BlockCard
             key={block.id}
             block={block}
             translations={translations}
+            assetContents={assetContents}
             assetSizes={assetSizes}
+            assetMimes={assetMimes}
             onEdit={() => setEditing({ index, block })}
             onRemove={() => removeBlock(index)}
           />
@@ -186,6 +191,7 @@ type GroupRowProps = {
   onTranslationsChange: (translations: Translations) => void
   assetContents: Record<string, AssetContent>
   assetSizes: Record<string, number>
+  assetMimes: Record<string, string>
 }
 
 const GroupRow: FC<GroupRowProps> = ({
@@ -196,6 +202,7 @@ const GroupRow: FC<GroupRowProps> = ({
   onTranslationsChange,
   assetContents,
   assetSizes,
+  assetMimes,
 }) => {
   const [removing, setRemoving] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -247,6 +254,7 @@ const GroupRow: FC<GroupRowProps> = ({
           onTranslationsChange={onTranslationsChange}
           assetContents={assetContents}
           assetSizes={assetSizes}
+          assetMimes={assetMimes}
         />
       </div>
       {editing && (

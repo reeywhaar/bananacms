@@ -34,9 +34,13 @@ export default async function TagEdit({ ctx, id }: { ctx: Context; id?: string }
   collect(blocks)
 
   const assetStore = new AssetStore(db)
-  const [assetContents, assetSizes] = assetIds.length
-    ? await Promise.all([assetStore.getContent(assetIds), assetStore.getSizes(assetIds)])
-    : [{}, {}]
+  const [assetContents, assetSizes, assetMimes] = assetIds.length
+    ? await Promise.all([
+        assetStore.getContent(assetIds),
+        assetStore.getSizes(assetIds),
+        assetStore.getMimes(assetIds),
+      ])
+    : [{}, {}, {}]
 
   return (
     <WithBreadcrumbs
@@ -53,6 +57,7 @@ export default async function TagEdit({ ctx, id }: { ctx: Context; id?: string }
         initialAttributes={initialAttributes}
         assetContents={assetContents}
         assetSizes={assetSizes}
+        assetMimes={assetMimes}
       />
     </WithBreadcrumbs>
   )

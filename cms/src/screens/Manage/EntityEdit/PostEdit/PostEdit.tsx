@@ -49,10 +49,11 @@ export default async function PostEdit({ ctx, id }: { ctx: Context; id?: string 
   collect(blocks)
 
   const assetStore = new AssetStore(db)
-  const [category, assetContents, assetSizes] = await Promise.all([
+  const [category, assetContents, assetSizes, assetMimes] = await Promise.all([
     post ? new CategoryStore(db).query().byId(post.categoryId).first() : undefined,
     assetIds.length ? assetStore.getContent(assetIds) : {},
     assetIds.length ? assetStore.getSizes(assetIds) : {},
+    assetIds.length ? assetStore.getMimes(assetIds) : {},
   ])
 
   return (
@@ -79,6 +80,7 @@ export default async function PostEdit({ ctx, id }: { ctx: Context; id?: string 
         translations={translations}
         assetContents={assetContents}
         assetSizes={assetSizes}
+        assetMimes={assetMimes}
       />
     </WithBreadcrumbs>
   )

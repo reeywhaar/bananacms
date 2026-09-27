@@ -32,7 +32,7 @@ describe('AssetStore', () => {
     expect(await store.getData(ID_A)).toEqual(data)
   })
 
-  it('returns content and sizes for many ids without the blob', async () => {
+  it('returns content, sizes and mimes for many ids without the blob', async () => {
     using testDb = await createTestDb()
     const store = new AssetStore(testDb.db)
     await store.add(ID_A, {
@@ -45,6 +45,10 @@ describe('AssetStore', () => {
 
     expect(await store.getContent([ID_A, ID_B])).toEqual({ [ID_A]: CONTENT })
     expect(await store.getSizes([ID_A, ID_B])).toEqual({ [ID_A]: 2, [ID_B]: 3 })
+    expect(await store.getMimes([ID_A, ID_B])).toEqual({
+      [ID_A]: 'image/jpeg',
+      [ID_B]: 'application/pdf',
+    })
   })
 
   it('returns content of every type, not only images', async () => {

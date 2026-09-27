@@ -1,25 +1,54 @@
 'use client'
 
-import { type FC, useEffect, useLayoutEffect, useState } from 'react'
+import { type FC, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { marked } from 'marked'
 import type { BlockData, BlockTypeImage } from '#cms/lib/blocks/declarations.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
+import type {
+  AssetContent,
+  AssetImageContent,
+  AssetOutputFormat,
+} from '#cms/services/AssetStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
 import { X } from '#cms/components/icons.tsx'
 import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
 import { LocaleSwitch } from '#cms/screens/Manage/LocaleSwitch.tsx'
+import { LocaleStatus } from '#cms/screens/Manage/LocaleStatus.tsx'
 import { MetaView } from '../Meta/MetaView.tsx'
 
 type BlockCardProps = {
   block: BlockData
   translations: Translations
+  assetContents: Record<string, AssetContent>
   assetSizes: Record<string, number>
+  assetMimes: Record<string, string>
   onEdit: () => void
   onRemove: () => void
 }
 
 const contentTypeLabels = { plain: 'Plain', markdown: 'Markdown', html: 'HTML' }
+
+const formatLabels: Record<AssetOutputFormat['type'], string> = {
+  original: 'Original',
+  gif: 'GIF',
+  png8: 'PNG-8',
+  png24: 'PNG-24',
+  jpeg: 'JPEG',
+  webp: 'WebP',
+}
+
+const formatLabel = (format: AssetOutputFormat) =>
+  'quality' in format
+    ? `${formatLabels[format.type]}, quality ${format.quality}`
+    : formatLabels[format.type]
+
+// a list of a thing's details, a label and a value each, with the languages of a
+// translatable one between them when there are more languages than one
+const detailsGrid = (withStatus: boolean) =>
+  withStatus
+    ? 'grid-cols-[minmax(0,max-content)_max-content_minmax(0,1fr)]'
+    : 'grid-cols-[minmax(0,max-content)_minmax(0,1fr)]'
 
 // typography for a text block's markdown and HTML, which the reset strips
 const prose =
@@ -52,7 +81,9 @@ const translatableTexts = (block: BlockData) => {
 export const BlockCard: FC<BlockCardProps> = ({
   block,
   translations,
+  assetContents,
   assetSizes,
+  assetMimes,
   onEdit,
   onRemove,
 }) => {
@@ -114,7 +145,14 @@ export const BlockCard: FC<BlockCardProps> = ({
           <X size={16} strokeWidth={2} />
         </button>
       </div>
-      <BlockSummary block={block} assetSizes={assetSizes} localize={localize} />
+      <BlockSummary
+        block={block}
+        translations={translations}
+        assetContents={assetContents}
+        assetSizes={assetSizes}
+        assetMimes={assetMimes}
+        localize={localize}
+      />
       {block.attributes.length > 0 && (
         <MetaView attributes={block.attributes} translations={translations} locale={locale} />
       )}
@@ -124,25 +162,52 @@ export const BlockCard: FC<BlockCardProps> = ({
 
 const BlockSummary: FC<{
   block: BlockData
+  translations: Translations
+  assetContents: Record<string, AssetContent>
   assetSizes: Record<string, number>
+  assetMimes: Record<string, string>
   localize: Localize
-}> = ({ block, assetSizes, localize }) => {
+}> = ({ block, translations, assetContents, assetSizes, assetMimes, localize }) => {
+  const { locales } = useCMSLocales()
+  const withStatus = locales.length > 1
   const { content } = block
   if (content.type === 'text') {
-    const { text, missing } = localize('block:' + block.id + ':text', content.text)
+    const key = 'block:' + block.id + ':text'
+    const { text, missing } = localize(key, content.text)
     const contentType = content.contentType ?? 'plain'
-    if (!text || contentType === 'plain') return <PlainSummary text={text} missing={missing} />
     return (
-      <RenderedSummary
-        html={contentType === 'markdown' ? marked.parse(text, { async: false }) : text}
-        missing={missing}
-      />
+      <div className="flex min-w-0 items-start gap-3">
+        {withStatus && (
+          <span className="flex h-5 shrink-0 items-center">
+            <LocaleStatus text={content.text} translationKey={key} translations={translations} />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          {!text || contentType === 'plain' ? (
+            <PlainSummary text={text} missing={missing} />
+          ) : (
+            <RenderedSummary
+              html={contentType === 'markdown' ? marked.parse(text, { async: false }) : text}
+              missing={missing}
+            />
+          )}
+        </div>
+      </div>
     )
   }
   if (content.type === 'meta') return <PlainSummary text={content.text} missing={false} />
   if (content.type === 'image') {
+    const assetContent = assetContents[content.assetId]
     return (
-      <ImageSummary content={content} alt={localize('block:' + block.id + ':alt', content.alt)} />
+      <ImageSummary
+        block={block as BlockData & { content: BlockTypeImage }}
+        alt={localize('block:' + block.id + ':alt', content.alt)}
+        assetContent={assetContent?.type === 'image' ? assetContent : null}
+        size={assetSizes[content.assetId]}
+        mime={assetMimes[content.assetId]}
+        translations={translations}
+        withStatus={withStatus}
+      />
     )
   }
   if (content.type === 'asset') {
@@ -192,44 +257,141 @@ const RenderedSummary: FC<{ html: string; missing: boolean }> = ({ html, missing
   )
 }
 
-// A new image's file shows through an object URL, and a saved one from its asset.
-const ImageSummary: FC<{ content: BlockTypeImage; alt: ReturnType<Localize> }> = ({
-  content,
-  alt,
-}) => {
+// A new image's file shows through an object URL, and a saved one from its asset,
+// whole in a box of its own, with its details beside it: those of the file, and
+// the settings of the image the site shows, a new image's as the dialog set them.
+const ImageSummary: FC<{
+  block: BlockData & { content: BlockTypeImage }
+  alt: ReturnType<Localize>
+  assetContent: AssetImageContent | null
+  size: number | undefined
+  mime: string | undefined
+  translations: Translations
+  withStatus: boolean
+}> = ({ block, alt, assetContent, size, mime, translations, withStatus }) => {
+  const { content } = block
+  const file = content.pendingFile
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
+  // the file's own size, which a saved image's content has too, unless it's old
+  const [natural, setNatural] = useState<{ width: number; height: number } | null>(null)
+  const img = useRef<HTMLImageElement>(null)
 
   useEffect(() => {
-    if (!content.pendingFile) return
-    const url = URL.createObjectURL(content.pendingFile)
+    if (!file) return
+    const url = URL.createObjectURL(file)
     setObjectUrl(url)
     return () => URL.revokeObjectURL(url)
-  }, [content.pendingFile])
+  }, [file])
 
-  const src = content.pendingFile ? objectUrl : content.assetId && getAssetUrl(content.assetId)
-  const name = content.pendingFile?.name ?? content.name
+  const src = file ? objectUrl : content.assetId && getAssetUrl(content.assetId)
+
+  // one loaded before the page was hydrated has had its load event already
+  useEffect(() => {
+    const el = img.current
+    if (el?.complete && el.naturalWidth) {
+      setNatural({ width: el.naturalWidth, height: el.naturalHeight })
+    }
+  }, [src])
+
+  const settings = file
+    ? {
+        resolution: content.pendingResolution,
+        outputAs: content.pendingOutputAs,
+        maxSize: content.pendingMaxSize,
+      }
+    : {
+        resolution: assetContent?.resolution,
+        outputAs: assetContent?.output_as,
+        maxSize: assetContent?.maxSize,
+      }
+  const dimensions =
+    !file && assetContent?.width && assetContent.height
+      ? { width: assetContent.width, height: assetContent.height }
+      : natural
+  const type = file ? file.type : mime
+  const bytes = file ? file.size : size
+  const name = file?.name ?? content.name
 
   return (
-    <div className="flex min-w-0 items-center gap-3">
-      {src ? (
-        <img
-          src={src}
-          alt={content.alt}
-          className="h-16 w-24 shrink-0 rounded bg-gray-100 object-cover"
-        />
-      ) : (
-        <div className="flex h-16 w-24 shrink-0 items-center justify-center rounded bg-gray-100 text-xs text-gray-400">
-          No image
-        </div>
-      )}
-      <div className="flex min-w-0 flex-col text-sm">
-        {name && <span className="truncate text-gray-700">{name}</span>}
-        {alt.text && (
-          <span className={`truncate ${alt.missing ? 'text-gray-300' : 'text-gray-500'}`}>
-            {alt.text}
-          </span>
+    <div className="flex min-w-0 items-start gap-4">
+      <div className="flex size-50 shrink-0 items-center justify-center rounded-md border border-gray-200 bg-gray-100 p-3">
+        {src ? (
+          <img
+            ref={img}
+            src={src}
+            alt={content.alt}
+            className="size-full object-contain"
+            onLoad={(e) =>
+              setNatural({
+                width: e.currentTarget.naturalWidth,
+                height: e.currentTarget.naturalHeight,
+              })
+            }
+          />
+        ) : (
+          <span className="text-xs text-gray-400">No image</span>
         )}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-2 text-sm">
+        {name && <span className="truncate text-gray-700">{name}</span>}
+        <dl className={`grid gap-x-4 gap-y-1 ${detailsGrid(withStatus)}`}>
+          <Detail
+            label="Alt"
+            withStatus={withStatus}
+            status={
+              <LocaleStatus
+                text={content.alt}
+                translationKey={'block:' + block.id + ':alt'}
+                translations={translations}
+              />
+            }
+          >
+            <span className={alt.text && !alt.missing ? '' : 'text-gray-400'}>
+              {alt.text || '—'}
+            </span>
+          </Detail>
+          {type && (
+            <Detail label="Type" withStatus={withStatus}>
+              {type}
+            </Detail>
+          )}
+          {dimensions && (
+            <Detail label="Dimensions" withStatus={withStatus}>
+              {dimensions.width} × {dimensions.height}
+            </Detail>
+          )}
+          {bytes != null && (
+            <Detail label="Size" withStatus={withStatus}>
+              {formatSize(bytes)}
+            </Detail>
+          )}
+          <Detail label="Resolution" withStatus={withStatus}>
+            {settings.resolution ?? '@1x'}
+          </Detail>
+          <Detail label="Output" withStatus={withStatus}>
+            {settings.outputAs ? formatLabel(settings.outputAs) : 'Original'}
+          </Detail>
+          {settings.maxSize && (
+            <Detail label="Max size" withStatus={withStatus}>
+              {settings.maxSize.width} × {settings.maxSize.height}
+            </Detail>
+          )}
+        </dl>
       </div>
     </div>
   )
 }
+
+const Detail: FC<{
+  label: string
+  withStatus: boolean
+  // the languages of a translatable detail
+  status?: ReactNode
+  children: ReactNode
+}> = ({ label, withStatus, status, children }) => (
+  <>
+    <dt className="truncate text-gray-500">{label}</dt>
+    {withStatus && <span className="self-center">{status}</span>}
+    <dd className="truncate text-gray-800">{children}</dd>
+  </>
+)

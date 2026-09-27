@@ -256,6 +256,7 @@ describe('bananacms build + start', () => {
     const response = await fetch(`${server.url}/robots.txt`)
     expect(response.status).toBe(200)
     expect(await response.text()).toBe('User-agent: *\nAllow: /\n')
+    expect(response.headers.get('cache-control')).toBeNull()
   })
 
   it('serves the sitemap, with each page in each language', async () => {
@@ -290,7 +291,7 @@ describe('bananacms build + start', () => {
     const page = await html('/en')
     const frame = /<section class="([\w-]+_frame)"/.exec(page)?.[1]
     expect(frame).toBeDefined()
-    const hrefs = [...new Set(page.match(/\/assets\/[\w-]+\.css/g))]
+    const hrefs = [...new Set(page.match(/\/assets\/build\/[\w-]+\.css/g))]
     const css = (
       await Promise.all(hrefs.map(async (href) => (await fetch(server.url + href)).text()))
     ).join('\n')
@@ -299,17 +300,20 @@ describe('bananacms build + start', () => {
   })
 
   it('serves its font from the site itself', async () => {
-    const hrefs = [...new Set((await html('/en')).match(/\/assets\/[\w-]+\.css/g))]
+    const hrefs = [...new Set((await html('/en')).match(/\/assets\/build\/[\w-]+\.css/g))]
     const css = (
       await Promise.all(hrefs.map(async (href) => (await fetch(server.url + href)).text()))
     ).join('\n')
     expect(css).toMatch(/font-family:\s*["']?Noto Sans Display Variable/)
-    const file = /url\("?(\/assets\/noto-sans-display-latin-wdth-normal-[\w-]+\.woff2)"?\)/.exec(
-      css,
-    )?.[1]
+    const file =
+      /url\("?(\/assets\/build\/noto-sans-display-latin-wdth-normal-[\w-]+\.woff2)"?\)/.exec(
+        css,
+      )?.[1]
     expect(file).toBeDefined()
     const font = await fetch(server.url + file)
     expect(font.status).toBe(200)
     expect(font.headers.get('content-type')).toBe('font/woff2')
+    // hashed, so browsers keep it without asking again, which they don't a public file
+    expect(font.headers.get('cache-control')).toBe('max-age=31536000, immutable')
   })
 })

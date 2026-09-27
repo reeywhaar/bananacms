@@ -3,7 +3,7 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { serve, type Server } from 'srvx'
-import { staticMiddleware } from 'srvx/static'
+import { clientFilesMiddleware } from './client_files.ts'
 import {
   checkServerEnv,
   printUsersHint,
@@ -35,7 +35,7 @@ export async function start(
     port: options.port,
     hostname: options.host,
     // client assets and public files; every other request goes to the app
-    middleware: [staticMiddleware({ dir: path.join(dist, 'client') })],
+    middleware: [clientFilesMiddleware(path.join(dist, 'client'))],
     fetch: app.default.fetch,
     // the listening line is printed below, so it also shows when $TEST is set
     silent: true,

@@ -9,6 +9,7 @@ import {
   type InlineConfig,
   type Plugin,
 } from 'vite'
+import { BUILD_ASSETS_DIR } from './client_files.ts'
 import { tsconfigAliases } from './tsconfig_paths.ts'
 
 const PACKAGE = '@reeywhaar/bananacms'
@@ -40,6 +41,10 @@ export function createViteConfig(root: string): InlineConfig {
     css: { transformer: 'lightningcss' },
     // the `paths` of the site's tsconfig.json, like "@app/*", in code and in CSS
     resolve: { alias: tsconfigAliases(root) },
+    // Every environment's, as the client build copies the server components' CSS
+    // and fonts over under the names the rsc build gave them. `start` serves the
+    // directory to be kept for good (client_files.ts).
+    build: { assetsDir: BUILD_ASSETS_DIR },
     plugins: [
       tailwindcss(),
       // enables fast refresh for client components

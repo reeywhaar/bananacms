@@ -59,7 +59,9 @@ export const LocalizableField: FC<LocalizableFieldProps> = ({
   return (
     <div className={['relative', className].filter(Boolean).join(' ')}>
       {localizable && allLocales.length > 1 && (
-        <div className="absolute right-2 top-0.5">
+        // on the label's line, or without one, on the field's first line: an .input's
+        // border and padding and half its line, less half the switch's
+        <div className={`absolute right-2 ${label ? 'top-0.5' : 'top-[7px]'}`}>
           <LocaleSwitch active={activeLocale} onChange={setActiveLocale} isFilled={isFilled} />
         </div>
       )}

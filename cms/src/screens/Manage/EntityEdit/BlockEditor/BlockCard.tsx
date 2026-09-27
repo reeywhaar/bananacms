@@ -110,9 +110,7 @@ export const BlockCard: FC<BlockCardProps> = ({
         )}
         <div className="grow" />
         {locales.length > 1 && texts.length > 0 && (
-          <div className="-my-2">
-            <LocaleSwitch active={locale} onChange={setLocale} isFilled={isFilled} />
-          </div>
+          <LocaleSwitch active={locale} onChange={setLocale} isFilled={isFilled} />
         )}
         <button
           type="button"

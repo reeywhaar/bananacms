@@ -3,7 +3,8 @@
 import { type FC, useState } from 'react'
 import type { AttributeData } from '#cms/services/AttributeStore.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
-import { MetaView } from './MetaView.tsx'
+import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { AttributesLocaleSwitch, MetaView } from './MetaView.tsx'
 import { MetaEditDialog } from './MetaEditDialog.tsx'
 
 type AttributesSectionProps = {
@@ -22,6 +23,8 @@ export const AttributesSection: FC<AttributesSectionProps> = ({
   onTranslationsChange,
 }) => {
   const [editing, setEditing] = useState(false)
+  const { default: defaultLocale } = useCMSLocales()
+  const [locale, setLocale] = useState(defaultLocale)
 
   return (
     <>
@@ -31,18 +34,26 @@ export const AttributesSection: FC<AttributesSectionProps> = ({
       >
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-700">Attributes</span>
-          <button
-            type="button"
-            className="button-sm"
-            onClick={(e) => {
-              e.stopPropagation()
-              setEditing(true)
-            }}
-          >
-            Edit
-          </button>
+          <div className="flex items-center gap-2">
+            <AttributesLocaleSwitch
+              attributes={attributes}
+              translations={translations}
+              active={locale}
+              onChange={setLocale}
+            />
+            <button
+              type="button"
+              className="button-sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                setEditing(true)
+              }}
+            >
+              Edit
+            </button>
+          </div>
         </div>
-        <MetaView attributes={attributes} translations={translations} />
+        <MetaView attributes={attributes} translations={translations} locale={locale} />
       </div>
       {editing && (
         <MetaEditDialog

@@ -59,7 +59,7 @@ export const LocalizableField: FC<LocalizableFieldProps> = ({
   return (
     <div className={['relative', className].filter(Boolean).join(' ')}>
       {localizable && allLocales.length > 1 && (
-        <div className="absolute right-2 top-[-2px]">
+        <div className="absolute right-2 top-0.5">
           <LocaleSwitch active={activeLocale} onChange={setActiveLocale} isFilled={isFilled} />
         </div>
       )}

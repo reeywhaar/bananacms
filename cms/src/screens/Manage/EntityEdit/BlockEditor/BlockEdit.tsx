@@ -5,7 +5,8 @@ import type { BlockTypeGroup, BlockData, BlockType } from '#cms/lib/blocks/decla
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { X } from '#cms/components/icons.tsx'
-import { MetaView } from '../Meta/MetaView.tsx'
+import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { AttributesLocaleSwitch, MetaView } from '../Meta/MetaView.tsx'
 import { MetaEditDialog } from '../Meta/MetaEditDialog.tsx'
 import { BlockCard } from './BlockCard.tsx'
 import { BlockEditDialog } from './BlockEditDialog.tsx'
@@ -206,6 +207,8 @@ const GroupRow: FC<GroupRowProps> = ({
 }) => {
   const [removing, setRemoving] = useState(false)
   const [editing, setEditing] = useState(false)
+  const { default: defaultLocale } = useCMSLocales()
+  const [locale, setLocale] = useState(defaultLocale)
 
   return (
     <div
@@ -225,6 +228,12 @@ const GroupRow: FC<GroupRowProps> = ({
           </button>
         )}
         <div className="grow" />
+        <AttributesLocaleSwitch
+          attributes={block.attributes}
+          translations={translations}
+          active={locale}
+          onChange={setLocale}
+        />
         <button type="button" className="button-sm" onClick={() => setEditing(true)}>
           Edit
         </button>
@@ -241,7 +250,7 @@ const GroupRow: FC<GroupRowProps> = ({
       </div>
       {block.attributes.length > 0 && (
         <div className="cursor-pointer" onClick={() => setEditing(true)}>
-          <MetaView attributes={block.attributes} translations={translations} />
+          <MetaView attributes={block.attributes} translations={translations} locale={locale} />
         </div>
       )}
       <div className="border-l border-gray-200 pl-4">

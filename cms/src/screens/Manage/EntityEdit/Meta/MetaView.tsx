@@ -1,6 +1,6 @@
 'use client'
 
-import { type FC, useState } from 'react'
+import type { FC } from 'react'
 import type { AttributeData } from '#cms/services/AttributeStore.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
@@ -12,34 +12,23 @@ type MetaViewProps = {
   keyName?: string
   attributes: AttributeData[]
   translations: Translations
-  // the language to show, when a switch around it picks it; without one, it has its own
-  locale?: string
+  // the language to show, which an AttributesLocaleSwitch in the header over it picks
+  locale: string
 }
 
-// A block's key and attributes, or an entity's attributes, to read. With more than
-// one language, a translatable attribute has its languages after its key, green
-// where it's translated, and a switch shows the attributes in another language,
-// where one missing its translation shows its own text, greyed.
-export const MetaView: FC<MetaViewProps> = ({
-  keyName,
-  attributes,
-  translations,
-  locale: outerLocale,
-}) => {
+// A block's key and attributes, or an entity's attributes, to read, in `locale`,
+// where one missing its translation shows its own text, greyed. With more than one
+// language, a translatable attribute has its languages after its key, green where
+// it's translated.
+export const MetaView: FC<MetaViewProps> = ({ keyName, attributes, translations, locale }) => {
   const { locales, default: defaultLocale } = useCMSLocales()
-  const [ownLocale, setLocale] = useState(defaultLocale)
-  const locale = outerLocale ?? ownLocale
 
   if (!keyName && attributes.length === 0) {
     return <span className="text-sm italic text-gray-400">No attributes</span>
   }
 
-  const translatable = attributes.filter((attr) => attr.translatable)
   const translated = (attr: AttributeData, code: string) =>
     translations[code]?.['attribute:' + attr.id + ':text']
-  const isFilled = (code: string) =>
-    code === defaultLocale || translatable.every((attr) => !attr.text || !!translated(attr, code))
-  const withStatus = locales.length > 1 && translatable.length > 0
 
   return (
     <div className="flex flex-col gap-1 text-sm">
@@ -49,39 +38,61 @@ export const MetaView: FC<MetaViewProps> = ({
         </span>
       )}
       {attributes.length > 0 && (
-        <div className="flex items-start gap-4">
-          <dl className="grid min-w-0 flex-1 grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1">
-            {attributes.map((attr) => {
-              const text =
-                attr.translatable && locale !== defaultLocale ? translated(attr, locale) : attr.text
-              return (
-                <div key={attr.id} className="contents">
-                  <dt className="wrap-anywhere text-gray-500">
-                    {attr.key || '—'}
-                    {withStatus && attr.translatable && (
-                      <span className="ml-1.5">
-                        <LocaleStatus
-                          text={attr.text}
-                          translationKey={'attribute:' + attr.id + ':text'}
-                          translations={translations}
-                        />
-                      </span>
-                    )}
-                  </dt>
-                  <dd className={`wrap-anywhere ${text ? 'text-gray-800' : 'text-gray-400'}`}>
-                    {text || attr.text}
-                  </dd>
-                </div>
-              )
-            })}
-          </dl>
-          {outerLocale === undefined && withStatus && (
-            <div className="-mt-1.5 shrink-0">
-              <LocaleSwitch active={locale} onChange={setLocale} isFilled={isFilled} />
-            </div>
-          )}
-        </div>
+        <dl className="grid min-w-0 grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1">
+          {attributes.map((attr) => {
+            const text =
+              attr.translatable && locale !== defaultLocale ? translated(attr, locale) : attr.text
+            return (
+              <div key={attr.id} className="contents">
+                <dt className="wrap-anywhere text-gray-500">
+                  {attr.key || '—'}
+                  {locales.length > 1 && attr.translatable && (
+                    <span className="ml-1.5">
+                      <LocaleStatus
+                        text={attr.text}
+                        translationKey={'attribute:' + attr.id + ':text'}
+                        translations={translations}
+                      />
+                    </span>
+                  )}
+                </dt>
+                <dd className={`wrap-anywhere ${text ? 'text-gray-800' : 'text-gray-400'}`}>
+                  {text || attr.text}
+                </dd>
+              </div>
+            )
+          })}
+        </dl>
       )}
     </div>
   )
+}
+
+type AttributesLocaleSwitchProps = {
+  attributes: AttributeData[]
+  translations: Translations
+  active: string
+  onChange: (locale: string) => void
+}
+
+// The switch between the languages of attributes, for the header over their
+// MetaView: a language is green where each translatable attribute with a text has
+// it in that language. There's none with one language, or nothing to translate.
+export const AttributesLocaleSwitch: FC<AttributesLocaleSwitchProps> = ({
+  attributes,
+  translations,
+  active,
+  onChange,
+}) => {
+  const { locales, default: defaultLocale } = useCMSLocales()
+  if (locales.length < 2 || !attributes.some((attr) => attr.translatable)) return null
+  const isFilled = (code: string) =>
+    code === defaultLocale ||
+    attributes.every(
+      (attr) =>
+        !attr.translatable ||
+        !attr.text ||
+        !!translations[code]?.['attribute:' + attr.id + ':text'],
+    )
+  return <LocaleSwitch active={active} onChange={onChange} isFilled={isFilled} />
 }

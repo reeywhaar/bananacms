@@ -4,6 +4,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type FC,
@@ -30,7 +31,9 @@ type DialogProps = {
 
 // A modal on the native <dialog>, whose showModal() brings focus trapping, Escape
 // and the top layer. It's controlled, and its contents mount only while it's open,
-// so a form in it starts afresh each time. While it's open, the page, and the
+// so a form in it starts afresh each time, and only once it's shown, so what they
+// measure as they mount, like an autosized field its height, isn't 0 from a closed
+// dialog's display: none. While it's open, the page, and the
 // dialog it was opened from, don't scroll, and a press on the backdrop closes it.
 //
 // It's rendered into <body>, out of any form around the component that opens it,
@@ -45,25 +48,32 @@ export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer
   // past the edge, targets the dialog too, so only a press there closes it.
   const pressedBackdrop = useRef(false)
   const [host, setHost] = useState<HTMLElement | null>(null)
+  // whether the dialog is open, which it is only after the render that opens it
+  const [shown, setShown] = useState(false)
 
   useEffect(() => setHost(document.body), [])
 
-  useEffect(() => {
+  // Before paint, as is the render of the contents that follows, so the dialog
+  // isn't drawn empty.
+  useLayoutEffect(() => {
     const dialog = ref.current
     if (!dialog) return
     // guarded both ways: showModal() throws on an open dialog, and close() on a
     // closed one fires another close event
-    if (open && !dialog.open) {
-      dialog.showModal()
-      // showModal() focuses the first control, whatever it is: a delete button
-      // looks armed. A field marked data-autofocus gets it, or else the dialog.
-      const wants = dialog.querySelector('[data-autofocus]')
-      if (wants instanceof HTMLElement) wants.focus()
-      else dialog.focus()
-    } else if (!open && dialog.open) {
-      dialog.close()
-    }
+    if (open && !dialog.open) dialog.showModal()
+    else if (!open && dialog.open) dialog.close()
+    setShown(open)
   }, [open, host])
+
+  // showModal() focuses the first control, whatever it is: a delete button looks
+  // armed. A field marked data-autofocus gets it, or else the dialog.
+  useLayoutEffect(() => {
+    const dialog = ref.current
+    if (!shown || !dialog) return
+    const wants = dialog.querySelector('[data-autofocus]')
+    if (wants instanceof HTMLElement) wants.focus()
+    else dialog.focus()
+  }, [shown])
 
   useEffect(() => {
     if (!open) return
@@ -107,7 +117,7 @@ export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer
         wide ? 'sm:w-[min(42rem,calc(100vw-2rem))]' : 'sm:w-[min(28rem,calc(100vw-2rem))]'
       }`}
     >
-      {open && (
+      {open && shown && (
         <DialogBodyContext.Provider value={bodyRef}>
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-4 py-2">
             <h2 className="truncate text-sm font-semibold text-gray-700">{title}</h2>

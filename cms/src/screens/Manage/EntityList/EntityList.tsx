@@ -39,25 +39,30 @@ export default async function EntityList({
         </div>
         {entityDescriptor.renderList
           ? entityDescriptor.renderList(ctx, items)
-          : items.map((item) => (
-              <div key={item.id} className="flex items-center gap-3">
-                <Link
-                  className="link"
-                  href={
-                    entityDescriptor.show
-                      ? routing.entityShow(entity, item.id)
-                      : routing.entityEdit(entity, item.id)
-                  }
-                >
-                  {item.name}
-                </Link>
-                {'postCount' in item && (
-                  <span className="text-sm text-gray-400">
-                    {item.postCount as number} {(item.postCount as number) === 1 ? 'post' : 'posts'}
-                  </span>
-                )}
+          : items.length > 0 && (
+              // each a card, with how many posts it has, if it has posts
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {items.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={
+                      entityDescriptor.show
+                        ? routing.entityShow(entity, item.id)
+                        : routing.entityEdit(entity, item.id)
+                    }
+                    className="flex flex-col gap-1 rounded-lg border border-gray-200 bg-white p-4 transition-colors hover:border-gray-300"
+                  >
+                    <span className="wrap-anywhere font-medium text-link">{item.name}</span>
+                    {'postCount' in item && (
+                      <span className="text-sm text-gray-500">
+                        {item.postCount as number}{' '}
+                        {(item.postCount as number) === 1 ? 'post' : 'posts'}
+                      </span>
+                    )}
+                  </Link>
+                ))}
               </div>
-            ))}
+            )}
       </div>
     </WithBreadcrumbs>
   )

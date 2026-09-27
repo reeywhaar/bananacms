@@ -18,7 +18,7 @@ type Screen = (ctx: Context, params: Record<string, string>) => ReactNode | Prom
 
 // The admin's screens, by their URLs under /manage.
 const routes: [string, Screen][] = [
-  ['/manage', () => MainPage()],
+  ['/manage', (ctx) => MainPage({ ctx })],
   ['/manage/login', () => LoginPage()],
   ['/manage/invite', (ctx) => PasswordTokenPage({ ctx, kind: 'invite' })],
   ['/manage/recover', (ctx) => PasswordTokenPage({ ctx, kind: 'recover' })],

@@ -50,7 +50,7 @@ export const Client: FC<{
               </Link>
               {item.status && (
                 <span
-                  className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${item.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                  className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${item.status === 'published' ? 'bg-published-bg text-published' : 'bg-gray-100 text-gray-500'}`}
                 >
                   {item.status}
                 </span>

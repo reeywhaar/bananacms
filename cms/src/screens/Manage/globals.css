@@ -8,7 +8,7 @@
    with black for text and fills that carry white text. static, so the base the
    shades mix from is on :root whether or not a class uses it. */
 @theme static {
-  --color-accent: #eeba1f;
+  --color-accent: oklch(81% 0.17 88);
   --color-accent-50: color-mix(in oklab, var(--color-accent) 15%, white);
   --color-accent-100: color-mix(in oklab, var(--color-accent) 30%, white);
   --color-accent-200: color-mix(in oklab, var(--color-accent) 55%, white);
@@ -24,24 +24,29 @@
   --color-link-hover: color-mix(in oklab, var(--color-link) 75%, black);
 
   /* destructive actions, and a darker mix of their color on hover. The red is
-     rgb(236 47 4) warmed with a tenth of Tailwind's orange-500, mixed in oklab. */
-  --color-danger: oklch(62% 0.225 33.857);
+     halfway from rgb(236 47 4) to Tailwind's orange-500, mixed in oklab, with a
+     twentieth less chroma. */
+  --color-danger: oklch(65.8% 0.207 39.783);
   --color-danger-hover: color-mix(in oklab, var(--color-danger) 80%, black);
 
-  /* a language a text is translated into, in the language switch and labels:
-     Tailwind's green-600 warmed with a fifth of a yellowish grey,
-     oklch(72% 0.06 95), mixed in oklab */
-  --color-translated: oklch(64.6% 0.163 145.78);
+  /* a published post's status, on a fill mixed from it: Tailwind's green-700
+     warmed with a fifth of a yellowish grey, oklch(72% 0.06 95), mixed in oklab */
+  --color-published: oklch(56.6% 0.13 145.744);
+  --color-published-bg: color-mix(in oklab, var(--color-published) 12%, white);
+
+  /* a language a text is translated into, in the language switch and labels: the
+     same green */
+  --color-translated: var(--color-published);
 }
 
-/* fills for buttons and selections, which lean a little to the link color, or
-   the danger color to the accent, towards the bottom */
+/* fills for buttons and selections, which lean a little to a red, or the danger
+   color to the accent, towards the bottom */
 @utility gradient-accent {
   background-origin: border-box;
   background-image: linear-gradient(
     170deg in oklab,
     var(--color-accent),
-    color-mix(in oklab, var(--color-accent), var(--color-link) 10%)
+    color-mix(in oklab, var(--color-accent), oklch(52% 0.2 27) 15%)
   );
 }
 

@@ -57,7 +57,7 @@ export default function EntityShowTemplate({
               </Link>
               {item.status && (
                 <span
-                  className={`text-xs px-1.5 py-0.5 rounded font-medium ${item.status === 'published' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
+                  className={`text-xs px-1.5 py-0.5 rounded font-medium ${item.status === 'published' ? 'bg-published-bg text-published' : 'bg-gray-100 text-gray-500'}`}
                 >
                   {item.status}
                 </span>

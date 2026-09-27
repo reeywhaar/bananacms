@@ -1,6 +1,7 @@
 'use client'
 
-import { type FC, useEffect, useState } from 'react'
+import { type FC, useEffect, useLayoutEffect, useState } from 'react'
+import { marked } from 'marked'
 import type { BlockData, BlockTypeImage } from '#cms/lib/blocks/declarations.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
@@ -19,6 +20,10 @@ type BlockCardProps = {
 }
 
 const contentTypeLabels = { plain: 'Plain', markdown: 'Markdown', html: 'HTML' }
+
+// typography for a text block's markdown and HTML, which the reset strips
+const prose =
+  'space-y-1 [&_a]:underline [&_code]:font-mono [&_em]:italic [&_h1,&_h2,&_h3,&_h4,&_h5,&_h6]:font-semibold [&_img]:max-h-24 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5'
 
 // A text in the language shown: its translation, or, missing one, its own text,
 // which shows greyed
@@ -123,21 +128,18 @@ const BlockSummary: FC<{
   localize: Localize
 }> = ({ block, assetSizes, localize }) => {
   const { content } = block
-  if (content.type === 'text' || content.type === 'meta') {
-    const { text, missing } =
-      content.type === 'text'
-        ? localize('block:' + block.id + ':text', content.text)
-        : { text: content.text, missing: false }
-    return text ? (
-      <p
-        className={`line-clamp-3 whitespace-pre-line text-sm ${missing ? 'text-gray-400' : 'text-gray-700'}`}
-      >
-        {text}
-      </p>
-    ) : (
-      <span className="text-sm italic text-gray-400">Empty</span>
+  if (content.type === 'text') {
+    const { text, missing } = localize('block:' + block.id + ':text', content.text)
+    const contentType = content.contentType ?? 'plain'
+    if (!text || contentType === 'plain') return <PlainSummary text={text} missing={missing} />
+    return (
+      <RenderedSummary
+        html={contentType === 'markdown' ? marked.parse(text, { async: false }) : text}
+        missing={missing}
+      />
     )
   }
+  if (content.type === 'meta') return <PlainSummary text={content.text} missing={false} />
   if (content.type === 'image') {
     return (
       <ImageSummary content={content} alt={localize('block:' + block.id + ':alt', content.alt)} />
@@ -155,6 +157,39 @@ const BlockSummary: FC<{
     )
   }
   return null
+}
+
+const PlainSummary: FC<{ text: string; missing: boolean }> = ({ text, missing }) =>
+  text ? (
+    <p
+      className={`line-clamp-3 whitespace-pre-line text-sm ${missing ? 'text-gray-400' : 'text-gray-700'}`}
+    >
+      {text}
+    </p>
+  ) : (
+    <span className="text-sm italic text-gray-400">Empty</span>
+  )
+
+// Markdown's HTML, or a block's own, rendered, and made whole first in a <template>:
+// a stray end tag, or one left open, stays in the card. There's no <template> on
+// the server, so it shows once the page is in the browser. A click on a link in
+// it is the card's, rather than one leaving the page.
+const RenderedSummary: FC<{ html: string; missing: boolean }> = ({ html, missing }) => {
+  const [whole, setWhole] = useState<string | null>(null)
+
+  useLayoutEffect(() => {
+    const template = document.createElement('template')
+    template.innerHTML = html
+    setWhole(template.innerHTML)
+  }, [html])
+
+  if (whole === null) return null
+  return (
+    <div
+      className={`pointer-events-none line-clamp-3 text-sm ${prose} ${missing ? 'text-gray-400' : 'text-gray-700'}`}
+      dangerouslySetInnerHTML={{ __html: whole }}
+    />
+  )
 }
 
 // A new image's file shows through an object URL, and a saved one from its asset.

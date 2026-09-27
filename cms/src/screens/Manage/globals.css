@@ -29,7 +29,7 @@
 }
 
 /* fills for buttons and selections, which lean a little to the link color, or
-   to black, towards the bottom */
+   the danger color to the accent, towards the bottom */
 @utility gradient-accent {
   background-origin: border-box;
   background-image: linear-gradient(
@@ -44,7 +44,7 @@
   background-image: linear-gradient(
     170deg in oklab,
     var(--color-danger),
-    color-mix(in oklab, var(--color-danger), black 10%)
+    color-mix(in oklab, var(--color-danger), var(--color-accent) 10%)
   );
 }
 

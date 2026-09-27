@@ -12,6 +12,28 @@ const TAG_ALPHA = '019dbcea-d3a4-75e7-b37a-190d51650111'
 const TAG_BRAVO = '019dbcea-d3a4-75e7-b37a-190d51650222'
 const TAG_CHARLIE = '019dbcea-d3a4-75e7-b37a-190d51650333'
 
+describe('TagStore.getByParents', () => {
+  it("returns each post's tags by name, and leaves out posts without any", async () => {
+    using testDb = await createTestDb()
+    await seedPostsAndTags(testDb)
+    const byPost = await new TagStore(testDb.db).getByParents('post', [POST_A, POST_B, 'no-such'])
+    expect(Object.keys(byPost).sort()).toEqual([POST_A, POST_B].sort())
+    expect(byPost[POST_A].map((t) => t.name)).toEqual(['Alpha', 'Bravo'])
+    expect(byPost[POST_B].map((t) => t.name)).toEqual(['Alpha', 'Charlie'])
+    expect(byPost[POST_A][0]).toEqual({
+      id: TAG_BRAVO,
+      shortid: 'bravshrt',
+      name: 'Alpha',
+      slug: 'alpha',
+    })
+  })
+
+  it('returns nothing for no parents', async () => {
+    using testDb = await createTestDb()
+    expect(await new TagStore(testDb.db).getByParents('post', [])).toEqual({})
+  })
+})
+
 describe('TagStore.query', () => {
   it('returns tags attached to a post, ordered by name by default', async () => {
     using testDb = await createTestDb()

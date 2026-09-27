@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, like, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, like, sql, type SQL } from 'drizzle-orm'
 import { ApiError } from '../lib/api/error.ts'
 import type { Db } from '../lib/db/client.ts'
 import { tag, parentTag, post, localizations } from '../lib/db/schema.ts'
@@ -56,6 +56,27 @@ export class TagStore {
 
   query(): TagQuery {
     return TagQuery.for(this.db)
+  }
+
+  // The tags of each parent in `parentIds`, by name, in one query. A parent with
+  // no tags isn't in the result.
+  async getByParents(parentTable: string, parentIds: string[]): Promise<Record<string, TagData[]>> {
+    if (parentIds.length === 0) return {}
+    const rows = await this.db
+      .select({
+        id: tag.id,
+        shortid: tag.shortid,
+        name: tag.name,
+        slug: tag.slug,
+        parentId: parentTag.parentId,
+      })
+      .from(tag)
+      .innerJoin(parentTag, eq(parentTag.tagId, tag.id))
+      .where(and(eq(parentTag.parentTable, parentTable), inArray(parentTag.parentId, parentIds)))
+      .orderBy(asc(tag.name), asc(tag.id))
+    const result: Record<string, TagData[]> = {}
+    for (const { parentId, ...data } of rows) (result[parentId] ??= []).push(data)
+    return result
   }
 
   async setParent(parentTable: string, parentId: string, tagIds: string[]): Promise<void> {

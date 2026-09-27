@@ -1,13 +1,19 @@
 import type { FC } from 'react'
 import type { Context } from '#cms/framework/context.ts'
 import type { PostData } from '#cms/services/PostStore.ts'
-import { CategoryStore } from '#cms/stores.ts'
+import { CategoryStore, TagStore } from '#cms/stores.ts'
 import { Client } from './Client.tsx'
 import { getDb } from '#cms/framework/context.ts'
 
 export const PostReorderList: FC<{ ctx: Context; posts: PostData[] }> = async ({ ctx, posts }) => {
-  const categoryStore = new CategoryStore(getDb(ctx))
-  const categories = await categoryStore.query().all()
+  const db = getDb(ctx)
+  const [categories, tagsByPost] = await Promise.all([
+    new CategoryStore(db).query().all(),
+    new TagStore(db).getByParents(
+      'post',
+      posts.map((post) => post.id),
+    ),
+  ])
 
-  return <Client posts={posts} categories={categories} />
+  return <Client posts={posts} categories={categories} tagsByPost={tagsByPost} />
 }

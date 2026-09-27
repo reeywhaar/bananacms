@@ -90,11 +90,13 @@ export function SortableRows<T extends { id: string }>({
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={localItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-        {localItems.map((item) => (
-          <SortableRow key={item.id} id={item.id}>
-            {renderItem(item)}
-          </SortableRow>
-        ))}
+        <div className="flex flex-col gap-2">
+          {localItems.map((item) => (
+            <SortableRow key={item.id} id={item.id}>
+              {renderItem(item)}
+            </SortableRow>
+          ))}
+        </div>
       </SortableContext>
     </DndContext>
   )
@@ -113,7 +115,7 @@ const SortableRow = ({ id, children }: { id: string; children: ReactNode }) => {
     <div
       ref={setNodeRef}
       style={style}
-      className="grid grid-cols-[auto_1fr_auto] items-center gap-x-2 py-1"
+      className="grid grid-cols-[auto_1fr] items-center gap-x-3 rounded-lg border border-gray-200 bg-white px-3 py-2"
     >
       <button
         type="button"

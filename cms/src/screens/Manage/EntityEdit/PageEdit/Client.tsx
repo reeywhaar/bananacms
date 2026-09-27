@@ -9,7 +9,7 @@ import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import type { AttributeData } from '#cms/services/AttributeStore.ts'
 import { BlockEditor } from '../BlockEditor/BlockEditor.tsx'
-import { AttributesEditor } from '../AttributesEditor/AttributesEditor.tsx'
+import { AttributesSection } from '../Meta/AttributesSection.tsx'
 import { resolveBlocks, preventFileNavigation } from '../BlockEditor/resolveBlocks.ts'
 import { addPage, editPage, deletePage } from './utils.ts'
 import { routing } from '#cms/screens/Manage/routing.ts'
@@ -86,7 +86,7 @@ export const Client: FC<{
           <input value={key} onChange={(e) => setKey(e.target.value)} className="input-xl" />
         </label>
       </div>
-      <AttributesEditor
+      <AttributesSection
         attributes={attributes}
         onChange={setAttributes}
         translations={translations}

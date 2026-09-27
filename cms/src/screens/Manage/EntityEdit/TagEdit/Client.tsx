@@ -7,7 +7,7 @@ import type { AssetContent } from '#cms/services/AssetStore.ts'
 import type { BlockData } from '#cms/lib/blocks/declarations.ts'
 import { useRouter } from '#cms/framework/navigation.ts'
 import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
-import { AttributesEditor } from '../AttributesEditor/AttributesEditor.tsx'
+import { AttributesSection } from '../Meta/AttributesSection.tsx'
 import { BlockEditor } from '../BlockEditor/BlockEditor.tsx'
 import { resolveBlocks, preventFileNavigation } from '../BlockEditor/resolveBlocks.ts'
 import { type FC, useState } from 'react'
@@ -115,7 +115,7 @@ export const Client: FC<{
           />
         </label>
       </div>
-      <AttributesEditor
+      <AttributesSection
         attributes={attributes}
         onChange={setAttributes}
         translations={translations}

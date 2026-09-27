@@ -13,7 +13,7 @@ import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
 import { BlockEditor } from '../BlockEditor/BlockEditor.tsx'
 import { resolveBlocks, preventFileNavigation } from '../BlockEditor/resolveBlocks.ts'
-import { AttributesEditor } from '../AttributesEditor/AttributesEditor.tsx'
+import { AttributesSection } from '../Meta/AttributesSection.tsx'
 import { TagInput } from './TagInput.tsx'
 import { addPost, editPost, deletePost } from './utils.ts'
 import { routing } from '#cms/screens/Manage/routing.ts'
@@ -179,7 +179,7 @@ export const Client: FC<{
         </div>
       </div>
       {tags.length > 0 && <TagInput tags={tags} value={tagIds} onChange={setTagIds} />}
-      <AttributesEditor
+      <AttributesSection
         attributes={attributes}
         onChange={setAttributes}
         translations={translations}

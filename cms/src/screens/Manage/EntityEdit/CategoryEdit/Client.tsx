@@ -8,7 +8,7 @@ import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
 import { type FC, useState } from 'react'
 import { addCategory, editCategory, deleteCategory } from './utils.ts'
 import { BlockEditor } from '../BlockEditor/BlockEditor.tsx'
-import { AttributesEditor } from '../AttributesEditor/AttributesEditor.tsx'
+import { AttributesSection } from '../Meta/AttributesSection.tsx'
 import { resolveBlocks, preventFileNavigation } from '../BlockEditor/resolveBlocks.ts'
 import { routing } from '#cms/screens/Manage/routing.ts'
 import { useToast } from '#cms/components/Toast/Toast.tsx'
@@ -120,7 +120,7 @@ export const Client: FC<{
           />
         </label>
       </div>
-      <AttributesEditor
+      <AttributesSection
         attributes={attributes}
         onChange={setAttributes}
         translations={translations}

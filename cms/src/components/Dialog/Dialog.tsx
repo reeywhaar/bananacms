@@ -5,10 +5,12 @@ import {
   useContext,
   useEffect,
   useRef,
+  useState,
   type FC,
   type ReactNode,
   type RefObject,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from '../icons.tsx'
 import { lockScroll } from './lockScroll.ts'
 
@@ -30,6 +32,11 @@ type DialogProps = {
 // and the top layer. It's controlled, and its contents mount only while it's open,
 // so a form in it starts afresh each time. While it's open, the page, and the
 // dialog it was opened from, don't scroll, and a press on the backdrop closes it.
+//
+// It's rendered into <body>, out of any form around the component that opens it,
+// like an entity's: its buttons would submit that form, and so would Enter in its
+// fields. React still bubbles its events to that component, so a clickable
+// element renders the dialog it opens beside it rather than inside it.
 export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer, wide }) => {
   const ref = useRef<HTMLDialogElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -37,6 +44,9 @@ export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer
   // A click that started inside and ended on the backdrop, like selecting text
   // past the edge, targets the dialog too, so only a press there closes it.
   const pressedBackdrop = useRef(false)
+  const [host, setHost] = useState<HTMLElement | null>(null)
+
+  useEffect(() => setHost(document.body), [])
 
   useEffect(() => {
     const dialog = ref.current
@@ -53,7 +63,7 @@ export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer
     } else if (!open && dialog.open) {
       dialog.close()
     }
-  }, [open])
+  }, [open, host])
 
   useEffect(() => {
     if (!open) return
@@ -66,7 +76,8 @@ export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer
     }
   }, [open, parentBody])
 
-  return (
+  if (!host) return null
+  return createPortal(
     <dialog
       ref={ref}
       tabIndex={-1}
@@ -121,6 +132,7 @@ export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer
           )}
         </DialogBodyContext.Provider>
       )}
-    </dialog>
+    </dialog>,
+    host,
   )
 }

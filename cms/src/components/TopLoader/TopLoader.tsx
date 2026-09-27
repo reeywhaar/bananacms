@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type CSSProperties } from 'react'
-import { useNavigationPending } from '../../framework/navigation.ts'
+import { useNavigationPending } from '#cms/framework/navigation.ts'
 
 const PHASES: Record<'idle' | 'loading' | 'done', CSSProperties> = {
   idle: { transform: 'scaleX(0)', opacity: 0, transition: 'none' },

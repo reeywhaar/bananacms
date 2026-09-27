@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
-import { AuthTokenStore } from '../../services/AuthTokenStore.ts'
-import { sha256hex } from '../../services/password.ts'
-import { createTestDb, type TestDb } from '../../test/db.ts'
+import { AuthTokenStore } from '#cms/services/AuthTokenStore.ts'
+import { sha256hex } from '#cms/services/password.ts'
+import { createTestDb, type TestDb } from '#cms/test/db.ts'
 import migration from './1790450351289_derived_authtoken_hash.ts'
 
 const inAWeek = () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()

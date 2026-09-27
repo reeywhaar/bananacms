@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { createClient } from '@libsql/client'
 import { describe, expect, it } from 'vitest'
 import { asset, assetBlob, block, category, post } from '../db/schema.ts'
-import { createTestDb, type TestDb } from '../../test/db.ts'
+import { createTestDb, type TestDb } from '#cms/test/db.ts'
 import { dumpDatabase, hashDump } from './dump.ts'
 
 const BLOCK_CONTENT = "line1\nline2 'quoted' with a literal \\n sequence\r\nand a tab\t."

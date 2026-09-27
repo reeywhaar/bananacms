@@ -6,7 +6,7 @@ import { X } from '#cms/components/icons.tsx'
 import type { AttributeData } from '#cms/services/AttributeStore.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { AutosizeTextarea } from '#cms/components/AutosizeTextarea/AutosizeTextarea.tsx'
-import { LocalizableField } from '../../LocalizableField.tsx'
+import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
 import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
 
 type AttributesEditorProps = {

@@ -7,8 +7,8 @@ import { LocalizationStore } from '#cms/services/LocalizationStore.ts'
 import type { BlockData } from '#cms/lib/blocks/declarations.ts'
 import { notFound } from '#cms/framework/not_found.ts'
 import { Client } from './Client.tsx'
-import { WithBreadcrumbs } from '../../BreadCrumbs/Breadcrumbs.tsx'
-import { routing } from '../../routing.ts'
+import { WithBreadcrumbs } from '#cms/screens/Manage/BreadCrumbs/Breadcrumbs.tsx'
+import { routing } from '#cms/screens/Manage/routing.ts'
 import { getDb } from '#cms/framework/context.ts'
 
 export default async function TagEdit({ ctx, id }: { ctx: Context; id?: string }) {

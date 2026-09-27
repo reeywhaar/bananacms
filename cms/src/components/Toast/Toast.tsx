@@ -1,6 +1,6 @@
 'use client'
 
-import { invariant } from '../../utils/invariant.ts'
+import { invariant } from '#cms/utils/invariant.ts'
 import { AlertTriangle, Info, XCircle } from '../icons.tsx'
 import {
   createContext,

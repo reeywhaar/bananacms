@@ -1,5 +1,5 @@
 import type { SQL } from 'drizzle-orm'
-import type { Db } from '../../lib/db/client.ts'
+import type { Db } from '#cms/lib/db/client.ts'
 
 export type SortOrder = 'asc' | 'desc'
 

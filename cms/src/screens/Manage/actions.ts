@@ -1,10 +1,10 @@
 'use server'
 
 import { setTimeout as sleep } from 'node:timers/promises'
-import { defineAction } from '../../framework/actions.ts'
-import { redirect } from '../../framework/redirect.ts'
-import { adminAction } from '../../lib/adminAction.ts'
-import { ApiError } from '../../lib/api/error.ts'
+import { defineAction } from '#cms/framework/actions.ts'
+import { redirect } from '#cms/framework/redirect.ts'
+import { adminAction } from '#cms/lib/adminAction.ts'
+import { ApiError } from '#cms/lib/api/error.ts'
 import {
   LOGIN_PATH,
   logIn,
@@ -12,12 +12,12 @@ import {
   pathAfterLogin,
   requireAuth,
   setPasswordWithToken,
-} from '../../lib/auth.ts'
-import { AuthTokenStore } from '../../services/AuthTokenStore.ts'
-import { hashPassword, verifyPassword } from '../../services/password.ts'
-import { UserStore } from '../../services/UserStore.ts'
-import { getDb, getDerivedDb, getLogger, getUrl } from '../../framework/context.ts'
-import { MANAGE_PATH } from '../../framework/request.ts'
+} from '#cms/lib/auth.ts'
+import { AuthTokenStore } from '#cms/services/AuthTokenStore.ts'
+import { hashPassword, verifyPassword } from '#cms/services/password.ts'
+import { UserStore } from '#cms/services/UserStore.ts'
+import { getDb, getDerivedDb, getLogger, getUrl } from '#cms/framework/context.ts'
+import { MANAGE_PATH } from '#cms/framework/request.ts'
 
 // The username goes back into the form after a failure: React resets a form once
 // its action is done, and the field's default value comes from this state.

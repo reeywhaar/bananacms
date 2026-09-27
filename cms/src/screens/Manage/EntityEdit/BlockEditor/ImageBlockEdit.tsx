@@ -8,7 +8,7 @@ import type {
   AssetResolution,
 } from '#cms/services/AssetStore.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
-import { LocalizableField } from '../../LocalizableField.tsx'
+import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { updateAssetContent } from './actions.ts'
 import { handleServerResult } from '#cms/lib/serverActions.ts'

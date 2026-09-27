@@ -1,16 +1,16 @@
 'use client'
 
 import type { FC } from 'react'
-import { useRouter } from '../../framework/navigation.ts'
-import { Link } from '../../framework/link.tsx'
+import { useRouter } from '#cms/framework/navigation.ts'
+import { Link } from '#cms/framework/link.tsx'
 import { useToast } from '../Toast/Toast.tsx'
 import { SortableRows } from '../SortableRows/SortableRows.tsx'
-import { extractErrorMessage } from '../../utils/extractErrorMessage.ts'
-import type { PostData } from '../../services/PostStore.ts'
-import { routing } from '../../screens/Manage/routing.ts'
-import { movePost } from '../../screens/Manage/EntityEdit/CategoryEdit/utils.ts'
-import type { CategoryData } from '../../services/CategoryStore.ts'
-import { handleServerResult } from '../../lib/serverActions.ts'
+import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
+import type { PostData } from '#cms/services/PostStore.ts'
+import { routing } from '#cms/screens/Manage/routing.ts'
+import { movePost } from '#cms/screens/Manage/EntityEdit/CategoryEdit/utils.ts'
+import type { CategoryData } from '#cms/services/CategoryStore.ts'
+import { handleServerResult } from '#cms/lib/serverActions.ts'
 
 export const Client: FC<{ posts: PostData[]; categories: CategoryData[] }> = ({
   posts,

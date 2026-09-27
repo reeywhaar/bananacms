@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { category } from '../db/schema.ts'
-import { createTestDb } from '../../test/db.ts'
+import { createTestDb } from '#cms/test/db.ts'
 import { wrapDbWithWriteHook } from './setup.ts'
 
 describe('wrapDbWithWriteHook', () => {

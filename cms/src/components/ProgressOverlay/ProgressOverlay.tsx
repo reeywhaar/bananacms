@@ -1,6 +1,6 @@
 'use client'
 
-import { invariant } from '../../utils/invariant.ts'
+import { invariant } from '#cms/utils/invariant.ts'
 import {
   createContext,
   type FC,
@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react'
 import { flushSync } from 'react-dom'
-import { useDisposableEffect } from '../../hooks/useDisposableEffect.ts'
+import { useDisposableEffect } from '#cms/hooks/useDisposableEffect.ts'
 
 export type WithProgress = (fn: () => Promise<void>) => Promise<void>
 

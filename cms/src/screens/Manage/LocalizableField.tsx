@@ -1,8 +1,8 @@
 'use client'
 
 import { type FC, type ReactNode, useState } from 'react'
-import { useCMSLocales } from '../../components/CMSLocalesProvider/CMSLocalesProvider.tsx'
-import type { Translations } from '../../services/LocalizationStore.ts'
+import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
 
 type LocalizableFieldProps = {
   label: string

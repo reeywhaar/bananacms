@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { captureLogger as capture } from '../../test/logger.ts'
+import { captureLogger as capture } from '#cms/test/logger.ts'
 import { mergeFields } from './Logger.ts'
 
 describe('Logger', () => {

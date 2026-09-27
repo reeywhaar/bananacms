@@ -4,15 +4,15 @@ import '@fontsource/roboto/500.css'
 import '@fontsource/roboto/700.css'
 import './globals.css' // css import is automatically injected in exported server components
 import type { ReactNode } from 'react'
-import { CMSLocalesProvider } from '../../components/CMSLocalesProvider/CMSLocalesProvider.tsx'
-import { ProgressOverlayProvider } from '../../components/ProgressOverlay/ProgressOverlay.tsx'
-import { ToastProvider } from '../../components/Toast/Toast.tsx'
+import { CMSLocalesProvider } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { ProgressOverlayProvider } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
+import { ToastProvider } from '#cms/components/Toast/Toast.tsx'
 import { TopLoader } from '#cms/components/TopLoader/TopLoader.tsx'
-import type { Context } from '../../framework/context.ts'
-import { getSiteConfig } from '../../framework/site_config.ts'
+import type { Context } from '#cms/framework/context.ts'
+import { getSiteConfig } from '#cms/framework/site_config.ts'
 import { AdminBar } from './AdminBar/AdminBar.tsx'
 import { BreadcrumbsProvider } from './BreadCrumbs/Breadcrumbs.tsx'
-import { getAuth } from '../../framework/context.ts'
+import { getAuth } from '#cms/framework/context.ts'
 
 export default function ManageLayout({ ctx, children }: { ctx: Context; children: ReactNode }) {
   const { locales } = getSiteConfig()

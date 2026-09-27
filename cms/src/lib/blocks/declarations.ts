@@ -1,7 +1,7 @@
-import type { Translations } from '../../services/LocalizationStore.ts'
-import type { AttributeData } from '../../services/AttributeStore.ts'
-import { valita } from '../../utils/valita.ts'
-import type { AssetOutputFormat, AssetResolution } from '../../services/AssetStore.ts'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
+import type { AttributeData } from '#cms/services/AttributeStore.ts'
+import { valita } from '#cms/utils/valita.ts'
+import type { AssetOutputFormat, AssetResolution } from '#cms/services/AssetStore.ts'
 
 // ─── Block types ─────────────────────────────────────────────────────────────
 

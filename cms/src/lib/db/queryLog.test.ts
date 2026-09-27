@@ -1,6 +1,6 @@
 import { createClient, type Client } from '@libsql/client'
 import { afterEach, describe, expect, it } from 'vitest'
-import { captureLogger } from '../../test/logger.ts'
+import { captureLogger } from '#cms/test/logger.ts'
 import { wrapClientWithQueryLog } from './queryLog.ts'
 
 const clients: Client[] = []

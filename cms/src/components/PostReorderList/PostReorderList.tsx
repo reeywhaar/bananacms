@@ -1,9 +1,9 @@
 import type { FC } from 'react'
-import type { Context } from '../../framework/context.ts'
-import type { PostData } from '../../services/PostStore.ts'
-import { CategoryStore } from '../../stores.ts'
+import type { Context } from '#cms/framework/context.ts'
+import type { PostData } from '#cms/services/PostStore.ts'
+import { CategoryStore } from '#cms/stores.ts'
 import { Client } from './Client.tsx'
-import { getDb } from '../../framework/context.ts'
+import { getDb } from '#cms/framework/context.ts'
 
 export const PostReorderList: FC<{ ctx: Context; posts: PostData[] }> = async ({ ctx, posts }) => {
   const categoryStore = new CategoryStore(getDb(ctx))

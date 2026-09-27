@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import type { Context } from '../../framework/context.ts'
-import { notFound } from '../../framework/not_found.ts'
-import { renderRoute } from '../../framework/render_route.tsx'
+import type { Context } from '#cms/framework/context.ts'
+import { notFound } from '#cms/framework/not_found.ts'
+import { renderRoute } from '#cms/framework/render_route.tsx'
 import EntityAdd from './EntityEdit/EntityAdd.tsx'
 import EntityEdit from './EntityEdit/EntityEdit.tsx'
 import EntityList from './EntityList/EntityList.tsx'
@@ -12,7 +12,7 @@ import MainPage from './MainPage/MainPage.tsx'
 import MePage from './MePage/MePage.tsx'
 import { NotFound } from './NotFound.tsx'
 import PasswordTokenPage from './PasswordTokenPage/PasswordTokenPage.tsx'
-import { getUrl } from '../../framework/context.ts'
+import { getUrl } from '#cms/framework/context.ts'
 
 type Screen = (ctx: Context, params: Record<string, string>) => ReactNode | Promise<ReactNode>
 

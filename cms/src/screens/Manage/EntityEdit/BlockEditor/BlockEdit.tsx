@@ -13,7 +13,7 @@ import type {
 } from '#cms/lib/blocks/declarations.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import type { AssetContent, AssetImageContent } from '#cms/services/AssetStore.ts'
-import { LocalizableField } from '../../LocalizableField.tsx'
+import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
 import { ImageBlockEdit } from './ImageBlockEdit.tsx'
 import { AssetBlockEdit } from './AssetBlockEdit.tsx'
 import { AttributesEditor } from '../AttributesEditor/AttributesEditor.tsx'

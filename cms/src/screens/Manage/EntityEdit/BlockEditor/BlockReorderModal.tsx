@@ -3,27 +3,19 @@
 import { type FC, useMemo, useRef, useState } from 'react'
 import {
   DndContext,
-  type DragEndEvent,
   type DragMoveEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-  MeasuringStrategy,
   PointerSensor,
-  closestCenter,
+  useDraggable,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import type { BlockData, BlockType } from '#cms/lib/blocks/declarations.ts'
 import { Dialog } from '#cms/components/Dialog/Dialog.tsx'
+import { DropLine, draggedMiddle, gapAt, gapTop } from '#cms/components/SortableRows/DropLine.tsx'
 
 const INDENT_PX = 20
+// the list's gap between rows, which the drop line sits in the middle of
+const GAP_PX = 4
 
 type FlatItem = {
   id: string
@@ -32,93 +24,55 @@ type FlatItem = {
   block: BlockData
 }
 
+// Where a dragged block would go: before the row at `index` of the list, or after
+// the last one at its length, at `depth`, with the line that shows it `top` from
+// the list's top.
+type Drop = { index: number; depth: number; top: number }
+
 type BlockReorderModalProps = {
   blocks: BlockData[]
   onSave: (blocks: BlockData[]) => void
   onClose: () => void
 }
 
+// The blocks as a list to reorder, a group's own under it. A dragged block, and a
+// group's blocks with it, stay in place, greyed, and a line shows where it would
+// go (DropLine.tsx), at the depth dragging it sideways picks.
 export const BlockReorderModal: FC<BlockReorderModalProps> = ({ blocks, onSave, onClose }) => {
   const listRef = useRef<HTMLDivElement>(null)
+  const rows = useRef(new Map<string, HTMLElement>())
   const initialFlat = useMemo(() => flatten(blocks), [blocks])
   const [flat, setFlat] = useState<FlatItem[]>(initialFlat)
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [overId, setOverId] = useState<string | null>(null)
-  const [offsetLeft, setOffsetLeft] = useState(0)
+  const [drop, setDrop] = useState<Drop | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
-  const descendantIds = useMemo(
-    () => (activeId ? getDescendantIds(flat, activeId) : new Set<string>()),
+  const dragged = useMemo(
+    () => (activeId ? new Set([activeId, ...getDescendantIds(flat, activeId)]) : new Set()),
     [flat, activeId],
   )
 
-  const visible = useMemo(
-    () => (activeId ? flat.filter((f) => !descendantIds.has(f.id)) : flat),
-    [flat, activeId, descendantIds],
-  )
-
-  const projection = useMemo(() => {
-    if (!activeId || !overId) return null
-    return getProjection(visible, activeId, overId, offsetLeft)
-  }, [visible, activeId, overId, offsetLeft])
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id))
-    setOverId(String(event.active.id))
-    setOffsetLeft(0)
-  }
-
-  const handleDragOver = (event: DragOverEvent) => {
-    setOverId(event.over ? String(event.over.id) : null)
-  }
-
+  // as it's dragged, and as the list scrolls under it
   const handleDragMove = (event: DragMoveEvent) => {
-    setOffsetLeft(event.delta.x)
+    const list = listRef.current
+    const y = draggedMiddle(event)
+    if (!list || y === null) return
+    const id = String(event.active.id)
+    const rects = flat.map((f) => rows.current.get(f.id)!.getBoundingClientRect())
+    const { index, depth } = findDrop(flat, id, gapAt(rects, y), event.delta.x)
+    setDrop({ index, depth, top: gapTop(rects, index, list, GAP_PX) })
+  }
+
+  const handleDragEnd = () => {
+    if (activeId && drop) setFlat(applyDrop(flat, activeId, drop))
+    setActiveId(null)
+    setDrop(null)
   }
 
   const handleDragCancel = () => {
     setActiveId(null)
-    setOverId(null)
-    setOffsetLeft(0)
-  }
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over, delta } = event
-    const activeStr = String(active.id)
-    const overStr = over ? String(over.id) : null
-    setActiveId(null)
-    setOverId(null)
-    setOffsetLeft(0)
-    if (!overStr) return
-
-    const activeItem = flat.find((f) => f.id === activeStr)
-    if (!activeItem) return
-
-    const descendants = getDescendantIds(flat, activeStr)
-    if (descendants.has(overStr)) return
-
-    const visibleFlat = flat.filter((f) => !descendants.has(f.id))
-    const proj = getProjection(visibleFlat, activeStr, overStr, delta.x)
-    if (!proj) return
-
-    const activeIdx = visibleFlat.findIndex((f) => f.id === activeStr)
-    const overIdx = visibleFlat.findIndex((f) => f.id === overStr)
-    const reordered = arrayMove(visibleFlat, activeIdx, overIdx)
-    const finalIdx = reordered.findIndex((f) => f.id === activeStr)
-    const shift = proj.depth - activeItem.depth
-    reordered[finalIdx] = { ...activeItem, depth: proj.depth, parentId: proj.parentId }
-
-    const descendantItems = flat
-      .filter((f) => descendants.has(f.id))
-      .map((d) => ({ ...d, depth: d.depth + shift }))
-
-    const merged = [
-      ...reordered.slice(0, finalIdx + 1),
-      ...descendantItems,
-      ...reordered.slice(finalIdx + 1),
-    ]
-    setFlat(rederiveParentIds(merged))
+    setDrop(null)
   }
 
   const handleSave = () => {
@@ -148,55 +102,57 @@ export const BlockReorderModal: FC<BlockReorderModalProps> = ({ blocks, onSave, 
     >
       <div
         ref={listRef}
-        className="flex flex-col gap-1 pb-24 max-h-[70vh] overflow-y-auto overflow-x-hidden"
+        className="relative flex flex-col gap-1 pb-24 max-h-[70vh] overflow-y-auto overflow-x-hidden"
       >
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
-          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
           autoScroll={{ canScroll: (el) => el === listRef.current }}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
+          onDragStart={(event) => setActiveId(String(event.active.id))}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <SortableContext items={visible.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-            {visible.map((item) => (
-              <SortableBlockRow
-                key={item.id}
-                item={item}
-                depth={item.id === activeId && projection ? projection.depth : item.depth}
-              />
-            ))}
-          </SortableContext>
+          {flat.map((item) => (
+            <BlockRow
+              key={item.id}
+              item={item}
+              dragged={dragged.has(item.id)}
+              register={(el) => {
+                if (el) rows.current.set(item.id, el)
+                else rows.current.delete(item.id)
+              }}
+            />
+          ))}
         </DndContext>
-        {visible.length === 0 && <div className="text-sm italic opacity-50">No blocks.</div>}
+        {drop && <DropLine top={drop.top} left={drop.depth * INDENT_PX} />}
+        {flat.length === 0 && <div className="text-sm italic opacity-50">No blocks.</div>}
       </div>
     </Dialog>
   )
 }
 
-const SortableBlockRow: FC<{ item: FlatItem; depth: number }> = ({ item, depth }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: item.id,
-  })
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
-    marginLeft: depth * INDENT_PX,
-  }
+const BlockRow: FC<{
+  item: FlatItem
+  // being dragged, or in a group that is
+  dragged: boolean
+  register: (el: HTMLElement | null) => void
+}> = ({ item, dragged, register }) => {
+  const { attributes, listeners, setNodeRef } = useDraggable({ id: item.id })
   const { content } = item.block
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-2 text-xs border border-gray-200 rounded bg-white px-2 py-1"
+      ref={(el) => {
+        setNodeRef(el)
+        register(el)
+      }}
+      style={{ marginLeft: item.depth * INDENT_PX }}
+      className={`flex items-center gap-2 text-xs border rounded px-2 py-1 transition-colors ${
+        dragged ? 'border-gray-200 bg-gray-100 opacity-50' : 'border-gray-200 bg-white'
+      }`}
     >
       <button
         type="button"
-        className="cursor-grab select-none px-1 opacity-50 hover:opacity-100"
+        className="cursor-grab select-none px-1 opacity-50 hover:opacity-100 touch-none"
         aria-label="Drag to reorder"
         {...attributes}
         {...listeners}
@@ -239,52 +195,48 @@ function getDescendantIds(flat: FlatItem[], id: string): Set<string> {
   return result
 }
 
-type Projection = { depth: number; parentId: string | null }
-
-function getProjection(
-  visible: FlatItem[],
+// Where the block `activeId` would go, dragged to the gap at `gap` and `offsetX`
+// sideways: in that gap, but not among its own rows, a group's, which it goes
+// before or after instead, and at its depth give or take one for each indent
+// dragged, as deep as the row before allows and as shallow as the one after does.
+function findDrop(
+  flat: FlatItem[],
   activeId: string,
-  overId: string,
-  dragOffset: number,
-): Projection | null {
-  const activeIndex = visible.findIndex((f) => f.id === activeId)
-  const overIndex = visible.findIndex((f) => f.id === overId)
-  if (activeIndex === -1 || overIndex === -1) return null
+  gap: number,
+  offsetX: number,
+): { index: number; depth: number } {
+  const start = flat.findIndex((f) => f.id === activeId)
+  const end = start + getDescendantIds(flat, activeId).size
+  let index = gap
+  if (index > start && index <= end) index = index - start <= end + 1 - index ? start : end + 1
 
-  const moved = arrayMove(visible, activeIndex, overIndex)
-  const newIndex = moved.findIndex((f) => f.id === activeId)
-  const active = moved[newIndex]
-  const previous = moved[newIndex - 1]
-  const next = moved[newIndex + 1]
+  const rest = [...flat.slice(0, start), ...flat.slice(end + 1)]
+  const at = index <= start ? index : index - (end - start + 1)
+  const previous = rest[at - 1]
+  const next = rest[at]
+  const max = !previous
+    ? 0
+    : previous.block.content.type === 'group'
+      ? previous.depth + 1
+      : previous.depth
+  const min = next ? next.depth : 0
+  const depth = Math.max(min, Math.min(flat[start].depth + Math.round(offsetX / INDENT_PX), max))
+  return { index, depth }
+}
 
-  const dragDepth = Math.round(dragOffset / INDENT_PX)
-  const projectedDepth = active.depth + dragDepth
-
-  let maxDepth: number
-  if (!previous) {
-    maxDepth = 0
-  } else if (previous.block.content.type === 'group') {
-    maxDepth = previous.depth + 1
-  } else {
-    maxDepth = previous.depth
-  }
-  const minDepth = next ? next.depth : 0
-  const depth = Math.max(minDepth, Math.min(projectedDepth, maxDepth))
-
-  let parentId: string | null = null
-  if (depth > 0 && previous) {
-    if (depth === previous.depth + 1) {
-      parentId = previous.id
-    } else {
-      for (let i = newIndex - 1; i >= 0; i--) {
-        if (moved[i].depth === depth - 1) {
-          parentId = moved[i].id
-          break
-        }
-      }
-    }
-  }
-  return { depth, parentId }
+// The list with the block `activeId`, and a group's blocks with it, moved to `drop`
+function applyDrop(flat: FlatItem[], activeId: string, drop: Drop): FlatItem[] {
+  const start = flat.findIndex((f) => f.id === activeId)
+  const end = start + getDescendantIds(flat, activeId).size
+  const moving = flat.slice(start, end + 1)
+  const shift = drop.depth - moving[0].depth
+  const rest = [...flat.slice(0, start), ...flat.slice(end + 1)]
+  const at = drop.index <= start ? drop.index : drop.index - moving.length
+  return rederiveParentIds([
+    ...rest.slice(0, at),
+    ...moving.map((f) => ({ ...f, depth: f.depth + shift })),
+    ...rest.slice(at),
+  ])
 }
 
 function rederiveParentIds(flat: FlatItem[]): FlatItem[] {

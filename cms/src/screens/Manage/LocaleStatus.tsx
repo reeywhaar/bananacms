@@ -18,7 +18,7 @@ export const LocaleStatus: FC<LocaleStatusProps> = ({ text, translationKey, tran
   const isFilled = (code: string) =>
     code === defaultLocale ? !!text : !!translations[code]?.[translationKey]
   return (
-    <span className="inline-flex gap-1 text-[10px] font-semibold uppercase leading-none tracking-wide">
+    <span className="inline-flex gap-0.5 text-[9px] font-medium uppercase leading-none">
       {locales.map((locale) => (
         <span
           key={locale.code}

@@ -43,13 +43,6 @@ const formatLabel = (format: AssetOutputFormat) =>
     ? `${formatLabels[format.type]}, quality ${format.quality}`
     : formatLabels[format.type]
 
-// a list of a thing's details, a label and a value each, with the languages of a
-// translatable one between them when there are more languages than one
-const detailsGrid = (withStatus: boolean) =>
-  withStatus
-    ? 'grid-cols-[minmax(0,max-content)_max-content_minmax(0,1fr)]'
-    : 'grid-cols-[minmax(0,max-content)_minmax(0,1fr)]'
-
 // typography for a text block's markdown and HTML, which the reset strips
 const prose =
   'space-y-1 [&_a]:underline [&_code]:font-mono [&_em]:italic [&_h1,&_h2,&_h3,&_h4,&_h5,&_h6]:font-semibold [&_img]:max-h-24 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5'
@@ -335,48 +328,35 @@ const ImageSummary: FC<{
           <span className="text-xs text-gray-400">No image</span>
         )}
       </div>
-      <dl className={`grid min-w-0 flex-1 gap-x-4 gap-y-1 text-sm ${detailsGrid(withStatus)}`}>
-        {name && (
-          <Detail label="File" withStatus={withStatus}>
-            {name}
-          </Detail>
-        )}
+      <dl className="grid min-w-0 flex-1 grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+        {name && <Detail label="File">{name}</Detail>}
         <Detail
           label="Alt"
-          withStatus={withStatus}
           status={
-            <LocaleStatus
-              text={content.alt}
-              translationKey={'block:' + block.id + ':alt'}
-              translations={translations}
-            />
+            withStatus && (
+              <LocaleStatus
+                text={content.alt}
+                translationKey={'block:' + block.id + ':alt'}
+                translations={translations}
+              />
+            )
           }
         >
           <span className={alt.text && !alt.missing ? '' : 'text-gray-400'}>{alt.text || '—'}</span>
         </Detail>
-        {type && (
-          <Detail label="Type" withStatus={withStatus}>
-            {type}
-          </Detail>
-        )}
+        {type && <Detail label="Type">{type}</Detail>}
         {dimensions && (
-          <Detail label="Dimensions" withStatus={withStatus}>
+          <Detail label="Dimensions">
             {dimensions.width} × {dimensions.height}
           </Detail>
         )}
-        {bytes != null && (
-          <Detail label="Size" withStatus={withStatus}>
-            {formatSize(bytes)}
-          </Detail>
-        )}
-        <Detail label="Resolution" withStatus={withStatus}>
-          {settings.resolution ?? '@1x'}
-        </Detail>
-        <Detail label="Output" withStatus={withStatus}>
+        {bytes != null && <Detail label="Size">{formatSize(bytes)}</Detail>}
+        <Detail label="Resolution">{settings.resolution ?? '@1x'}</Detail>
+        <Detail label="Output">
           {settings.outputAs ? formatLabel(settings.outputAs) : 'Original'}
         </Detail>
         {settings.maxSize && (
-          <Detail label="Max size" withStatus={withStatus}>
+          <Detail label="Max size">
             {settings.maxSize.width} × {settings.maxSize.height}
           </Detail>
         )}
@@ -387,14 +367,15 @@ const ImageSummary: FC<{
 
 const Detail: FC<{
   label: string
-  withStatus: boolean
-  // the languages of a translatable detail
+  // the languages of a translatable detail, after its label
   status?: ReactNode
   children: ReactNode
-}> = ({ label, withStatus, status, children }) => (
+}> = ({ label, status, children }) => (
   <>
-    <dt className="wrap-anywhere text-gray-500">{label}</dt>
-    {withStatus && <span className="flex h-5 items-center">{status}</span>}
+    <dt className="wrap-anywhere text-gray-500">
+      {label}
+      {status && <span className="ml-1.5">{status}</span>}
+    </dt>
     <dd className="wrap-anywhere text-gray-800">{children}</dd>
   </>
 )

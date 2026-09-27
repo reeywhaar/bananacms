@@ -17,7 +17,7 @@ type MetaViewProps = {
 }
 
 // A block's key and attributes, or an entity's attributes, to read. With more than
-// one language, a translatable attribute has its languages before its text, green
+// one language, a translatable attribute has its languages after its key, green
 // where it's translated, and a switch shows the attributes in another language,
 // where one missing its translation shows its own text, greyed.
 export const MetaView: FC<MetaViewProps> = ({
@@ -50,26 +50,24 @@ export const MetaView: FC<MetaViewProps> = ({
       )}
       {attributes.length > 0 && (
         <div className="flex items-start gap-4">
-          <dl
-            className={`grid min-w-0 flex-1 gap-x-4 gap-y-1 ${withStatus ? 'grid-cols-[minmax(0,max-content)_max-content_minmax(0,1fr)]' : 'grid-cols-[minmax(0,max-content)_minmax(0,1fr)]'}`}
-          >
+          <dl className="grid min-w-0 flex-1 grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1">
             {attributes.map((attr) => {
               const text =
                 attr.translatable && locale !== defaultLocale ? translated(attr, locale) : attr.text
               return (
                 <div key={attr.id} className="contents">
-                  <dt className="wrap-anywhere text-gray-500">{attr.key || '—'}</dt>
-                  {withStatus && (
-                    <span className="flex h-5 items-center">
-                      {attr.translatable && (
+                  <dt className="wrap-anywhere text-gray-500">
+                    {attr.key || '—'}
+                    {withStatus && attr.translatable && (
+                      <span className="ml-1.5">
                         <LocaleStatus
                           text={attr.text}
                           translationKey={'attribute:' + attr.id + ':text'}
                           translations={translations}
                         />
-                      )}
-                    </span>
-                  )}
+                      </span>
+                    )}
+                  </dt>
                   <dd className={`wrap-anywhere ${text ? 'text-gray-800' : 'text-gray-400'}`}>
                     {text || attr.text}
                   </dd>

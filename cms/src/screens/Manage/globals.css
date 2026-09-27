@@ -24,6 +24,26 @@
   --color-link-hover: color-mix(in oklab, var(--color-link) 75%, black);
 }
 
+/* fills for buttons and selections, which lean a little to the link color, or
+   to a darker red, towards the bottom */
+@utility gradient-accent {
+  background-origin: border-box;
+  background-image: linear-gradient(
+    170deg in oklab,
+    var(--color-accent),
+    color-mix(in oklab, var(--color-accent), var(--color-link) 10%)
+  );
+}
+
+@utility gradient-danger {
+  background-origin: border-box;
+  background-image: linear-gradient(
+    170deg in oklab,
+    --theme(--color-red-500),
+    color-mix(in oklab, --theme(--color-red-500), --theme(--color-red-700) 10%)
+  );
+}
+
 html {
   height: 100%;
 }
@@ -52,15 +72,15 @@ body {
   }
 
   .button {
-    @apply px-2 py-1 rounded border border-accent bg-accent text-white hover:border-accent-500 hover:bg-accent-500 text-sm;
+    @apply px-2 py-1 rounded border border-transparent gradient-accent text-white hover:brightness-95 text-sm;
   }
 
   .button-danger {
-    @apply px-2 py-1 rounded border border-red-500 bg-red-500 text-white hover:border-red-600 hover:bg-red-600 text-sm;
+    @apply px-2 py-1 rounded border border-transparent gradient-danger text-white hover:brightness-95 text-sm;
   }
 
   .button-sm {
-    @apply px-2 py-1 rounded border border-accent bg-accent text-white hover:border-accent-500 hover:bg-accent-500 text-xs;
+    @apply px-2 py-1 rounded border border-transparent gradient-accent text-white hover:brightness-95 text-xs;
   }
 
   .button-sm-danger {

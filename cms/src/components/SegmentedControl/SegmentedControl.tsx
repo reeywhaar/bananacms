@@ -35,7 +35,7 @@ export function SegmentedControl<T extends string>({
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={`px-2 py-1 flex-1 rounded ${size === 'sm' ? 'text-xs' : size === 'lg' ? 'text-base' : 'text-sm'} transition-colors ${
-              selected ? 'bg-accent text-white' : 'text-gray-700 hover:bg-gray-100'
+              selected ? 'gradient-accent text-white' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >
             {option.label}

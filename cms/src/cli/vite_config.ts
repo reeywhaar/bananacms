@@ -74,6 +74,7 @@ export function createViteConfig(root: string): InlineConfig {
             '@dnd-kit/utilities',
             'disposablestack/auto',
             'json5',
+            'marked',
             'music-metadata',
             'uuid',
           ].map((dependency) => `${PACKAGE} > ${dependency}`),

@@ -18,6 +18,10 @@
   --color-accent-700: color-mix(in oklab, var(--color-accent) 50%, black);
   --color-accent-800: color-mix(in oklab, var(--color-accent) 38%, black);
   --color-accent-900: color-mix(in oklab, var(--color-accent) 26%, black);
+
+  /* links, and a darker mix of their color on hover */
+  --color-link: rgb(169 105 6);
+  --color-link-hover: color-mix(in oklab, var(--color-link) 75%, black);
 }
 
 html {
@@ -44,19 +48,19 @@ body {
   }
 
   .link {
-    @apply text-accent-600 hover:text-accent-800;
+    @apply text-link hover:text-link-hover;
   }
 
   .button {
-    @apply px-2 py-1 rounded border border-gray-300 text-accent-600 hover:text-accent-800 text-sm;
+    @apply px-2 py-1 rounded border border-accent bg-accent text-white hover:border-accent-500 hover:bg-accent-500 text-sm;
   }
 
   .button-danger {
-    @apply px-2 py-1 rounded border border-gray-300 text-red-500 hover:text-red-700 text-sm;
+    @apply px-2 py-1 rounded border border-red-500 bg-red-500 text-white hover:border-red-600 hover:bg-red-600 text-sm;
   }
 
   .button-sm {
-    @apply px-2 py-1 rounded border border-gray-300 text-accent-600 hover:text-accent-800 text-xs;
+    @apply px-2 py-1 rounded border border-accent bg-accent text-white hover:border-accent-500 hover:bg-accent-500 text-xs;
   }
 
   .button-sm-danger {

@@ -92,7 +92,7 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({ block, size, content, 
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="text-xs text-accent-600 hover:underline"
+              className="text-xs text-link hover:underline"
             >
               Open
             </a>

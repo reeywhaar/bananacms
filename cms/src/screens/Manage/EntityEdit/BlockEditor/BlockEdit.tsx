@@ -1,25 +1,14 @@
 'use client'
 
 import { type DragEvent, type FC, useState } from 'react'
-import type {
-  BlockTypeText,
-  BlockTypeGroup,
-  BlockTypeImage,
-  BlockTypeMeta,
-  BlockTypeAsset,
-  TextBlockContentType,
-  BlockData,
-  BlockType,
-} from '#cms/lib/blocks/declarations.ts'
+import type { BlockTypeGroup, BlockData, BlockType } from '#cms/lib/blocks/declarations.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
-import type { AssetContent, AssetImageContent } from '#cms/services/AssetStore.ts'
-import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
-import { ImageBlockEdit } from './ImageBlockEdit.tsx'
-import { AssetBlockEdit } from './AssetBlockEdit.tsx'
-import { AttributesEditor } from '../AttributesEditor/AttributesEditor.tsx'
-import { AutosizeTextarea } from '#cms/components/AutosizeTextarea/AutosizeTextarea.tsx'
-import { SegmentedControl } from '#cms/components/SegmentedControl/SegmentedControl.tsx'
+import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { X } from '#cms/components/icons.tsx'
+import { MetaView } from '../Meta/MetaView.tsx'
+import { MetaEditDialog } from '../Meta/MetaEditDialog.tsx'
+import { BlockCard } from './BlockCard.tsx'
+import { BlockEditDialog } from './BlockEditDialog.tsx'
 import { v7 } from 'uuid'
 
 type BlockEditProps = {
@@ -31,6 +20,13 @@ type BlockEditProps = {
   assetSizes?: Record<string, number>
 }
 
+// The block being edited in the dialog: one in the list at `index`, or a new one
+// to add to it, when `index` is null.
+type Editing = { index: number | null; block: BlockData }
+
+// A list of blocks. Each is a card, edited in a dialog; a group shows its key and
+// attributes, which a click on them, or Edit, opens in a dialog of their own, and
+// its blocks in a list in place.
 export const BlockEdit: FC<BlockEditProps> = ({
   blocks,
   onChange,
@@ -40,6 +36,7 @@ export const BlockEdit: FC<BlockEditProps> = ({
   assetSizes = {},
 }) => {
   const [dragging, setDragging] = useState(false)
+  const [editing, setEditing] = useState<Editing | null>(null)
 
   const updateBlock = (index: number, updated: BlockData) => {
     const next = blocks.slice()
@@ -53,28 +50,10 @@ export const BlockEdit: FC<BlockEditProps> = ({
     onTranslationsChange(purgeBlockTranslations(translations, removed))
   }
 
-  const addTextBlock = () => {
-    const block = makeBlock({ type: 'text', key: '', contentType: 'plain', text: '' })
-    onChange([...blocks, block])
-  }
+  const addBlock = (content: BlockType) => setEditing({ index: null, block: makeBlock(content) })
 
   const addGroupBlock = () => {
     const block = makeBlock({ type: 'group', key: '', blocks: [] })
-    onChange([...blocks, block])
-  }
-
-  const addImageBlock = () => {
-    const block = makeBlock({ type: 'image', key: '', name: '', alt: '', assetId: '' })
-    onChange([...blocks, block])
-  }
-
-  const addMetaBlock = () => {
-    const block = makeBlock({ type: 'meta', key: '', text: '' })
-    onChange([...blocks, block])
-  }
-
-  const addAssetBlock = () => {
-    const block = makeBlock({ type: 'asset', key: '', name: '', assetId: '' })
     onChange([...blocks, block])
   }
 
@@ -124,41 +103,83 @@ export const BlockEdit: FC<BlockEditProps> = ({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {blocks.map((block, index) => (
-        <BlockRow
-          key={block.id}
-          block={block}
-          onUpdate={(updated) => updateBlock(index, updated)}
-          onRemove={() => removeBlock(index)}
-          translations={translations}
-          onTranslationsChange={onTranslationsChange}
-          assetContents={assetContents}
-          assetSizes={assetSizes}
-        />
-      ))}
+      {blocks.map((block, index) =>
+        block.content.type === 'group' ? (
+          <GroupRow
+            key={block.id}
+            block={block as BlockData & { content: BlockTypeGroup }}
+            onUpdate={(updated) => updateBlock(index, updated)}
+            onRemove={() => removeBlock(index)}
+            translations={translations}
+            onTranslationsChange={onTranslationsChange}
+            assetContents={assetContents}
+            assetSizes={assetSizes}
+          />
+        ) : (
+          <BlockCard
+            key={block.id}
+            block={block}
+            translations={translations}
+            assetSizes={assetSizes}
+            onEdit={() => setEditing({ index, block })}
+            onRemove={() => removeBlock(index)}
+          />
+        ),
+      )}
       <div className="flex gap-2">
-        <button type="button" className="button-sm" onClick={addTextBlock}>
+        <button
+          type="button"
+          className="button-sm"
+          onClick={() => addBlock({ type: 'text', key: '', contentType: 'plain', text: '' })}
+        >
           + Text
         </button>
-        <button type="button" className="button-sm" onClick={addImageBlock}>
+        <button
+          type="button"
+          className="button-sm"
+          onClick={() => addBlock({ type: 'image', key: '', name: '', alt: '', assetId: '' })}
+        >
           + Image
         </button>
-        <button type="button" className="button-sm" onClick={addAssetBlock}>
+        <button
+          type="button"
+          className="button-sm"
+          onClick={() => addBlock({ type: 'asset', key: '', name: '', assetId: '' })}
+        >
           + Asset
         </button>
-        <button type="button" className="button-sm" onClick={addMetaBlock}>
+        <button
+          type="button"
+          className="button-sm"
+          onClick={() => addBlock({ type: 'meta', key: '', text: '' })}
+        >
           + Meta
         </button>
         <button type="button" className="button-sm" onClick={addGroupBlock}>
           + Group
         </button>
       </div>
+      {editing && (
+        <BlockEditDialog
+          block={editing.block}
+          isNew={editing.index === null}
+          translations={translations}
+          assetContents={assetContents}
+          assetSizes={assetSizes}
+          onApply={(block, nextTranslations) => {
+            if (editing.index === null) onChange([...blocks, block])
+            else updateBlock(editing.index, block)
+            onTranslationsChange(nextTranslations)
+          }}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   )
 }
 
-type BlockRowProps = {
-  block: BlockData
+type GroupRowProps = {
+  block: BlockData & { content: BlockTypeGroup }
   onUpdate: (updated: BlockData) => void
   onRemove: () => void
   translations: Translations
@@ -167,7 +188,7 @@ type BlockRowProps = {
   assetSizes: Record<string, number>
 }
 
-const BlockRow: FC<BlockRowProps> = ({
+const GroupRow: FC<GroupRowProps> = ({
   block,
   onUpdate,
   onRemove,
@@ -177,28 +198,32 @@ const BlockRow: FC<BlockRowProps> = ({
   assetSizes,
 }) => {
   const [removing, setRemoving] = useState(false)
-
-  const updateKey = (key: string) => {
-    onUpdate({ ...block, content: { ...block.content, key } })
-  }
+  const [editing, setEditing] = useState(false)
 
   return (
     <div
-      className={`border rounded p-3 flex flex-col gap-2 shadow-sm transition-colors ${removing ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
+      className={`flex flex-col gap-2 rounded border p-3 shadow-sm transition-colors ${removing ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
     >
-      <div className="flex items-center gap-4 mb-2 border-b border-gray-200 pb-2">
-        <span className="text-xs text-gray-400 uppercase tracking-wide shrink-0">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="shrink-0 text-xs uppercase tracking-wide text-gray-400">
           {block.content.type}
         </span>
-        <div className="w-4 grow-1" />
-        <input
-          value={block.content.key}
-          onChange={(e) => updateKey(e.target.value)}
-          placeholder="key"
-          className="input-sm py-0 flex-1 max-w-[400px]"
-        />
+        {block.content.key && (
+          <button
+            type="button"
+            className="truncate rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-600 hover:bg-accent-100"
+            onClick={() => setEditing(true)}
+          >
+            {block.content.key}
+          </button>
+        )}
+        <div className="grow" />
+        <button type="button" className="button-sm" onClick={() => setEditing(true)}>
+          Edit
+        </button>
         <button
           type="button"
+          aria-label="Remove block"
           className="button-sm-danger"
           onMouseEnter={() => setRemoving(true)}
           onMouseLeave={() => setRemoving(false)}
@@ -207,158 +232,40 @@ const BlockRow: FC<BlockRowProps> = ({
           <X size={16} strokeWidth={2} />
         </button>
       </div>
-      {block.content.type === 'text' ? (
-        <TextBlockEdit
-          block={block as BlockData & { content: BlockTypeText }}
-          onChange={onUpdate}
-          translations={translations}
-          onTranslationsChange={onTranslationsChange}
-        />
-      ) : block.content.type === 'image' ? (
-        <ImageBlockEdit
-          block={block as BlockData & { content: BlockTypeImage }}
-          content={imageContent(assetContents[(block.content as BlockTypeImage).assetId])}
-          size={assetSizes[(block.content as BlockTypeImage).assetId] ?? null}
-          onChange={onUpdate}
-          translations={translations}
-          onTranslationsChange={onTranslationsChange}
-        />
-      ) : block.content.type === 'meta' ? (
-        <MetaBlockEdit
-          block={block as BlockData & { content: BlockTypeMeta }}
-          onChange={onUpdate}
-        />
-      ) : block.content.type === 'asset' ? (
-        <AssetBlockEdit
-          block={block as BlockData & { content: BlockTypeAsset }}
-          size={assetSizes[(block.content as BlockTypeAsset).assetId] ?? null}
-          content={assetContents[(block.content as BlockTypeAsset).assetId] ?? null}
-          onChange={onUpdate}
-        />
-      ) : (
-        <GroupBlockEdit
-          block={block as BlockData & { content: BlockTypeGroup }}
-          onChange={onUpdate}
-          translations={translations}
-          onTranslationsChange={onTranslationsChange}
-          assetContents={assetContents}
-          assetSizes={assetSizes}
-        />
+      {block.attributes.length > 0 && (
+        <div className="cursor-pointer" onClick={() => setEditing(true)}>
+          <MetaView attributes={block.attributes} translations={translations} />
+        </div>
       )}
-      <AttributesEditor
-        attributes={block.attributes}
-        onChange={(attrs) => onUpdate({ ...block, attributes: attrs })}
-        translations={translations}
-        onTranslationsChange={onTranslationsChange}
-      />
-    </div>
-  )
-}
-
-type TextBlockEditProps = {
-  block: BlockData & { content: BlockTypeText }
-  onChange: (block: BlockData) => void
-  translations: Translations
-  onTranslationsChange: (translations: Translations) => void
-}
-
-const TextBlockEdit: FC<TextBlockEditProps> = ({
-  block,
-  onChange,
-  translations,
-  onTranslationsChange,
-}) => {
-  const update = (patch: Partial<BlockTypeText>) => {
-    onChange({ ...block, content: { ...block.content, ...patch } })
-  }
-
-  const contentTypeOptions: { value: TextBlockContentType; label: string }[] = [
-    { value: 'plain', label: 'Plain' },
-    { value: 'markdown', label: 'Markdown' },
-    { value: 'html', label: 'HTML' },
-  ]
-
-  return (
-    <div className="flex flex-col gap-2">
-      <SegmentedControl
-        value={block.content.contentType ?? 'plain'}
-        onChange={(contentType) => update({ contentType })}
-        options={contentTypeOptions}
-        size="sm"
-        className="max-w-[400px]"
-      />
-      <LocalizableField
-        label="Text"
-        value={block.content.text}
-        onChange={(text) => update({ text })}
-        translationKey={'block:' + block.id + ':text'}
-        translations={translations}
-        onTranslationsChange={onTranslationsChange}
-        className="input-cnt"
-        render={(value, onChange, label, placeholder) => (
-          <label className="label">
-            <span>{label}</span>
-            <AutosizeTextarea value={value} onChange={onChange} placeholder={placeholder} />
-          </label>
-        )}
-      />
-    </div>
-  )
-}
-
-type MetaBlockEditProps = {
-  block: BlockData & { content: BlockTypeMeta }
-  onChange: (block: BlockData) => void
-}
-
-const MetaBlockEdit: FC<MetaBlockEditProps> = ({ block, onChange }) => {
-  const update = (patch: Partial<BlockTypeMeta>) => {
-    onChange({ ...block, content: { ...block.content, ...patch } })
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <label className="label">
-        <span>Text</span>
-        <AutosizeTextarea value={block.content.text} onChange={(text) => update({ text })} />
-      </label>
-    </div>
-  )
-}
-
-type GroupBlockEditProps = {
-  block: BlockData & { content: BlockTypeGroup }
-  onChange: (block: BlockData) => void
-  translations: Translations
-  onTranslationsChange: (translations: Translations) => void
-  assetContents: Record<string, AssetContent>
-  assetSizes: Record<string, number>
-}
-
-const GroupBlockEdit: FC<GroupBlockEditProps> = ({
-  block,
-  onChange,
-  translations,
-  onTranslationsChange,
-  assetContents,
-  assetSizes,
-}) => {
-  const updateChildren = (children: BlockData[]) => {
-    onChange({ ...block, content: { ...block.content, blocks: children } })
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="pl-4 border-l border-gray-200">
+      <div className="border-l border-gray-200 pl-4">
         <BlockEdit
           blocks={block.content.blocks}
-          onChange={updateChildren}
+          onChange={(children) =>
+            onUpdate({ ...block, content: { ...block.content, blocks: children } })
+          }
           translations={translations}
           onTranslationsChange={onTranslationsChange}
           assetContents={assetContents}
           assetSizes={assetSizes}
         />
       </div>
+      {editing && (
+        <MetaEditDialog
+          title="Group block"
+          keyName={block.content.key}
+          attributes={block.attributes}
+          translations={translations}
+          onApply={(meta) => {
+            onUpdate({
+              ...block,
+              content: { ...block.content, key: meta.key ?? '' },
+              attributes: meta.attributes,
+            })
+            onTranslationsChange(meta.translations)
+          }}
+          onClose={() => setEditing(false)}
+        />
+      )}
     </div>
   )
 }
@@ -387,7 +294,3 @@ const makeBlock = (content: BlockType): BlockData => ({
   content,
   attributes: [],
 })
-
-/** Content is only useful to the image editor when it is an image's. */
-const imageContent = (content: AssetContent | undefined): AssetImageContent | null =>
-  content?.type === 'image' ? content : null

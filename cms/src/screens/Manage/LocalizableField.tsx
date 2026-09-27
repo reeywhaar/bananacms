@@ -3,6 +3,7 @@
 import { type FC, type ReactNode, useState } from 'react'
 import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
+import { LocaleSwitch } from './LocaleSwitch.tsx'
 
 type LocalizableFieldProps = {
   label: string
@@ -52,28 +53,8 @@ export const LocalizableField: FC<LocalizableFieldProps> = ({
   return (
     <div className={['relative', className].filter(Boolean).join(' ')}>
       {allLocales.length > 1 && (
-        <div className="absolute right-2 top-[-2px] flex items-center gap-1">
-          {allLocales.map((locale) => (
-            <button
-              key={locale.code}
-              type="button"
-              onClick={() => setActiveLocale(locale.code)}
-              className={[
-                'text-xs uppercase transition-colors flex items-center gap-0.5',
-                activeLocale === locale.code ? 'font-semibold' : 'font-normal',
-              ].join(' ')}
-            >
-              <span
-                className={[
-                  'text-2xl transition-colors',
-                  isFilled(locale.code) ? 'text-green-600' : 'text-gray-300',
-                ].join(' ')}
-              >
-                •
-              </span>
-              {locale.code}
-            </button>
-          ))}
+        <div className="absolute right-2 top-[-2px]">
+          <LocaleSwitch active={activeLocale} onChange={setActiveLocale} isFilled={isFilled} />
         </div>
       )}
       {render(activeValue, activeOnChange, label, value)}

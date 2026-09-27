@@ -7,21 +7,32 @@ import { Dialog } from '#cms/components/Dialog/Dialog.tsx'
 import { MetaFields } from './MetaFields.tsx'
 
 type MetaEditDialogProps = {
+  title: string
+  // a block's key, edited with its attributes; an entity has none
+  keyName?: string
   attributes: AttributeData[]
   translations: Translations
-  onApply: (attributes: AttributeData[], translations: Translations) => void
+  onApply: (meta: {
+    key: string | undefined
+    attributes: AttributeData[]
+    translations: Translations
+  }) => void
   onClose: () => void
 }
 
-// Edits a copy of an entity's attributes, with their translations. Apply hands it
-// back, to be written when the entity is saved; closing drops it. Rendered only
-// while it's open, so each opening starts from what the entity has.
+// Edits a copy of a block's key and attributes, or of an entity's attributes, with
+// their translations. Apply hands it back, to be written when the entity is saved;
+// closing drops it. Rendered only while it's open, so each opening starts from
+// what there is.
 export const MetaEditDialog: FC<MetaEditDialogProps> = ({
+  title,
+  keyName,
   attributes,
   translations,
   onApply,
   onClose,
 }) => {
+  const [draftKey, setDraftKey] = useState(keyName)
   const [draftAttributes, setDraftAttributes] = useState(attributes)
   const [draftTranslations, setDraftTranslations] = useState(translations)
 
@@ -29,7 +40,7 @@ export const MetaEditDialog: FC<MetaEditDialogProps> = ({
     <Dialog
       open
       onClose={onClose}
-      title="Attributes"
+      title={title}
       wide
       footer={
         <>
@@ -40,7 +51,11 @@ export const MetaEditDialog: FC<MetaEditDialogProps> = ({
             type="button"
             className="button"
             onClick={() => {
-              onApply(draftAttributes, draftTranslations)
+              onApply({
+                key: draftKey,
+                attributes: draftAttributes,
+                translations: draftTranslations,
+              })
               onClose()
             }}
           >
@@ -50,6 +65,8 @@ export const MetaEditDialog: FC<MetaEditDialogProps> = ({
       }
     >
       <MetaFields
+        keyName={draftKey}
+        onKeyChange={setDraftKey}
         attributes={draftAttributes}
         onAttributesChange={setDraftAttributes}
         translations={draftTranslations}

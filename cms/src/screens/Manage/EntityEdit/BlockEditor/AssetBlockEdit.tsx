@@ -5,13 +5,8 @@ import type { BlockData, BlockTypeAsset } from '#cms/lib/blocks/declarations.ts'
 import { describeAudio } from '#cms/lib/audioMeta.ts'
 import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
+import { formatSize } from '#cms/utils/formatSize.ts'
 import { v7 } from 'uuid'
-
-const formatSize = (bytes: number): string => {
-  const mb = bytes / (1024 * 1024)
-  if (mb >= 1) return `${mb.toFixed(2)} MB`
-  return `${(bytes / 1024).toFixed(1)} KB`
-}
 
 type AssetBlockEditProps = {
   block: BlockData & { content: BlockTypeAsset }

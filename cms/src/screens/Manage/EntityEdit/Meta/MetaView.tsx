@@ -1,18 +1,35 @@
-import type { FC } from 'react'
+'use client'
+
+import { type FC, useState } from 'react'
 import type { AttributeData } from '#cms/services/AttributeStore.ts'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
+import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { LocaleSwitch } from '#cms/screens/Manage/LocaleSwitch.tsx'
 
 type MetaViewProps = {
   // a block's key; an entity has none
   keyName?: string
   attributes: AttributeData[]
+  translations: Translations
 }
 
-// A block's key and attributes, or an entity's attributes, to read: the texts
-// are in the default language.
-export const MetaView: FC<MetaViewProps> = ({ keyName, attributes }) => {
+// A block's key and attributes, or an entity's attributes, to read. With more than
+// one language and a translatable attribute, a switch shows the attributes in
+// another language, where one missing its translation shows its own text, greyed.
+export const MetaView: FC<MetaViewProps> = ({ keyName, attributes, translations }) => {
+  const { locales, default: defaultLocale } = useCMSLocales()
+  const [locale, setLocale] = useState(defaultLocale)
+
   if (!keyName && attributes.length === 0) {
     return <span className="text-sm italic text-gray-400">No attributes</span>
   }
+
+  const translatable = attributes.filter((attr) => attr.translatable)
+  const translated = (attr: AttributeData, code: string) =>
+    translations[code]?.['attribute:' + attr.id + ':text']
+  const isFilled = (code: string) =>
+    code === defaultLocale || translatable.every((attr) => !attr.text || !!translated(attr, code))
+
   return (
     <div className="flex flex-col gap-1 text-sm">
       {keyName && (
@@ -21,14 +38,27 @@ export const MetaView: FC<MetaViewProps> = ({ keyName, attributes }) => {
         </span>
       )}
       {attributes.length > 0 && (
-        <dl className="grid grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1">
-          {attributes.map((attr) => (
-            <div key={attr.id} className="contents">
-              <dt className="truncate text-gray-500">{attr.key || '—'}</dt>
-              <dd className="truncate text-gray-800">{attr.text}</dd>
+        <div className="flex items-start gap-4">
+          <dl className="grid min-w-0 flex-1 grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1">
+            {attributes.map((attr) => {
+              const text =
+                attr.translatable && locale !== defaultLocale ? translated(attr, locale) : attr.text
+              return (
+                <div key={attr.id} className="contents">
+                  <dt className="truncate text-gray-500">{attr.key || '—'}</dt>
+                  <dd className={`truncate ${text ? 'text-gray-800' : 'text-gray-400'}`}>
+                    {text || attr.text}
+                  </dd>
+                </div>
+              )
+            })}
+          </dl>
+          {locales.length > 1 && translatable.length > 0 && (
+            <div className="-mt-1.5 shrink-0">
+              <LocaleSwitch active={locale} onChange={setLocale} isFilled={isFilled} />
             </div>
-          ))}
-        </dl>
+          )}
+        </div>
       )}
     </div>
   )

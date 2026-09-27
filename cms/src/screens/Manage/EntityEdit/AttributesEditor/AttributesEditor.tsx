@@ -52,12 +52,13 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
       </div>
       <div className="flex flex-col gap-2">
         {attributes.map((attr) => (
+          // h-7.5 is the text's field at one line, which grows with more
           <div key={attr.id} className="flex flex-row gap-2 items-start">
             <input
               value={attr.key}
               onChange={(e) => update(attr.id, { key: e.target.value })}
               placeholder="key"
-              className="input-sm h-7 flex-[0_0_180px]"
+              className="input-sm h-7.5 flex-[0_0_180px]"
             />
             {showTranslatable && (
               <button
@@ -66,7 +67,7 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
                 aria-pressed={attr.translatable}
                 title="Translatable"
                 onClick={() => setTranslatable(attr.id, !attr.translatable)}
-                className={`flex h-7 shrink-0 items-center rounded border px-1.5 transition-colors ${
+                className={`flex h-7.5 shrink-0 items-center rounded border px-1.5 transition-colors ${
                   attr.translatable
                     ? 'gradient-accent border-transparent text-white'
                     : 'border-gray-300 text-gray-400 hover:text-gray-600'
@@ -95,7 +96,7 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
             />
             <button
               type="button"
-              className="button-sm-danger h-7"
+              className="button-sm-danger h-7.5"
               onClick={() => remove(attr.id)}
               aria-label="Remove attribute"
             >

@@ -24,13 +24,14 @@
   --color-link-hover: color-mix(in oklab, var(--color-link) 75%, black);
 
   /* destructive actions, and a darker mix of their color on hover. The red is
-     warmed with a tenth of Tailwind's orange-500. */
-  --color-danger: color-mix(in oklab, rgb(236 47 4), oklch(70.5% 0.213 47.604) 10%);
+     rgb(236 47 4) warmed with a tenth of Tailwind's orange-500, mixed in oklab. */
+  --color-danger: oklch(62% 0.225 33.857);
   --color-danger-hover: color-mix(in oklab, var(--color-danger) 80%, black);
 
   /* a language a text is translated into, in the language switch and labels:
-     Tailwind's green-600, warmed with a fifth of a yellowish grey */
-  --color-translated: color-mix(in oklab, oklch(62.7% 0.194 149.214), oklch(72% 0.06 95) 20%);
+     Tailwind's green-600 warmed with a fifth of a yellowish grey,
+     oklch(72% 0.06 95), mixed in oklab */
+  --color-translated: oklch(64.6% 0.163 145.78);
 }
 
 /* fills for buttons and selections, which lean a little to the link color, or

@@ -427,6 +427,8 @@ The end-to-end tests run the real CLI (`bananacms dev`, then `build` and `start`
 
 In this repo, everything runs the CMS from its source, and the build is only for a site that installs the package: the exports' `bananacms-source` condition points `@reeywhaar/bananacms` at `cms/src/`. The TypeScript config turns it on (`customConditions`), as do the Vite config the CLI runs with and the tests' config. The CLI's own process gets it from `bin/bananacms.js`, which runs the source here and `dist/` in a site's `node_modules`. A Node script that imports the package, like the demo's seed, runs with `node --conditions=bananacms-source`.
 
+Inside `cms/src`, a file can import another by its path from `src/`, extension included: `#cms/components/TopLoader/TopLoader.tsx`. That's `cms/package.json`'s `imports`, which the same condition points at `src/` here and at `dist/` in a site's `node_modules`. Only the CMS's own files see it, so it can't clash with a site's `@app`.
+
 [docs/conventions.md](docs/conventions.md) has the conventions for commits, comments, code and file names.
 
 ## Releasing

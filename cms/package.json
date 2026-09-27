@@ -47,6 +47,18 @@
       "default": "./dist/stores.js"
     }
   },
+  "imports": {
+    "#cms/*.ts": {
+      "bananacms-source": "./src/*.ts",
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    },
+    "#cms/*.tsx": {
+      "bananacms-source": "./src/*.tsx",
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
   "scripts": {
     "typecheck": "tsc",
     "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/copy_build_files.ts",

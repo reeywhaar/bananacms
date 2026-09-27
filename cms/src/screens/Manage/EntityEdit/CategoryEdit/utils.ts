@@ -1,8 +1,8 @@
 'use server'
-import { type CategoryPayload, CategoryStore } from '../../../../services/CategoryStore.ts'
-import { PostStore } from '../../../../services/PostStore.ts'
-import { adminAction } from '../../../../lib/adminAction.ts'
-import { getDb } from '../../../../framework/context.ts'
+import { type CategoryPayload, CategoryStore } from '#cms/services/CategoryStore.ts'
+import { PostStore } from '#cms/services/PostStore.ts'
+import { adminAction } from '#cms/lib/adminAction.ts'
+import { getDb } from '#cms/framework/context.ts'
 
 export const editCategory = adminAction(
   async (ctx, id: string, payload: CategoryPayload): Promise<void> => {

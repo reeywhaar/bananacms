@@ -1,12 +1,12 @@
-import type { Context } from '../../../../framework/context.ts'
-import { CategoryStore } from '../../../../services/CategoryStore.ts'
-import { PostStore } from '../../../../services/PostStore.ts'
-import { notFound } from '../../../../framework/not_found.ts'
-import { Link } from '../../../../framework/link.tsx'
+import type { Context } from '#cms/framework/context.ts'
+import { CategoryStore } from '#cms/services/CategoryStore.ts'
+import { PostStore } from '#cms/services/PostStore.ts'
+import { notFound } from '#cms/framework/not_found.ts'
+import { Link } from '#cms/framework/link.tsx'
 import { WithBreadcrumbs } from '../../BreadCrumbs/Breadcrumbs.tsx'
 import { routing } from '../../routing.ts'
-import { PostReorderList } from '../../../../components/PostReorderList/PostReorderList.tsx'
-import { getDb } from '../../../../framework/context.ts'
+import { PostReorderList } from '#cms/components/PostReorderList/PostReorderList.tsx'
+import { getDb } from '#cms/framework/context.ts'
 
 export default async function CategoryShow({ ctx, id }: { ctx: Context; id?: string }) {
   if (!id) notFound()

@@ -1,9 +1,9 @@
 'use client'
 
 import type { DragEvent } from 'react'
-import type { BlockData } from '../../../../lib/blocks/declarations.ts'
+import type { BlockData } from '#cms/lib/blocks/declarations.ts'
 import { uploadAsset } from './actions.ts'
-import { handleServerResult } from '../../../../lib/serverActions.ts'
+import { handleServerResult } from '#cms/lib/serverActions.ts'
 
 export const resolveBlocks = async (blocks: BlockData[]): Promise<BlockData[]> => {
   return Promise.all(

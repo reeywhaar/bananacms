@@ -3,8 +3,8 @@
 import { mkdir, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import sharp from 'sharp'
-import { assetVariantFilenames } from '../../../../lib/assetHash.ts'
-import { readAudioMeta } from '../../../../lib/audioMeta.ts'
+import { assetVariantFilenames } from '#cms/lib/assetHash.ts'
+import { readAudioMeta } from '#cms/lib/audioMeta.ts'
 import {
   AssetStore,
   type AssetContent,
@@ -12,10 +12,10 @@ import {
   type AssetOutputFormat,
   assetContentSchema,
   assetOutputFormatSchema,
-} from '../../../../services/AssetStore.ts'
+} from '#cms/services/AssetStore.ts'
 import { v7 } from 'uuid'
-import { adminAction } from '../../../../lib/adminAction.ts'
-import { getDb } from '../../../../framework/context.ts'
+import { adminAction } from '#cms/lib/adminAction.ts'
+import { getDb } from '#cms/framework/context.ts'
 
 export const uploadAsset = adminAction(async (ctx, formData: FormData): Promise<{ id: string }> => {
   const file = formData.get('file')

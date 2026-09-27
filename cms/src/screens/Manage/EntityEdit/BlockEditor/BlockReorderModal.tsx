@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { BlockData, BlockType } from '../../../../lib/blocks/declarations.ts'
+import type { BlockData, BlockType } from '#cms/lib/blocks/declarations.ts'
 
 const INDENT_PX = 20
 

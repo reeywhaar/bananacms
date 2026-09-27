@@ -1,11 +1,11 @@
 import sharp from 'sharp'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { invokeAction } from '../../../../framework/actions.ts'
-import { setAuth } from '../../../../framework/context.ts'
-import { handleServerResult } from '../../../../lib/serverActions.ts'
-import { AssetStore } from '../../../../services/AssetStore.ts'
-import { createTestContext } from '../../../../test/context.ts'
-import { createTestDb } from '../../../../test/db.ts'
+import { invokeAction } from '#cms/framework/actions.ts'
+import { setAuth } from '#cms/framework/context.ts'
+import { handleServerResult } from '#cms/lib/serverActions.ts'
+import { AssetStore } from '#cms/services/AssetStore.ts'
+import { createTestContext } from '#cms/test/context.ts'
+import { createTestDb } from '#cms/test/db.ts'
 import { uploadAsset } from './actions.ts'
 
 afterEach(() => {

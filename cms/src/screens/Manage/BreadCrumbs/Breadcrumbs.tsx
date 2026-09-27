@@ -1,7 +1,7 @@
 'use client'
 
-import { invariant } from '../../../utils/invariant.ts'
-import { Link } from '../../../framework/link.tsx'
+import { invariant } from '#cms/utils/invariant.ts'
+import { Link } from '#cms/framework/link.tsx'
 import {
   createContext,
   type FC,

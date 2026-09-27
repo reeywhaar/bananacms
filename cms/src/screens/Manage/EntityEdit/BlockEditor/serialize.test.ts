@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { BlockData } from '../../../../lib/blocks/declarations.ts'
-import type { Translations } from '../../../../services/LocalizationStore.ts'
+import type { BlockData } from '#cms/lib/blocks/declarations.ts'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { deserializeData, serializeBlocks } from './serialize.ts'
 
 const DEFAULT_LOCALE = 'en'

@@ -2,12 +2,12 @@
 
 import type { FC } from 'react'
 import { v7 } from 'uuid'
-import { X } from '../../../../components/icons.tsx'
-import type { AttributeData } from '../../../../services/AttributeStore.ts'
-import type { Translations } from '../../../../services/LocalizationStore.ts'
-import { AutosizeTextarea } from '../../../../components/AutosizeTextarea/AutosizeTextarea.tsx'
+import { X } from '#cms/components/icons.tsx'
+import type { AttributeData } from '#cms/services/AttributeStore.ts'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
+import { AutosizeTextarea } from '#cms/components/AutosizeTextarea/AutosizeTextarea.tsx'
 import { LocalizableField } from '../../LocalizableField.tsx'
-import { useCMSLocales } from '../../../../components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
 
 type AttributesEditorProps = {
   attributes: AttributeData[]

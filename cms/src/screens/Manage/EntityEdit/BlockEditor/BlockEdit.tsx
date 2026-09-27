@@ -10,16 +10,16 @@ import type {
   TextBlockContentType,
   BlockData,
   BlockType,
-} from '../../../../lib/blocks/declarations.ts'
-import type { Translations } from '../../../../services/LocalizationStore.ts'
-import type { AssetContent, AssetImageContent } from '../../../../services/AssetStore.ts'
+} from '#cms/lib/blocks/declarations.ts'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
+import type { AssetContent, AssetImageContent } from '#cms/services/AssetStore.ts'
 import { LocalizableField } from '../../LocalizableField.tsx'
 import { ImageBlockEdit } from './ImageBlockEdit.tsx'
 import { AssetBlockEdit } from './AssetBlockEdit.tsx'
 import { AttributesEditor } from '../AttributesEditor/AttributesEditor.tsx'
-import { AutosizeTextarea } from '../../../../components/AutosizeTextarea/AutosizeTextarea.tsx'
-import { SegmentedControl } from '../../../../components/SegmentedControl/SegmentedControl.tsx'
-import { X } from '../../../../components/icons.tsx'
+import { AutosizeTextarea } from '#cms/components/AutosizeTextarea/AutosizeTextarea.tsx'
+import { SegmentedControl } from '#cms/components/SegmentedControl/SegmentedControl.tsx'
+import { X } from '#cms/components/icons.tsx'
 import { v7 } from 'uuid'
 
 type BlockEditProps = {

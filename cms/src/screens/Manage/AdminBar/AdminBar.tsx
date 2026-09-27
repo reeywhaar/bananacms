@@ -1,5 +1,5 @@
 import type { FC } from 'react'
-import { Link } from '../../../framework/link.tsx'
+import { Link } from '#cms/framework/link.tsx'
 import { logout } from '../actions.ts'
 import { Breadcrumbs } from '../BreadCrumbs/Breadcrumbs.tsx'
 import { routing } from '../routing.ts'

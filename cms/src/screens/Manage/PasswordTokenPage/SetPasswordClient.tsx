@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import type { PasswordTokenKind } from '../../../services/PasswordTokenStore.ts'
+import type { PasswordTokenKind } from '#cms/services/PasswordTokenStore.ts'
 import { setPassword } from '../actions.ts'
 
 const inputClass =

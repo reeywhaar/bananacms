@@ -1,11 +1,11 @@
-import { getEntityDescriptor } from '../../../lib/entities.ts'
-import type { Context } from '../../../framework/context.ts'
-import { TagStore } from '../../../services/TagStore.ts'
-import { Link } from '../../../framework/link.tsx'
-import { notFound } from '../../../framework/not_found.ts'
+import { getEntityDescriptor } from '#cms/lib/entities.ts'
+import type { Context } from '#cms/framework/context.ts'
+import { TagStore } from '#cms/services/TagStore.ts'
+import { Link } from '#cms/framework/link.tsx'
+import { notFound } from '#cms/framework/not_found.ts'
 import { WithBreadcrumbs } from '../BreadCrumbs/Breadcrumbs.tsx'
 import { routing } from '../routing.ts'
-import { getDb } from '../../../framework/context.ts'
+import { getDb } from '#cms/framework/context.ts'
 
 export default async function EntityList({
   ctx,

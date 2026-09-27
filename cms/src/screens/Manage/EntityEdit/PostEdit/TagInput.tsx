@@ -1,7 +1,7 @@
 'use client'
 
 import { type FC, type KeyboardEvent, useMemo, useState } from 'react'
-import type { TagData } from '../../../../services/TagStore.ts'
+import type { TagData } from '#cms/services/TagStore.ts'
 
 type TagInputProps = {
   tags: TagData[]

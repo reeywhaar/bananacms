@@ -1,11 +1,11 @@
 'use server'
 
 import { and, eq } from 'drizzle-orm'
-import { type TagPayload, TagStore } from '../../../../services/TagStore.ts'
-import { parentTag } from '../../../../lib/db/schema.ts'
-import { adminAction } from '../../../../lib/adminAction.ts'
-import { PostSearchStore } from '../../../../services/PostSearchStore.ts'
-import { getDb } from '../../../../framework/context.ts'
+import { type TagPayload, TagStore } from '#cms/services/TagStore.ts'
+import { parentTag } from '#cms/lib/db/schema.ts'
+import { adminAction } from '#cms/lib/adminAction.ts'
+import { PostSearchStore } from '#cms/services/PostSearchStore.ts'
+import { getDb } from '#cms/framework/context.ts'
 
 export const editTag = adminAction(async (ctx, id: string, payload: TagPayload): Promise<void> => {
   const db = getDb(ctx)

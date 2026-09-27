@@ -1,9 +1,9 @@
 'use server'
 
-import { adminAction } from '../../../../lib/adminAction.ts'
-import { type PostPayload, PostStore } from '../../../../services/PostStore.ts'
-import { PostSearchStore } from '../../../../services/PostSearchStore.ts'
-import { getDb } from '../../../../framework/context.ts'
+import { adminAction } from '#cms/lib/adminAction.ts'
+import { type PostPayload, PostStore } from '#cms/services/PostStore.ts'
+import { PostSearchStore } from '#cms/services/PostSearchStore.ts'
+import { getDb } from '#cms/framework/context.ts'
 
 export const editPost = adminAction(
   async (ctx, id: string, payload: PostPayload): Promise<void> => {

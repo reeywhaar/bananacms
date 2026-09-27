@@ -1,11 +1,11 @@
 'use client'
 
 import { type FC, useEffect, useRef, useState } from 'react'
-import type { BlockData } from '../../../../lib/blocks/declarations.ts'
-import type { Translations } from '../../../../services/LocalizationStore.ts'
-import { useToast } from '../../../../components/Toast/Toast.tsx'
-import { useCMSLocales } from '../../../../components/CMSLocalesProvider/CMSLocalesProvider.tsx'
-import { extractErrorMessage } from '../../../../utils/extractErrorMessage.ts'
+import type { BlockData } from '#cms/lib/blocks/declarations.ts'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
+import { useToast } from '#cms/components/Toast/Toast.tsx'
+import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
 import { serializeBlocks, deserializeData } from './serialize.ts'
 import JSON5 from 'json5'
 

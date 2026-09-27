@@ -1,6 +1,6 @@
-import type { Context } from '../../../framework/context.ts'
-import { getEntityDescriptor } from '../../../lib/entities.ts'
-import { notFound } from '../../../framework/not_found.ts'
+import type { Context } from '#cms/framework/context.ts'
+import { getEntityDescriptor } from '#cms/lib/entities.ts'
+import { notFound } from '#cms/framework/not_found.ts'
 
 export default async function EntityShow({
   ctx,

@@ -1,20 +1,20 @@
 'use client'
 
 import { type FC, type DragEvent, useEffect, useRef, useState } from 'react'
-import type { BlockData, BlockTypeImage } from '../../../../lib/blocks/declarations.ts'
+import type { BlockData, BlockTypeImage } from '#cms/lib/blocks/declarations.ts'
 import type {
   AssetImageContent,
   AssetOutputFormat,
   AssetResolution,
-} from '../../../../services/AssetStore.ts'
-import type { Translations } from '../../../../services/LocalizationStore.ts'
+} from '#cms/services/AssetStore.ts'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { LocalizableField } from '../../LocalizableField.tsx'
-import { getAssetUrl } from '../../../../lib/getAssetUrl.ts'
+import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { updateAssetContent } from './actions.ts'
-import { handleServerResult } from '../../../../lib/serverActions.ts'
-import { useToast } from '../../../../components/Toast/Toast.tsx'
-import { useWithProgress } from '../../../../components/ProgressOverlay/ProgressOverlay.tsx'
-import { extractErrorMessage } from '../../../../utils/extractErrorMessage.ts'
+import { handleServerResult } from '#cms/lib/serverActions.ts'
+import { useToast } from '#cms/components/Toast/Toast.tsx'
+import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
+import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
 import { v7 } from 'uuid'
 
 const RESOLUTIONS: AssetResolution[] = ['@1x', '@2x', '@3x']

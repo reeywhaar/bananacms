@@ -1,10 +1,10 @@
 'use client'
 
 import { type FC, type DragEvent, useState, useRef } from 'react'
-import type { BlockData, BlockTypeAsset } from '../../../../lib/blocks/declarations.ts'
-import { describeAudio } from '../../../../lib/audioMeta.ts'
-import type { AssetContent } from '../../../../services/AssetStore.ts'
-import { getAssetUrl } from '../../../../lib/getAssetUrl.ts'
+import type { BlockData, BlockTypeAsset } from '#cms/lib/blocks/declarations.ts'
+import { describeAudio } from '#cms/lib/audioMeta.ts'
+import type { AssetContent } from '#cms/services/AssetStore.ts'
+import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { v7 } from 'uuid'
 
 const formatSize = (bytes: number): string => {

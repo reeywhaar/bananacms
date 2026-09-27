@@ -1,12 +1,7 @@
-import type { Context } from '../../../framework/context.ts'
-import { getUrl } from '../../../framework/context.ts'
-import {
-  LINK_GONE,
-  LOGIN_PATH,
-  MIN_PASSWORD_LENGTH,
-  passwordTokenUserName,
-} from '../../../lib/auth.ts'
-import type { PasswordTokenKind } from '../../../services/PasswordTokenStore.ts'
+import type { Context } from '#cms/framework/context.ts'
+import { getUrl } from '#cms/framework/context.ts'
+import { LINK_GONE, LOGIN_PATH, MIN_PASSWORD_LENGTH, passwordTokenUserName } from '#cms/lib/auth.ts'
+import type { PasswordTokenKind } from '#cms/services/PasswordTokenStore.ts'
 import SetPasswordClient from './SetPasswordClient.tsx'
 
 // The pages of the links `bananacms user create` and `user reset` print,

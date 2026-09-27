@@ -1,4 +1,4 @@
-import { Link } from '../../../framework/link.tsx'
+import { Link } from '#cms/framework/link.tsx'
 import { routing } from '../routing.ts'
 
 export default async function ManagePage() {

@@ -1,13 +1,13 @@
 'use client'
 
 import { type FC, useState } from 'react'
-import type { BlockData } from '../../../../lib/blocks/declarations.ts'
-import type { Translations } from '../../../../services/LocalizationStore.ts'
-import type { AssetContent } from '../../../../services/AssetStore.ts'
+import type { BlockData } from '#cms/lib/blocks/declarations.ts'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
+import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { BlockEdit } from './BlockEdit.tsx'
 import { BlockReorderModal } from './BlockReorderModal.tsx'
 import { SerializeModal } from './SerializeModal.tsx'
-import { Code, List } from '../../../../components/icons.tsx'
+import { Code, List } from '#cms/components/icons.tsx'
 
 type BlockEditorProps = {
   blocks: BlockData[]

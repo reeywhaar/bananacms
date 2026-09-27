@@ -1,9 +1,9 @@
-import type { Context } from '../../../framework/context.ts'
-import { redirect } from '../../../framework/redirect.ts'
-import { AuthTokenStore } from '../../../services/AuthTokenStore.ts'
+import type { Context } from '#cms/framework/context.ts'
+import { redirect } from '#cms/framework/redirect.ts'
+import { AuthTokenStore } from '#cms/services/AuthTokenStore.ts'
 import { WithBreadcrumbs } from '../BreadCrumbs/Breadcrumbs.tsx'
 import { MeClient } from './MeClient.tsx'
-import { getDerivedDb, getAuth } from '../../../framework/context.ts'
+import { getDerivedDb, getAuth } from '#cms/framework/context.ts'
 
 export default async function MePage({ ctx }: { ctx: Context }) {
   const auth = getAuth(ctx)

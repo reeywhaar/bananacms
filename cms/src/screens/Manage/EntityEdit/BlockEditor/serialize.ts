@@ -1,6 +1,6 @@
-import type { Translations } from '../../../../services/LocalizationStore.ts'
-import type { AttributeData } from '../../../../services/AttributeStore.ts'
-import { valita } from '../../../../utils/valita.ts'
+import type { Translations } from '#cms/services/LocalizationStore.ts'
+import type { AttributeData } from '#cms/services/AttributeStore.ts'
+import { valita } from '#cms/utils/valita.ts'
 import {
   type BlockData,
   type BlockType,
@@ -12,7 +12,7 @@ import {
   type SerializedAssetBlock,
   matchers,
   serializedBlockSchema,
-} from '../../../../lib/blocks/declarations.ts'
+} from '#cms/lib/blocks/declarations.ts'
 import { v7 } from 'uuid'
 
 // ─── Public API ──────────────────────────────────────────────────────────────

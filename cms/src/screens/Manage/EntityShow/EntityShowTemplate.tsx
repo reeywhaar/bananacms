@@ -1,4 +1,4 @@
-import { Link } from '../../../framework/link.tsx'
+import { Link } from '#cms/framework/link.tsx'
 import { WithBreadcrumbs } from '../BreadCrumbs/Breadcrumbs.tsx'
 import { routing } from '../routing.ts'
 

@@ -1,8 +1,8 @@
 'use server'
 
-import { adminAction } from '../../../../lib/adminAction.ts'
-import { type PagePayload, PageStore } from '../../../../services/PageStore.ts'
-import { getDb } from '../../../../framework/context.ts'
+import { adminAction } from '#cms/lib/adminAction.ts'
+import { type PagePayload, PageStore } from '#cms/services/PageStore.ts'
+import { getDb } from '#cms/framework/context.ts'
 
 export const editPage = adminAction(
   async (ctx, id: string, payload: PagePayload): Promise<void> => {

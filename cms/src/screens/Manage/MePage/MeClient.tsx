@@ -1,14 +1,14 @@
 'use client'
 
 import { type FC, type SyntheticEvent, useState } from 'react'
-import { useRouter } from '../../../framework/navigation.ts'
-import { useWithProgress } from '../../../components/ProgressOverlay/ProgressOverlay.tsx'
-import { useToast } from '../../../components/Toast/Toast.tsx'
-import { useEvent } from '../../../hooks/useEvent.ts'
-import { handleServerResult } from '../../../lib/serverActions.ts'
+import { useRouter } from '#cms/framework/navigation.ts'
+import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
+import { useToast } from '#cms/components/Toast/Toast.tsx'
+import { useEvent } from '#cms/hooks/useEvent.ts'
+import { handleServerResult } from '#cms/lib/serverActions.ts'
 import { changePassword, revokeOtherSessions } from '../actions.ts'
-import { extractErrorMessage } from '../../../utils/extractErrorMessage.ts'
-import { pluralize } from '../../../utils/pluralize.ts'
+import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
+import { pluralize } from '#cms/utils/pluralize.ts'
 
 export const MeClient: FC<{
   user: { id: string; name: string }

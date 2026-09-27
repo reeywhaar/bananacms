@@ -317,3 +317,15 @@ async function insertLocalization(
 ): Promise<void> {
   await testDb.db.insert(localizations).values({ id: `loc-${key}-${locale}`, key, locale, text })
 }
+
+describe('TagStore.add', () => {
+  it('refuses a tag without a slug, with a message the admin shows', async () => {
+    using testDb = await createTestDb()
+    const payload = { name: 'Alpha', slug: '', translations: {}, attributes: [], blocks: [] }
+    await expect(new TagStore(testDb.db).add(TAG_ALPHA, payload)).rejects.toMatchObject({
+      message: 'Slug is required',
+      exposed: true,
+      status: 400,
+    })
+  })
+})

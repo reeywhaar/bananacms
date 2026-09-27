@@ -58,3 +58,15 @@ async function seedPages(testDb: TestDb): Promise<void> {
   await testDb.db.insert(page).values({ id: PAGE_B, key: 'contact' })
   await testDb.db.insert(page).values({ id: PAGE_C, key: 'home' })
 }
+
+describe('PageStore.add', () => {
+  it('refuses a page without a key, with a message the admin shows', async () => {
+    using testDb = await createTestDb()
+    const payload = { key: '', blocks: [], translations: {}, attributes: [] }
+    await expect(new PageStore(testDb.db).add(PAGE_A, payload)).rejects.toMatchObject({
+      message: 'Key is required',
+      exposed: true,
+      status: 400,
+    })
+  })
+})

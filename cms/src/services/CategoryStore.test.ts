@@ -83,3 +83,15 @@ async function seedCategories(testDb: TestDb): Promise<void> {
     .insert(category)
     .values({ id: CAT_C, shortid: CAT_C.slice(-8), name: 'Cherry', slug: 'cherry' })
 }
+
+describe('CategoryStore.add', () => {
+  it('refuses a category without a name, with a message the admin shows', async () => {
+    using testDb = await createTestDb()
+    const payload = { name: '', slug: 'apple', blocks: [], translations: {}, attributes: [] }
+    await expect(new CategoryStore(testDb.db).add(CAT_A, payload)).rejects.toMatchObject({
+      message: 'Name is required',
+      exposed: true,
+      status: 400,
+    })
+  })
+})

@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm'
+import { ApiError } from '../lib/api/error.ts'
 import type { Db } from '../lib/db/client.ts'
 import { page } from '../lib/db/schema.ts'
 import type { BlockData } from '../lib/blocks/declarations.ts'
@@ -68,7 +69,7 @@ export class PageStore {
 }
 
 const validatePagePayload = (payload: PagePayload) => {
-  if (!payload.key) throw new Error('Key is required')
+  if (!payload.key) throw new ApiError('Key is required').expose().withStatus(400)
 }
 
 export class PageQuery extends EntityQuery<PageData, PageOrderField, PageQueryState> {

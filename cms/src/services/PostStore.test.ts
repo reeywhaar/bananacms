@@ -843,3 +843,24 @@ async function attachBlock(
   await testDb.db.insert(block).values({ id: blockId, content: JSON.stringify(content) })
   await testDb.db.insert(parentBlock).values({ blockId, parentId: postId, parentTable: 'post' })
 }
+
+describe('PostStore.add', () => {
+  it('refuses a post without a category, with a message the admin shows', async () => {
+    using testDb = await createTestDb()
+    const payload = {
+      name: 'First',
+      slug: 'first',
+      categoryId: '',
+      status: 'draft' as const,
+      blocks: [],
+      translations: {},
+      tagIds: [],
+      attributes: [],
+    }
+    await expect(new PostStore(testDb.db).add(POST_A, payload)).rejects.toMatchObject({
+      message: 'Category is required',
+      exposed: true,
+      status: 400,
+    })
+  })
+})

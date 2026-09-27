@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm'
+import { ApiError } from '../lib/api/error.ts'
 import type { Db } from '../lib/db/client.ts'
 import {
   attribute,
@@ -162,8 +163,10 @@ export class AttributeStore {
 const validateAttributes = (attrs: AttributeData[]): void => {
   const seen = new Set<string>()
   for (const attr of attrs) {
-    if (!attr.key) throw new Error('Attribute key is required')
-    if (seen.has(attr.key)) throw new Error('Duplicate attribute key: ' + attr.key)
+    if (!attr.key) throw new ApiError('Attribute key is required').expose().withStatus(400)
+    if (seen.has(attr.key)) {
+      throw new ApiError('Duplicate attribute key: ' + attr.key).expose().withStatus(400)
+    }
     seen.add(attr.key)
   }
 }

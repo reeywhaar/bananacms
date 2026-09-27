@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, like, sql, type SQL } from 'drizzle-orm'
+import { ApiError } from '../lib/api/error.ts'
 import type { Db } from '../lib/db/client.ts'
 import { category, parentPost, localizations } from '../lib/db/schema.ts'
 import { getShortId } from '../utils/getshortid.ts'
@@ -79,8 +80,8 @@ export class CategoryStore {
 }
 
 const validateCategoryPayload = (payload: CategoryPayload) => {
-  if (!payload.name) throw new Error('Name is required')
-  if (!payload.slug) throw new Error('Slug is required')
+  if (!payload.name) throw new ApiError('Name is required').expose().withStatus(400)
+  if (!payload.slug) throw new ApiError('Slug is required').expose().withStatus(400)
 }
 
 export class CategoryQuery extends EntityQuery<

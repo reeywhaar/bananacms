@@ -180,3 +180,20 @@ async function insertLocalization(
 ): Promise<void> {
   await testDb.db.insert(localizations).values({ id: `loc-${key}-${locale}`, key, locale, text })
 }
+
+describe('AttributeStore.saveByParent', () => {
+  it('refuses two attributes with the same key, with a message the admin shows', async () => {
+    using testDb = await createTestDb()
+    const attrs = [
+      { id: ATTR_PLAIN, key: 'author', translatable: false, text: 'Alice' },
+      { id: ATTR_TRANSLATABLE, key: 'author', translatable: false, text: 'Bob' },
+    ]
+    await expect(
+      new AttributeStore(testDb.db).saveByParent('post', POST_ID, attrs),
+    ).rejects.toMatchObject({
+      message: 'Duplicate attribute key: author',
+      exposed: true,
+      status: 400,
+    })
+  })
+})

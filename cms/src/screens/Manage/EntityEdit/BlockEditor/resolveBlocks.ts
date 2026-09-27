@@ -17,11 +17,15 @@ export const resolveBlocks = async (blocks: BlockData[]): Promise<BlockData[]> =
         if (block.content.pendingOutputAs) {
           formData.append('output_as', JSON.stringify(block.content.pendingOutputAs))
         }
+        if (block.content.pendingMaxSize) {
+          formData.append('maxSize', JSON.stringify(block.content.pendingMaxSize))
+        }
         const { id } = handleServerResult(await uploadAsset(formData))
         const {
           pendingFile: _pf,
           pendingResolution: _pr,
           pendingOutputAs: _po,
+          pendingMaxSize: _pm,
           ...rest
         } = block.content
         return { ...block, content: { ...rest, assetId: id } }

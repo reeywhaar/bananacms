@@ -41,12 +41,22 @@ export const uploadAsset = adminAction(async (ctx, formData: FormData): Promise<
       if (typeof rawOutputAs !== 'string' || !rawOutputAs) return { type: 'original' }
       return assetOutputFormatSchema.parse(JSON.parse(rawOutputAs))
     })()
+    const rawMaxSize = formData.get('maxSize')
+    const maxSize: unknown =
+      typeof rawMaxSize === 'string' && rawMaxSize ? JSON.parse(rawMaxSize) : undefined
     const meta = await sharp(data)
       .metadata()
       .catch(() => null)
     const width = meta?.autoOrient?.width ?? meta?.width
     const height = meta?.autoOrient?.height ?? meta?.height
-    return assetContentSchema.parse({ type: 'image', resolution, output_as, width, height })
+    return assetContentSchema.parse({
+      type: 'image',
+      resolution,
+      output_as,
+      width,
+      height,
+      maxSize,
+    })
   })()
 
   const db = getDb(ctx)

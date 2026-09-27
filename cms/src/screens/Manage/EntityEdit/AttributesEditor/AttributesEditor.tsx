@@ -57,7 +57,7 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
               value={attr.key}
               onChange={(e) => update(attr.id, { key: e.target.value })}
               placeholder="key"
-              className="input-sm flex-[0_0_180px]"
+              className="input-sm h-7 flex-[0_0_180px]"
             />
             {showTranslatable && (
               <label className="flex items-center gap-1 text-sm whitespace-nowrap pt-1">
@@ -96,7 +96,7 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
             )}
             <button
               type="button"
-              className="button-sm-danger"
+              className="button-sm-danger h-7"
               onClick={() => remove(attr.id)}
               aria-label="Remove attribute"
             >

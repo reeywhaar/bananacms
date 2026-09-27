@@ -75,31 +75,24 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
                 <Languages size={16} strokeWidth={2} aria-hidden="true" />
               </button>
             )}
-            {attr.translatable ? (
-              <LocalizableField
-                label=""
-                value={attr.text}
-                onChange={(text) => update(attr.id, { text })}
-                translationKey={'attribute:' + attr.id + ':text'}
-                translations={translations}
-                onTranslationsChange={onTranslationsChange}
-                className="flex-1"
-                render={(value, onChange, _, placeholder) => (
-                  <AutosizeTextarea
-                    value={value}
-                    onChange={onChange}
-                    placeholder={placeholder}
-                    rows={1}
-                  />
-                )}
-              />
-            ) : (
-              <AutosizeTextarea
-                value={attr.text}
-                onChange={(text) => update(attr.id, { text })}
-                rows={1}
-              />
-            )}
+            <LocalizableField
+              label=""
+              value={attr.text}
+              onChange={(text) => update(attr.id, { text })}
+              translationKey={'attribute:' + attr.id + ':text'}
+              translations={translations}
+              onTranslationsChange={onTranslationsChange}
+              localizable={attr.translatable}
+              className="flex-1"
+              render={(value, onChange, _, placeholder) => (
+                <AutosizeTextarea
+                  value={value}
+                  onChange={onChange}
+                  placeholder={placeholder}
+                  rows={1}
+                />
+              )}
+            />
             <button
               type="button"
               className="button-sm-danger h-7"

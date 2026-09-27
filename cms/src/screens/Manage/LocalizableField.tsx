@@ -19,6 +19,9 @@ type LocalizableFieldProps = {
     placeholder: string,
   ) => ReactNode
   className?: string
+  // false: the field has its one text, and no switch between languages. The field
+  // it renders stays the same either way, so switching this keeps it mounted.
+  localizable?: boolean
 }
 
 export const LocalizableField: FC<LocalizableFieldProps> = ({
@@ -30,6 +33,7 @@ export const LocalizableField: FC<LocalizableFieldProps> = ({
   onTranslationsChange,
   render,
   className,
+  localizable = true,
 }) => {
   const { locales: allLocales, default: defaultLocale } = useCMSLocales()
   const [activeLocale, setActiveLocale] = useState<string>(defaultLocale)
@@ -41,18 +45,20 @@ export const LocalizableField: FC<LocalizableFieldProps> = ({
     })
   }
 
+  const shownLocale = localizable ? activeLocale : defaultLocale
+
   const activeValue =
-    activeLocale === defaultLocale ? value : (translations[activeLocale]?.[translationKey] ?? '')
+    shownLocale === defaultLocale ? value : (translations[shownLocale]?.[translationKey] ?? '')
 
   const activeOnChange =
-    activeLocale === defaultLocale ? onChange : (text: string) => setTranslation(activeLocale, text)
+    shownLocale === defaultLocale ? onChange : (text: string) => setTranslation(shownLocale, text)
 
   const isFilled = (locale: string) =>
     locale === defaultLocale ? !!value : !!translations[locale]?.[translationKey]
 
   return (
     <div className={['relative', className].filter(Boolean).join(' ')}>
-      {allLocales.length > 1 && (
+      {localizable && allLocales.length > 1 && (
         <div className="absolute right-2 top-[-2px]">
           <LocaleSwitch active={activeLocale} onChange={setActiveLocale} isFilled={isFilled} />
         </div>

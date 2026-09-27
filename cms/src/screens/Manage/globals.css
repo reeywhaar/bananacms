@@ -23,8 +23,9 @@
   --color-link: #a93406;
   --color-link-hover: color-mix(in oklab, var(--color-link) 75%, black);
 
-  /* destructive actions, and a darker mix of their color on hover */
-  --color-danger: rgb(236 47 4);
+  /* destructive actions, and a darker mix of their color on hover. The red is
+     warmed with a tenth of Tailwind's orange-500. */
+  --color-danger: color-mix(in oklab, rgb(236 47 4), oklch(70.5% 0.213 47.604) 10%);
   --color-danger-hover: color-mix(in oklab, var(--color-danger) 80%, black);
 }
 
@@ -88,7 +89,7 @@ body {
   }
 
   .button-sm-danger {
-    @apply px-2 py-1 rounded border border-gray-300 text-danger hover:text-danger-hover text-xs;
+    @apply px-2 py-1 rounded border border-transparent bg-gray-100 text-danger hover:bg-gray-200 hover:text-danger-hover text-xs;
   }
 
   .input-cnt {

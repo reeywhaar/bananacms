@@ -416,6 +416,23 @@ export class PostQuery extends EntityQuery<PostData, PostOrderField, PostQuerySt
     return this.clone({ textSearchQuery: query })
   }
 
+  // Every condition a row has to meet, the filters, the category's slug and the
+  // search, for one where(): drizzle's where() replaces an earlier call's.
+  private conditions(): SQL[] {
+    const { predicates, categorySlug, textSearchQuery, locale } = this.state
+    const conditions = [...predicates]
+    if (categorySlug !== undefined) conditions.push(eq(category.slug, categorySlug))
+    if (textSearchQuery) {
+      const ftsQuery = prepareFtsQuery(textSearchQuery)
+      conditions.push(
+        locale
+          ? sql`${post.id} IN (SELECT postId FROM post_fts WHERE content MATCH ${ftsQuery} AND (locale = ${locale} OR locale = ''))`
+          : sql`${post.id} IN (SELECT postId FROM post_fts WHERE content MATCH ${ftsQuery})`,
+      )
+    }
+    return conditions
+  }
+
   async all(): Promise<PostData[]> {
     const { state } = this
     const { locale, categorySlug } = state
@@ -444,7 +461,6 @@ export class PostQuery extends EntityQuery<PostData, PostOrderField, PostQuerySt
 
     if (categorySlug !== undefined) {
       q = q.innerJoin(category, eq(category.id, parentPost.parentId))
-      q = q.where(eq(category.slug, categorySlug))
     }
 
     if (locale) {
@@ -457,15 +473,7 @@ export class PostQuery extends EntityQuery<PostData, PostOrderField, PostQuerySt
       )
     }
 
-    if (state.predicates.length) q = q.where(and(...state.predicates))
-
-    if (state.textSearchQuery) {
-      const ftsQuery = prepareFtsQuery(state.textSearchQuery)
-      const ftsWhere = state.locale
-        ? sql`${post.id} IN (SELECT postId FROM post_fts WHERE content MATCH ${ftsQuery} AND (locale = ${state.locale} OR locale = ''))`
-        : sql`${post.id} IN (SELECT postId FROM post_fts WHERE content MATCH ${ftsQuery})`
-      q = q.where(ftsWhere)
-    }
+    q = q.where(and(...this.conditions()))
 
     q = q.orderBy(...resolvePostOrderBy(state.order))
 
@@ -492,18 +500,9 @@ export class PostQuery extends EntityQuery<PostData, PostOrderField, PostQuerySt
 
     if (categorySlug !== undefined) {
       q = q.innerJoin(category, eq(category.id, parentPost.parentId))
-      q = q.where(eq(category.slug, categorySlug))
     }
 
-    if (state.predicates.length) q = q.where(and(...state.predicates))
-
-    if (state.textSearchQuery) {
-      const ftsQuery = prepareFtsQuery(state.textSearchQuery)
-      const ftsWhere = state.locale
-        ? sql`${post.id} IN (SELECT postId FROM post_fts WHERE content MATCH ${ftsQuery} AND (locale = ${state.locale} OR locale = ''))`
-        : sql`${post.id} IN (SELECT postId FROM post_fts WHERE content MATCH ${ftsQuery})`
-      q = q.where(ftsWhere)
-    }
+    q = q.where(and(...this.conditions()))
 
     const rows = (await q) as { c: number }[]
     const row = rows[0]
@@ -576,10 +575,9 @@ export class PostQuery extends EntityQuery<PostData, PostOrderField, PostQuerySt
 
     if (categorySlug !== undefined) {
       q = q.innerJoin(category, eq(category.id, parentPost.parentId))
-      q = q.where(eq(category.slug, categorySlug))
     }
 
-    q = q.where(and(...state.predicates, before))
+    q = q.where(and(...this.conditions(), before))
 
     const rows = (await q) as { c: number }[]
     const row = rows[0]

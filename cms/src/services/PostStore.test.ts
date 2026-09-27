@@ -1,6 +1,7 @@
+import { eq } from 'drizzle-orm'
 import { describe, it, expect } from 'vitest'
 import { PostSearchStore } from './PostSearchStore.ts'
-import { PostStore } from './PostStore.ts'
+import { PostStore, type PostData, type PostQuery } from './PostStore.ts'
 import { createTestDb, type TestDb } from '../test/db.ts'
 import {
   post as postTable,
@@ -582,6 +583,88 @@ describe('PostStore.query textSearch', () => {
     // AND is a word like the others, and no post has one starting so
     expect(await namesFor(testDb, 'banana AND')).toEqual([])
     expect(await namesFor(testDb, '"banana"')).toEqual(['Banana'])
+  })
+})
+
+describe('PostStore.query filters together', () => {
+  // Apple, Banana (a draft) and Cherry in Birds, Dragon and Elderberry (a draft)
+  // in Fruits, with the word "orchard" in every one. Dragon is tagged red and has
+  // an image, and Elderberry has a lang attribute, on top of the fixtures' tags,
+  // attributes and blocks.
+  async function seedAll(testDb: TestDb): Promise<void> {
+    await seedPosts(testDb)
+    await seedPostsInCategory2(testDb)
+    await testDb.db.update(postTable).set({ status: 'draft' }).where(eq(postTable.id, POST_E))
+    await seedTags(testDb)
+    await seedAttributes(testDb)
+    await seedBlocks(testDb)
+    await tagPost(testDb, POST_D, TAG_RED)
+    await attachBlock(testDb, 'b-dragon-img', POST_D, { type: 'image', key: 'i1', assetId: 'x' })
+    await attachAttribute(testDb, 'a-elderberry-lang', POST_E, 'lang', 'de')
+    const search = new PostSearchStore(testDb.db)
+    for (const id of [POST_A, POST_B, POST_C, POST_D, POST_E]) {
+      await attachBlock(testDb, `b-${id}-orchard`, id, { type: 'text', key: 'o', text: 'orchard' })
+      await search.rebuildPostIndex(id)
+    }
+  }
+
+  const ids = (posts: PostData[]) => posts.map((p) => p.id)
+
+  // each keeps some of the five posts and leaves the others out
+  const filters: [string, (q: PostQuery) => PostQuery][] = [
+    ['published()', (q) => q.published()],
+    ['draft()', (q) => q.draft()],
+    ['byShortId()', (q) => q.byShortId(POST_D.slice(-8))],
+    ['nameMatches()', (q) => q.nameMatches('%e%')],
+    ['inCategory({ id })', (q) => q.inCategory({ id: CATEGORY_ID_2 })],
+    ['withTag()', (q) => q.withTag({ slug: 'red' })],
+    ['withAttribute()', (q) => q.withAttribute({ key: 'lang' })],
+    ['withBlock()', (q) => q.withBlock({ type: 'image' })],
+  ]
+
+  for (const [name, filter] of filters) {
+    it(`keeps ${name} with textSearch()`, async () => {
+      using testDb = await createTestDb()
+      await seedAll(testDb)
+      const posts = () => new PostStore(testDb.db).query()
+      // every post has the word, so the search leaves the filter's posts as they are
+      const expected = ids(await filter(posts()).all())
+      const searched = () => filter(posts().textSearch('orchard'))
+      expect(ids(await searched().all())).toEqual(expected)
+      expect(await searched().count()).toBe(expected.length)
+    })
+
+    it(`keeps ${name} with inCategory({ slug })`, async () => {
+      using testDb = await createTestDb()
+      await seedAll(testDb)
+      const posts = () => new PostStore(testDb.db).query()
+      const birds = new Set(ids(await posts().inCategory({ id: CATEGORY_ID }).all()))
+      const expected = ids(await filter(posts()).all()).filter((id) => birds.has(id))
+      const inBirds = () => filter(posts().inCategory({ slug: 'birds' }))
+      expect(ids(await inBirds().all())).toEqual(expected)
+      expect(await inBirds().count()).toBe(expected.length)
+    })
+  }
+
+  it('counts only the posts the search finds for indexOf()', async () => {
+    using testDb = await createTestDb()
+    await seedAll(testDb)
+    const idx = await new PostStore(testDb.db)
+      .query()
+      .textSearch('banana')
+      .indexOf((q) => q.byShortId(POST_C.slice(-8)))
+    // Banana is the one match before Cherry, and Apple isn't one
+    expect(idx).toBe(1)
+  })
+
+  it("counts only the category's posts for indexOf() with inCategory({ slug })", async () => {
+    using testDb = await createTestDb()
+    await seedAll(testDb)
+    const idx = await new PostStore(testDb.db)
+      .query()
+      .inCategory({ slug: 'fruits' })
+      .indexOf((q) => q.byShortId(POST_D.slice(-8)))
+    expect(idx).toBe(0)
   })
 })
 

@@ -11,8 +11,8 @@ type LocaleSwitchProps = {
 }
 
 // The site's languages, to pick one to show: each green where the text is there in
-// it, grey where it's missing, and the one shown with a dot under it, which hangs
-// out of the switch, so it's as tall as its line. A click on it goes no further, so
+// it, grey where it's missing, and the one shown underlined, the line hanging out
+// of the switch, so it's as tall as its text. A click on it goes no further, so
 // it doesn't reach a card or a field it sits in.
 export const LocaleSwitch: FC<LocaleSwitchProps> = ({ active, onChange, isFilled }) => {
   const { locales } = useCMSLocales()
@@ -33,7 +33,7 @@ export const LocaleSwitch: FC<LocaleSwitchProps> = ({ active, onChange, isFilled
         >
           {locale.code}
           {active === locale.code && (
-            <span className="absolute left-1/2 top-full size-1 -translate-x-1/2 rounded-full bg-current" />
+            <span className="absolute inset-x-0 top-full h-0.5 rounded-full bg-current" />
           )}
         </button>
       ))}

@@ -1,5 +1,4 @@
-// A site's CMS settings, which its src/cms.ts passes to createCMS() as with
-// bananacms:
+// A site's CMS settings, which its src/cms.ts passes to createCMS():
 //
 //   import { createCMS } from '@reeywhaar/bananacms'
 //

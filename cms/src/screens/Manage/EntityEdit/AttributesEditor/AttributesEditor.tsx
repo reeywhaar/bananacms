@@ -2,7 +2,7 @@
 
 import type { FC } from 'react'
 import { v7 } from 'uuid'
-import { X } from '#cms/components/icons.tsx'
+import { Languages, X } from '#cms/components/icons.tsx'
 import type { AttributeData } from '#cms/services/AttributeStore.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { AutosizeTextarea } from '#cms/components/AutosizeTextarea/AutosizeTextarea.tsx'
@@ -60,14 +60,20 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
               className="input-sm h-7 flex-[0_0_180px]"
             />
             {showTranslatable && (
-              <label className="flex items-center gap-1 text-sm whitespace-nowrap pt-1">
-                <input
-                  type="checkbox"
-                  checked={attr.translatable}
-                  onChange={(e) => setTranslatable(attr.id, e.target.checked)}
-                />
-                translatable
-              </label>
+              <button
+                type="button"
+                aria-label="Translatable"
+                aria-pressed={attr.translatable}
+                title="Translatable"
+                onClick={() => setTranslatable(attr.id, !attr.translatable)}
+                className={`flex h-7 shrink-0 items-center rounded border px-1.5 transition-colors ${
+                  attr.translatable
+                    ? 'gradient-accent border-transparent text-white'
+                    : 'border-gray-300 text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                <Languages size={16} strokeWidth={2} aria-hidden="true" />
+              </button>
             )}
             {attr.translatable ? (
               <LocalizableField

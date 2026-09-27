@@ -1,7 +1,7 @@
 import type { ReactNode, SVGProps } from 'react'
 
-// The Feather icons (MIT) the admin uses, with the same props and defaults as
-// @deemlol/next-icons.
+// The Feather icons (MIT) the admin uses, and Lucide's (ISC) Languages, with the
+// same props and defaults as @deemlol/next-icons.
 type IconProps = SVGProps<SVGSVGElement> & { size?: number | string; color?: string }
 
 function icon(name: string, children: ReactNode) {
@@ -50,6 +50,18 @@ export const Info = icon(
     <circle cx="12" cy="12" r="10" />
     <line x1="12" y1="16" x2="12" y2="12" />
     <line x1="12" y1="8" x2="12.01" y2="8" />
+  </>,
+)
+
+export const Languages = icon(
+  'Languages',
+  <>
+    <path d="m5 8 6 6" />
+    <path d="m4 14 6-6 2-3" />
+    <path d="M2 5h12" />
+    <path d="M7 2h1" />
+    <path d="m22 22-5-10-5 10" />
+    <path d="M14 18h6" />
   </>,
 )
 

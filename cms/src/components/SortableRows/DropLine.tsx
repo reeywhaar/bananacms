@@ -24,6 +24,11 @@ export const gapTop = (rects: DOMRect[], index: number, list: HTMLElement, gap: 
   return y - list.getBoundingClientRect().top + list.scrollTop
 }
 
+// While a row is dragged, the pointer is a closed hand wherever it goes, rather
+// than what each element under it asks for (the admin's globals.css)
+export const setDragging = (dragging: boolean) =>
+  document.documentElement.classList.toggle('dragging', dragging)
+
 // The line, in a list that's `relative`, and indented `left`
 export const DropLine: FC<{ top: number; left?: number }> = ({ top, left = 0 }) => (
   <div

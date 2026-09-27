@@ -11,7 +11,7 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { DropLine, draggedMiddle, gapAt, gapTop } from './DropLine.tsx'
+import { DropLine, draggedMiddle, gapAt, gapTop, setDragging } from './DropLine.tsx'
 
 // the list's gap between rows, which the drop line sits in the middle of
 const GAP_PX = 8
@@ -62,19 +62,29 @@ export function SortableRows<T extends { id: string }>({
     if (!list || y === null) return
     const rects = localItems.map((i) => rows.current.get(i.id)!.getBoundingClientRect())
     const index = gapAt(rects, y)
-    setDrop({ index, top: gapTop(rects, index, list, GAP_PX) })
+    const oldIndex = localItems.findIndex((i) => i.id === event.active.id)
+    // the gaps either side of it would leave it where it is, so they show no line
+    setDrop(
+      index === oldIndex || index === oldIndex + 1
+        ? null
+        : { index, top: gapTop(rects, index, list, GAP_PX) },
+    )
+  }
+
+  const stopDragging = () => {
+    setActiveId(null)
+    setDrop(null)
+    setDragging(false)
   }
 
   const handleDragEnd = async () => {
     const id = activeId
     const index = drop?.index
-    setActiveId(null)
-    setDrop(null)
+    stopDragging()
     if (id === null || index === undefined) return
 
     const oldIndex = localItems.findIndex((i) => i.id === id)
-    // the gaps either side of it leave it where it is
-    if (oldIndex === -1 || index === oldIndex || index === oldIndex + 1) return
+    if (oldIndex === -1) return
 
     const previous = localItems
     const rest = localItems.filter((i) => i.id !== id)
@@ -104,13 +114,13 @@ export function SortableRows<T extends { id: string }>({
       id={dndId}
       sensors={sensors}
       autoScroll={{ layoutShiftCompensation: false }}
-      onDragStart={(event) => setActiveId(String(event.active.id))}
+      onDragStart={(event) => {
+        setActiveId(String(event.active.id))
+        setDragging(true)
+      }}
       onDragMove={handleDragMove}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => {
-        setActiveId(null)
-        setDrop(null)
-      }}
+      onDragCancel={stopDragging}
     >
       <div ref={listRef} className="relative flex flex-col gap-2">
         {localItems.map((item) => (

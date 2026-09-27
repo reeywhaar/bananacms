@@ -58,6 +58,12 @@ html {
   height: 100%;
 }
 
+/* while a row is dragged (SortableRows/DropLine.tsx) */
+html.dragging,
+html.dragging * {
+  cursor: grabbing !important;
+}
+
 body {
   height: 100%;
   font-family: Roboto, sans-serif;

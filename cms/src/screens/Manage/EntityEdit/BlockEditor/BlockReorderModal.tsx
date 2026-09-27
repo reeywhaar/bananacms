@@ -11,7 +11,13 @@ import {
 } from '@dnd-kit/core'
 import type { BlockData, BlockType } from '#cms/lib/blocks/declarations.ts'
 import { Dialog } from '#cms/components/Dialog/Dialog.tsx'
-import { DropLine, draggedMiddle, gapAt, gapTop } from '#cms/components/SortableRows/DropLine.tsx'
+import {
+  DropLine,
+  draggedMiddle,
+  gapAt,
+  gapTop,
+  setDragging,
+} from '#cms/components/SortableRows/DropLine.tsx'
 
 const INDENT_PX = 20
 // the list's gap between rows, which the drop line sits in the middle of
@@ -60,19 +66,19 @@ export const BlockReorderModal: FC<BlockReorderModalProps> = ({ blocks, onSave, 
     if (!list || y === null) return
     const id = String(event.active.id)
     const rects = flat.map((f) => rows.current.get(f.id)!.getBoundingClientRect())
-    const { index, depth } = findDrop(flat, id, gapAt(rects, y), event.delta.x)
-    setDrop({ index, depth, top: gapTop(rects, index, list, GAP_PX) })
+    const found = findDrop(flat, id, gapAt(rects, y), event.delta.x)
+    setDrop(found && { ...found, top: gapTop(rects, found.index, list, GAP_PX) })
   }
 
   const handleDragEnd = () => {
     if (activeId && drop) setFlat(applyDrop(flat, activeId, drop))
-    setActiveId(null)
-    setDrop(null)
+    handleDragCancel()
   }
 
   const handleDragCancel = () => {
     setActiveId(null)
     setDrop(null)
+    setDragging(false)
   }
 
   const handleSave = () => {
@@ -102,12 +108,16 @@ export const BlockReorderModal: FC<BlockReorderModalProps> = ({ blocks, onSave, 
     >
       <div
         ref={listRef}
-        className="relative flex flex-col gap-1 pb-24 max-h-[70vh] overflow-y-auto overflow-x-hidden"
+        // pt-1 leaves the line before the first row room, which scrolling would clip
+        className="relative flex flex-col gap-1 pt-1 pb-24 max-h-[70vh] overflow-y-auto overflow-x-hidden"
       >
         <DndContext
           sensors={sensors}
           autoScroll={{ canScroll: (el) => el === listRef.current }}
-          onDragStart={(event) => setActiveId(String(event.active.id))}
+          onDragStart={(event) => {
+            setActiveId(String(event.active.id))
+            setDragging(true)
+          }}
           onDragMove={handleDragMove}
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
@@ -199,12 +209,13 @@ function getDescendantIds(flat: FlatItem[], id: string): Set<string> {
 // sideways: in that gap, but not among its own rows, a group's, which it goes
 // before or after instead, and at its depth give or take one for each indent
 // dragged, as deep as the row before allows and as shallow as the one after does.
+// None where it would stay where it is, as it does until it's dragged anywhere.
 function findDrop(
   flat: FlatItem[],
   activeId: string,
   gap: number,
   offsetX: number,
-): { index: number; depth: number } {
+): { index: number; depth: number } | null {
   const start = flat.findIndex((f) => f.id === activeId)
   const end = start + getDescendantIds(flat, activeId).size
   let index = gap
@@ -221,6 +232,7 @@ function findDrop(
       : previous.depth
   const min = next ? next.depth : 0
   const depth = Math.max(min, Math.min(flat[start].depth + Math.round(offsetX / INDENT_PX), max))
+  if ((index === start || index === end + 1) && depth === flat[start].depth) return null
   return { index, depth }
 }
 

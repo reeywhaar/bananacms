@@ -20,7 +20,7 @@
   --color-accent-900: color-mix(in oklab, var(--color-accent) 26%, black);
 
   /* links, and a darker mix of their color on hover */
-  --color-link: rgb(169 105 6);
+  --color-link: #a93406;
   --color-link-hover: color-mix(in oklab, var(--color-link) 75%, black);
 
   /* destructive actions, and a darker mix of their color on hover */

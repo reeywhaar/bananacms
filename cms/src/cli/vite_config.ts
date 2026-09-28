@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import rsc from '@vitejs/plugin-rsc'
+import rsc, { getPluginApi } from '@vitejs/plugin-rsc'
 import { fileURLToPath } from 'node:url'
 import {
   defaultClientConditions,
@@ -61,6 +61,7 @@ export function createViteConfig(root: string): InlineConfig {
         },
       }),
       rscThroughPackage(),
+      rscClientReferenceTimestamps(),
     ],
     environments: {
       client: {
@@ -121,3 +122,45 @@ function rscThroughPackage(): Plugin {
     },
   }
 }
+
+// In dev, @vitejs/plugin-rsc names a client component in the RSC payload by its URL
+// with the ?t= of its last hot update, as the browser's imports of it have it. It
+// writes the URL into the module's server stand-in, and compiles that again when the
+// module itself changes, but not when one it imports does, which gives the browser's
+// imports a new ?t= (vitejs/vite-plugin-react#790). The browser then loads the module
+// twice, and a component from one copy doesn't find a context, like Confirm's, that
+// a provider from the other gives. So when the browser is told of an update, each
+// stand-in with an old ?t= is invalidated, with the server modules that import it,
+// and the next request runs them again.
+function rscClientReferenceTimestamps(): Plugin {
+  return {
+    name: 'bananacms:rsc-client-reference-timestamps',
+    apply: 'serve',
+    configureServer(server) {
+      const manager = getPluginApi(server.config)?.manager
+      const { client, rsc } = server.environments
+      if (!manager || !client || !rsc) return
+      const send = client.hot.send.bind(client.hot) as (...args: unknown[]) => void
+      client.hot.send = ((...args: unknown[]) => {
+        const [payload] = args
+        if (isReload(payload)) {
+          for (const [id, { importId }] of Object.entries(manager.clientReferenceMetaMap)) {
+            const timestamp = client.moduleGraph.getModuleById(id)?.lastHMRTimestamp ?? 0
+            const written = new URLSearchParams(importId.split('?')[1]).get('t') ?? '0'
+            if (String(timestamp) === written) continue
+            const stale = rsc.moduleGraph.getModuleById(id)
+            if (stale) rsc.moduleGraph.invalidateModule(stale)
+          }
+        }
+        send(...args)
+      }) as typeof client.hot.send
+    },
+  }
+}
+
+// an update the browser applies, or a reload, after which it loads modules anew
+const isReload = (payload: unknown): boolean =>
+  typeof payload === 'object' &&
+  payload !== null &&
+  'type' in payload &&
+  (payload.type === 'update' || payload.type === 'full-reload')

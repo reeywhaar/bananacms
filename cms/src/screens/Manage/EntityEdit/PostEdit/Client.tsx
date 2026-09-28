@@ -23,9 +23,14 @@ import type { BlockData } from '#cms/lib/blocks/declarations.ts'
 import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { SegmentedControl } from '#cms/components/SegmentedControl/SegmentedControl.tsx'
 import { handleServerResult } from '#cms/lib/serverActions.ts'
+import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { copyContent } from '../copyContent.ts'
 
 export const Client: FC<{
   post?: PostData
+  // A post a new one starts as a copy of: its fields, and the blocks, attributes and
+  // translations given, which are its, under ids of the new post's own
+  copyOf?: PostData
   blocks?: BlockData[]
   categories: CategoryData[]
   tags: TagData[]
@@ -37,6 +42,7 @@ export const Client: FC<{
   assetMimes?: Record<string, string>
 }> = ({
   post,
+  copyOf,
   blocks: initialBlocks = [],
   categories,
   tags,
@@ -51,21 +57,42 @@ export const Client: FC<{
   const searchParams = useSearchParams()
   const preselectedCategoryId = searchParams.get('category')
   const [entityId] = useState(() => post?.id ?? v7())
-  const [name, setName] = useState(post?.name || '')
-  const [slug, setSlug] = useState(post?.slug || '')
+  const { default: defaultLocale } = useCMSLocales()
+  const [copy] = useState(() =>
+    copyOf
+      ? copyContent(
+          {
+            table: 'post',
+            id: copyOf.id,
+            blocks: initialBlocks,
+            attributes: initialAttributes,
+            translations: initialTranslations ?? {},
+          },
+          entityId,
+          defaultLocale,
+        )
+      : undefined,
+  )
+  const source = post ?? copyOf
+  const [name, setName] = useState(source?.name || '')
+  const [slug, setSlug] = useState(source?.slug || '')
   const [categoryId, setCategoryId] = useState(
-    post?.categoryId ??
+    source?.categoryId ??
       (preselectedCategoryId
         ? categories.find((c) => c.id === preselectedCategoryId)?.id
         : undefined) ??
       categories[0]?.id ??
       '',
   )
-  const [status, setStatus] = useState<'published' | 'draft'>(post?.status ?? 'draft')
-  const [blocks, setBlocks] = useState<BlockData[]>(initialBlocks)
+  const [status, setStatus] = useState<'published' | 'draft'>(source?.status ?? 'draft')
+  const [blocks, setBlocks] = useState<BlockData[]>(copy?.blocks ?? initialBlocks)
   const [tagIds, setTagIds] = useState<string[]>(initialTagIds)
-  const [attributes, setAttributes] = useState<AttributeData[]>(initialAttributes)
-  const [translations, setTranslations] = useState<Translations>(initialTranslations ?? {})
+  const [attributes, setAttributes] = useState<AttributeData[]>(
+    copy?.attributes ?? initialAttributes,
+  )
+  const [translations, setTranslations] = useState<Translations>(
+    copy?.translations ?? initialTranslations ?? {},
+  )
   const withProgress = useWithProgress()
   const showToast = useToast()
 

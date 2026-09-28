@@ -18,9 +18,14 @@ import { v7 } from 'uuid'
 import type { BlockData } from '#cms/lib/blocks/declarations.ts'
 import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { handleServerResult } from '#cms/lib/serverActions.ts'
+import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
+import { copyContent } from '../copyContent.ts'
 
 export const Client: FC<{
   page?: PageData
+  // A page a new one starts as a copy of: its key, and the blocks, attributes and
+  // translations given, which are its, under ids of the new page's own
+  copyOf?: PageData
   blocks?: BlockData[]
   initialAttributes?: AttributeData[]
   translations?: Translations
@@ -29,6 +34,7 @@ export const Client: FC<{
   assetMimes?: Record<string, string>
 }> = ({
   page,
+  copyOf,
   blocks: initialBlocks = [],
   initialAttributes = [],
   translations: initialTranslations,
@@ -38,10 +44,30 @@ export const Client: FC<{
 }) => {
   const router = useRouter()
   const [entityId] = useState(() => page?.id ?? v7())
-  const [key, setKey] = useState(page?.key || '')
-  const [blocks, setBlocks] = useState<BlockData[]>(initialBlocks)
-  const [attributes, setAttributes] = useState<AttributeData[]>(initialAttributes)
-  const [translations, setTranslations] = useState<Translations>(initialTranslations ?? {})
+  const { default: defaultLocale } = useCMSLocales()
+  const [copy] = useState(() =>
+    copyOf
+      ? copyContent(
+          {
+            table: 'page',
+            id: copyOf.id,
+            blocks: initialBlocks,
+            attributes: initialAttributes,
+            translations: initialTranslations ?? {},
+          },
+          entityId,
+          defaultLocale,
+        )
+      : undefined,
+  )
+  const [key, setKey] = useState((page ?? copyOf)?.key || '')
+  const [blocks, setBlocks] = useState<BlockData[]>(copy?.blocks ?? initialBlocks)
+  const [attributes, setAttributes] = useState<AttributeData[]>(
+    copy?.attributes ?? initialAttributes,
+  )
+  const [translations, setTranslations] = useState<Translations>(
+    copy?.translations ?? initialTranslations ?? {},
+  )
   const withProgress = useWithProgress()
   const showToast = useToast()
 

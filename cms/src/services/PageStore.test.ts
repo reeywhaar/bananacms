@@ -6,6 +6,25 @@ import { page } from '../lib/db/schema.ts'
 const PAGE_A = '019dbce5-0000-7000-0001-000000000001'
 const PAGE_B = '019dbce5-0000-7000-0001-000000000002'
 const PAGE_C = '019dbce5-0000-7000-0001-000000000003'
+const PAGE_D = '019dbce5-0000-7000-0001-000000000004'
+
+const payload = (key: string) => ({ key, blocks: [], translations: {}, attributes: [] })
+
+describe('PageStore', () => {
+  it("refuses another page's key, adding or updating, and takes a page's own", async () => {
+    using testDb = await createTestDb()
+    await seedPages(testDb)
+    const store = new PageStore(testDb.db)
+    await expect(store.add(PAGE_D, payload('about'))).rejects.toThrow('Another page has this key')
+    await expect(store.update(PAGE_B, payload('about'))).rejects.toThrow(
+      'Another page has this key',
+    )
+    await store.update(PAGE_A, payload('about'))
+    await store.add(PAGE_D, payload('about-copy'))
+    const keys = (await store.query().all()).map((p) => p.key)
+    expect(keys).toEqual(['about', 'about-copy', 'contact', 'home'])
+  })
+})
 
 describe('PageStore.query', () => {
   describe('indexOf', () => {

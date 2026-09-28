@@ -9,10 +9,14 @@ import { LocalizationStore } from '#cms/services/LocalizationStore.ts'
 import { AssetStore } from '#cms/services/AssetStore.ts'
 import { AttributeStore } from '#cms/services/AttributeStore.ts'
 import type { BlockData } from '#cms/lib/blocks/declarations.ts'
-import { getDb } from '#cms/framework/context.ts'
+import { getDb, getUrl } from '#cms/framework/context.ts'
 
-export default async function PageEdit({ ctx, id }: { ctx: Context; id?: string }) {
+// A page to edit, by `id`, or a new one: blank, or with ?from=<id>, a copy of that
+// page, which the editor gives ids of its own (copyContent.ts).
+export default async function PageEdit({ ctx, id: pageId }: { ctx: Context; id?: string }) {
   const db = getDb(ctx)
+  const from = pageId ? undefined : (getUrl(ctx).searchParams.get('from') ?? undefined)
+  const id = pageId ?? from
 
   const [pageRow, blocks, translations, initialAttributes] = await Promise.all([
     id ? new PageStore(db).query().byId(id).first() : undefined,
@@ -21,7 +25,8 @@ export default async function PageEdit({ ctx, id }: { ctx: Context; id?: string 
     id ? new AttributeStore(db).query().parentedBy({ table: 'page', id }).all() : [],
   ])
   if (id && !pageRow) notFound()
-  const page = pageRow ?? undefined
+  const page = pageId ? (pageRow ?? undefined) : undefined
+  const copyOf = from ? (pageRow ?? undefined) : undefined
 
   const assetIds: string[] = []
   const collect = (list: BlockData[]): void => {
@@ -52,6 +57,7 @@ export default async function PageEdit({ ctx, id }: { ctx: Context; id?: string 
     >
       <Client
         page={page}
+        copyOf={copyOf}
         blocks={blocks}
         initialAttributes={initialAttributes}
         translations={translations}

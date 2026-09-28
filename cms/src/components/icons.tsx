@@ -77,6 +77,15 @@ export const List = icon(
   </>,
 )
 
+export const MoreHorizontal = icon(
+  'MoreHorizontal',
+  <>
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="19" cy="12" r="1" />
+    <circle cx="5" cy="12" r="1" />
+  </>,
+)
+
 // Feather's, its shoulders closed along the bottom
 export const User = icon(
   'User',

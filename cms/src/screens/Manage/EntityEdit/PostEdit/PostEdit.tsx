@@ -11,10 +11,14 @@ import { AssetStore } from '#cms/services/AssetStore.ts'
 import { TagStore } from '#cms/services/TagStore.ts'
 import { AttributeStore } from '#cms/services/AttributeStore.ts'
 import type { BlockData } from '#cms/lib/blocks/declarations.ts'
-import { getDb } from '#cms/framework/context.ts'
+import { getDb, getUrl } from '#cms/framework/context.ts'
 
-export default async function PostEdit({ ctx, id }: { ctx: Context; id?: string }) {
+// A post to edit, by `id`, or a new one: blank, or with ?from=<id>, a copy of that
+// post, which the editor gives ids of its own (copyContent.ts).
+export default async function PostEdit({ ctx, id: postId }: { ctx: Context; id?: string }) {
   const db = getDb(ctx)
+  const from = postId ? undefined : (getUrl(ctx).searchParams.get('from') ?? undefined)
+  const id = postId ?? from
 
   // Everything keyed only by `id` runs as one batch; the category lookup and
   // asset metadata depend on its results and form a second one.
@@ -36,7 +40,8 @@ export default async function PostEdit({ ctx, id }: { ctx: Context; id?: string 
       id ? new LocalizationStore(db).getByParentId('post', id) : {},
     ])
   if (id && !postRow) notFound()
-  const post = postRow ?? undefined
+  const post = postId ? (postRow ?? undefined) : undefined
+  const copyOf = from ? (postRow ?? undefined) : undefined
 
   const assetIds: string[] = []
   const collect = (list: BlockData[]): void => {
@@ -50,7 +55,7 @@ export default async function PostEdit({ ctx, id }: { ctx: Context; id?: string 
 
   const assetStore = new AssetStore(db)
   const [category, assetContents, assetSizes, assetMimes] = await Promise.all([
-    post ? new CategoryStore(db).query().byId(post.categoryId).first() : undefined,
+    postRow ? new CategoryStore(db).query().byId(postRow.categoryId).first() : undefined,
     assetIds.length ? assetStore.getContent(assetIds) : {},
     assetIds.length ? assetStore.getSizes(assetIds) : {},
     assetIds.length ? assetStore.getMimes(assetIds) : {},
@@ -72,6 +77,7 @@ export default async function PostEdit({ ctx, id }: { ctx: Context; id?: string 
       <Client
         key={post?.updatedAt}
         post={post}
+        copyOf={copyOf}
         blocks={blocks}
         categories={categories}
         tags={tags}

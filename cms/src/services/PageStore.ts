@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, ne, sql, type SQL } from 'drizzle-orm'
 import { ApiError } from '../lib/api/error.ts'
 import type { Db } from '../lib/db/client.ts'
 import { page } from '../lib/db/schema.ts'
@@ -45,6 +45,7 @@ export class PageStore {
   async add(id: string, payload: PagePayload): Promise<void> {
     validatePagePayload(payload)
     await this.db.transaction(async (tx) => {
+      await assertKeyFree(tx, id, payload.key)
       await tx.insert(page).values({ id, key: payload.key })
       await new AttributeStore(tx).saveByParent('page', id, payload.attributes)
       await new BlockStore(tx).saveByParent('page', id, payload.blocks)
@@ -55,6 +56,7 @@ export class PageStore {
   async update(id: string, payload: PagePayload): Promise<void> {
     validatePagePayload(payload)
     await this.db.transaction(async (tx) => {
+      await assertKeyFree(tx, id, payload.key)
       await tx.update(page).set({ key: payload.key }).where(eq(page.id, id))
       await new LocalizationStore(tx).deleteBlockTranslationsByParentId('page', id)
       await new AttributeStore(tx).saveByParent('page', id, payload.attributes)
@@ -70,6 +72,17 @@ export class PageStore {
 
 const validatePagePayload = (payload: PagePayload) => {
   if (!payload.key) throw new ApiError('Key is required').expose().withStatus(400)
+}
+
+// Keys are unique, which the table would enforce too, but with a constraint's
+// error, where this says what's wrong: like saving a copy of a page as it is.
+const assertKeyFree = async (db: Db, id: string, key: string) => {
+  const [other] = await db
+    .select({ id: page.id })
+    .from(page)
+    .where(and(eq(page.key, key), ne(page.id, id)))
+    .limit(1)
+  if (other) throw new ApiError('Another page has this key').expose().withStatus(400)
 }
 
 export class PageQuery extends EntityQuery<PageData, PageOrderField, PageQueryState> {

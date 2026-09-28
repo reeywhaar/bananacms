@@ -12,9 +12,13 @@ import { movePost } from '#cms/screens/Manage/EntityEdit/CategoryEdit/utils.ts'
 import type { CategoryData } from '#cms/services/CategoryStore.ts'
 import type { TagData } from '#cms/services/TagStore.ts'
 import { handleServerResult } from '#cms/lib/serverActions.ts'
+import { deletePost } from '#cms/screens/Manage/EntityEdit/PostEdit/utils.ts'
+import { useWithProgress } from '../ProgressOverlay/ProgressOverlay.tsx'
+import { Menu } from '../Menu/Menu.tsx'
 
 // A card per post: its name and status, and under them its category, date and
-// tags.
+// tags. Its menu duplicates it, opening a new post that's a copy of it, or deletes
+// it.
 export const Client: FC<{
   posts: PostData[]
   categories: CategoryData[]
@@ -22,6 +26,19 @@ export const Client: FC<{
 }> = ({ posts, categories, tagsByPost }) => {
   const router = useRouter()
   const showToast = useToast()
+  const withProgress = useWithProgress()
+
+  const remove = (post: PostData) => {
+    if (!window.confirm(`Delete “${post.name}”? This cannot be undone.`)) return
+    withProgress(async () => {
+      try {
+        handleServerResult(await deletePost(post.id))
+        router.refresh()
+      } catch (e) {
+        showToast('error', extractErrorMessage(e), { timeout: 3000 })
+      }
+    })
+  }
 
   return (
     <SortableRows<PostData>
@@ -55,6 +72,15 @@ export const Client: FC<{
                   {item.status}
                 </span>
               )}
+              <Menu
+                items={[
+                  {
+                    label: 'Duplicate',
+                    onSelect: () => router.push(`${routing.entityAdd('post')}?from=${item.id}`),
+                  },
+                  { label: 'Delete', danger: true, onSelect: () => remove(item) },
+                ]}
+              />
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
               {category ? (

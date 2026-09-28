@@ -13,6 +13,7 @@ import { PageStore } from '../services/PageStore.ts'
 import { TagStore } from '../services/TagStore.ts'
 import type { PostData } from '../services/PostStore.ts'
 import { PostReorderList } from '../components/PostReorderList/PostReorderList.tsx'
+import { PageList } from '../components/PageList/PageList.tsx'
 
 export type EntityListItem = { id: string; name: string }
 
@@ -52,6 +53,8 @@ const registry: Record<string, EntityDescriptor> = {
     displayName: 'Pages',
     store: PageStore,
     editor: PageEdit,
+    renderList: (_ctx: Context, items: EntityListItem[]) =>
+      createElement(PageList, { pages: items }),
   },
   tag: {
     entityName: 'tag',

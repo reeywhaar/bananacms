@@ -12,7 +12,7 @@ The content is TypeScript, so the compiler checks it: `npm run typecheck` names 
 | `content.ts`          | the functions the content is written with, and its languages: English, French and Spanish                              |
 | `tags.ts`             | the tags                                                                                                               |
 | `recipes/`, `movies/` | a category each: `index.ts` is the category, with its posts in the order the site lists them, and each post has a file |
-| `pages/`              | the pages: `main.ts` is the home page's content                                                                        |
+| `pages/`              | the pages: `main.ts` is the home page's content, and `about.ts` a page the site doesn't show, to edit in the admin     |
 | `files/`              | the images and PDFs the blocks show, named by their path in this folder                                                |
 | `credits.ts`          | who made each image, and where it comes from                                                                           |
 

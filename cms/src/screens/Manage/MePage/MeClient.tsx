@@ -1,13 +1,14 @@
 'use client'
 
-import { type FC, type SyntheticEvent, useState } from 'react'
+import { type FC, useState } from 'react'
 import { useRouter } from '#cms/framework/navigation.ts'
 import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
 import { useToast } from '#cms/components/Toast/Toast.tsx'
 import { useConfirm } from '#cms/components/Confirm/Confirm.tsx'
 import { useEvent } from '#cms/hooks/useEvent.ts'
 import { handleServerResult } from '#cms/lib/serverActions.ts'
-import { changePassword, revokeOtherSessions } from '../actions.ts'
+import { logout, revokeOtherSessions } from '../actions.ts'
+import { ChangePasswordDialog } from './ChangePasswordDialog.tsx'
 import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
 import { pluralize } from '#cms/utils/pluralize.ts'
 
@@ -19,37 +20,9 @@ export const MeClient: FC<{
   const showToast = useToast()
   const confirm = useConfirm()
   const router = useRouter()
-  const [pwError, setPwError] = useState<string | null>(null)
-
-  const handlePasswordSubmit = useEvent(async (e: SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setPwError(null)
-    const form = e.currentTarget
-    const current = (form.elements.namedItem('current') as HTMLInputElement).value
-    const next = (form.elements.namedItem('next') as HTMLInputElement).value
-    const confirm = (form.elements.namedItem('confirm') as HTMLInputElement).value
-    if (next !== confirm) {
-      setPwError('New password and confirmation do not match.')
-      return
-    }
-    if (next.length < 8) {
-      setPwError('New password must be at least 8 characters.')
-      return
-    }
-    await withProgress(async () => {
-      try {
-        const [currentHash, newHash] = await Promise.all([sha256hex(current), sha256hex(next)])
-        handleServerResult(await changePassword(currentHash, newHash))
-        form.reset()
-        showToast('info', 'Password updated.', { timeout: 2000 })
-      } catch (err) {
-        setPwError(extractErrorMessage(err))
-      }
-    })
-  })
+  const [changingPassword, setChangingPassword] = useState(false)
 
   const handleRevoke = useEvent(async () => {
-    if (otherSessions === 0) return
     if (
       !(await confirm({
         title: `Revoke ${otherSessions} other ${pluralize(otherSessions, { one: 'session', other: 'sessions' })}?`,
@@ -84,50 +57,15 @@ export const MeClient: FC<{
           <dt className="text-gray-500">User ID</dt>
           <dd className="font-mono break-all">{user.id}</dd>
         </dl>
-      </section>
-
-      <section>
-        <h2 className="text-lg font-semibold mb-2">Change password</h2>
-        <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">
-          <label className="label">
-            <span>Current password</span>
-            <input
-              type="password"
-              name="current"
-              required
-              autoComplete="current-password"
-              className="input"
-            />
-          </label>
-          <label className="label">
-            <span>New password</span>
-            <input
-              type="password"
-              name="next"
-              required
-              minLength={8}
-              autoComplete="new-password"
-              className="input"
-            />
-          </label>
-          <label className="label">
-            <span>Confirm new password</span>
-            <input
-              type="password"
-              name="confirm"
-              required
-              minLength={8}
-              autoComplete="new-password"
-              className="input"
-            />
-          </label>
-          {pwError && <p className="text-red-600 text-sm">{pwError}</p>}
-          <div className="flex justify-end">
-            <button type="submit" className="button">
-              Update password
-            </button>
-          </div>
-        </form>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" className="button" onClick={() => setChangingPassword(true)}>
+            Change password…
+          </button>
+          <form action={logout} className="flex">
+            <button className="button">Logout</button>
+          </form>
+        </div>
+        {changingPassword && <ChangePasswordDialog onClose={() => setChangingPassword(false)} />}
       </section>
 
       <section>
@@ -137,25 +75,14 @@ export const MeClient: FC<{
             ? 'No other active sessions.'
             : `${otherSessions} other active ${pluralize(otherSessions, { one: 'session', other: 'sessions' })}.`}
         </p>
-        <div className="flex justify-end">
-          <button
-            type="button"
-            className="button-danger"
-            onClick={handleRevoke}
-            disabled={otherSessions === 0}
-          >
-            Revoke other sessions…
-          </button>
-        </div>
+        {otherSessions > 0 && (
+          <div className="flex">
+            <button type="button" className="button-danger" onClick={handleRevoke}>
+              Revoke other sessions…
+            </button>
+          </div>
+        )}
       </section>
     </main>
   )
-}
-
-async function sha256hex(message: string): Promise<string> {
-  const msgBuffer = new TextEncoder().encode(message)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
 }

@@ -223,9 +223,11 @@ describe('bananacms dev', () => {
     expect(payload).toContain('Dashboard')
     expect(payload).not.toContain(cookie.slice('auth='.length))
 
-    const logout = await submitForm(`${server.url}/manage`, dashboard, 'Logout', {}, cookie)
+    // Logout is on the user's page
+    const me = await html('/manage/me', { cookie })
+    const logout = await submitForm(`${server.url}/manage/me`, me, 'Logout', {}, cookie)
     expect(logout.status).toBe(303)
-    expect(logout.headers.get('location')).toBe('/manage/login?next=%2Fmanage')
+    expect(logout.headers.get('location')).toBe('/manage/login?next=%2Fmanage%2Fme')
     expect(logout.headers.get('set-cookie')).toMatch(/^auth=; Path=\/; Max-Age=0/)
     expect((await get('/manage', { cookie })).status).toBe(307)
   })

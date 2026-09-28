@@ -5,6 +5,7 @@ import { Link } from '#cms/framework/link.tsx'
 import {
   createContext,
   type FC,
+  Fragment,
   type PropsWithChildren,
   useContext,
   useEffect,
@@ -34,38 +35,28 @@ const useBreadcrumbsContext = () => {
   return useContext(BreadcrumbsContext) ?? invariant('BreadcrumbsContext is not provided')
 }
 
-export const Breadcrumbs: FC = () => {
+// The page's breadcrumbs, under Main in the admin bar: each a link but the last,
+// with a dash between them
+export const Breadcrumbs: FC<{ className?: string }> = ({ className }) => {
   const { items } = useBreadcrumbsContext()
+  if (items.length === 0) return null
 
-  const renderBreadcrumb = (b: Breadcrumb) => {
-    return b.url ? (
-      <Link key={b.url} href={b.url} className="interactive text-sm font-light">
-        {b.name}
-      </Link>
-    ) : (
-      <span key={b.name} className="text-sm font-light opacity-50">
-        {b.name}
-      </span>
-    )
-  }
-
-  const elements = useMemo(() => {
-    return [{ name: 'Main', url: '/' }, ...items].map(renderBreadcrumb).reduce(
-      (prev, curr) =>
-        prev.length === 0
-          ? [curr]
-          : [
-              ...prev,
-              <span key={prev.length} className="text-sm font-light opacity-50">
-                -
-              </span>,
-              curr,
-            ],
-      [] as React.ReactNode[],
-    )
-  }, [items])
-
-  return <div className="flex flex-row flex-wrap items-center gap-2">{elements}</div>
+  return (
+    <div className={['flex flex-row flex-wrap items-center gap-2', className].join(' ')}>
+      {items.map((b, i) => (
+        <Fragment key={i}>
+          {i > 0 && <span className="text-sm font-light opacity-50">-</span>}
+          {b.url ? (
+            <Link href={b.url} className="interactive text-sm font-light">
+              {b.name}
+            </Link>
+          ) : (
+            <span className="text-sm font-light opacity-50">{b.name}</span>
+          )}
+        </Fragment>
+      ))}
+    </div>
+  )
 }
 
 export const WithBreadcrumbs: FC<PropsWithChildren<{ items: Breadcrumb[] }>> = ({

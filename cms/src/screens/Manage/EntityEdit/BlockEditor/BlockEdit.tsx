@@ -240,7 +240,7 @@ const GroupRow: FC<GroupRowProps> = ({
         <button
           type="button"
           aria-label="Remove block"
-          className="button-sm-danger"
+          className="button-sm-plain"
           onMouseEnter={() => setRemoving(true)}
           onMouseLeave={() => setRemoving(false)}
           onClick={onRemove}

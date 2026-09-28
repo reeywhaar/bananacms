@@ -151,34 +151,18 @@ export const Client: FC<{
           </label>
         )}
       />
-      <div className="flex flex-col md:flex-row gap-4 md:gap-2 w-full">
-        <div className="input-cnt">
-          <label className="label">
-            <span>Slug</span>
-            <input
-              value={slug}
-              onChange={(e) => {
-                e.target.value = slugify(e.target.value)
-                setSlug(e.target.value)
-              }}
-              className="input"
-            />
-          </label>
-        </div>
-        <div className="input-cnt md:flex-[0_0_250px]">
-          <label className="label">
-            <span>Status</span>
-            <SegmentedControl
-              value={status}
-              onChange={setStatus}
-              size="sm"
-              options={[
-                { value: 'draft', label: 'Draft' },
-                { value: 'published', label: 'Published' },
-              ]}
-            />
-          </label>
-        </div>
+      <div className="input-cnt">
+        <label className="label">
+          <span>Slug</span>
+          <input
+            value={slug}
+            onChange={(e) => {
+              e.target.value = slugify(e.target.value)
+              setSlug(e.target.value)
+            }}
+            className="input"
+          />
+        </label>
       </div>
       {tags.length > 0 && <TagInput tags={tags} value={tagIds} onChange={setTagIds} />}
       <AttributesSection
@@ -197,8 +181,20 @@ export const Client: FC<{
         assetSizes={assetSizes}
         assetMimes={assetMimes}
       />
-      <div className="h-8" />
-      <div className="sticky bottom-0 -mx-4 -mb-4 flex w-full justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3 box-content">
+      <div className="h-12" />
+      {/* at the bottom of the screen, however short the page, the spacer above
+          keeping what's last on it clear; the post's status, beside what saves it */}
+      <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
+        <SegmentedControl
+          value={status}
+          onChange={setStatus}
+          size="sm"
+          className="mr-auto"
+          options={[
+            { value: 'draft', label: 'Draft' },
+            { value: 'published', label: 'Published' },
+          ]}
+        />
         {post && (
           <button type="button" className="button-danger" onClick={handleDelete}>
             Delete

@@ -47,10 +47,11 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-sm text-gray-700">Attributes</span>
+      <div className="flex items-center justify-between mb-0.5">
+        <span className="text-xs text-gray-500">Attributes</span>
       </div>
-      <div className="flex flex-col gap-2">
+      {/* on a phone, where each takes two lines, a wider gap between them */}
+      <div className="flex flex-col gap-3 sm:gap-2">
         {attributes.map((attr) => (
           // h-7.5 is the text's field at one line, which grows with more. On a phone,
           // the text goes on a line of its own, under the key and the buttons.
@@ -59,7 +60,7 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
               value={attr.key}
               onChange={(e) => update(attr.id, { key: e.target.value })}
               placeholder="key"
-              className="input-sm h-7.5 min-w-0 flex-1 sm:flex-[0_0_180px]"
+              className="input h-7.5 min-w-0 flex-1 sm:flex-[0_0_180px]"
             />
             {showTranslatable && (
               <button
@@ -97,7 +98,7 @@ export const AttributesEditor: FC<AttributesEditorProps> = ({
             />
             <button
               type="button"
-              className="button-sm-danger h-7.5"
+              className="button-sm-plain h-7.5"
               onClick={() => remove(attr.id)}
               aria-label="Remove attribute"
             >

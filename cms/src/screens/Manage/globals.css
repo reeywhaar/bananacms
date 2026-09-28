@@ -23,20 +23,31 @@
   --color-link: #a93406;
   --color-link-hover: color-mix(in oklab, var(--color-link) 75%, black);
 
-  /* destructive actions, and a darker mix of their color on hover. The red is
-     halfway from rgb(236 47 4) to Tailwind's orange-500, mixed in oklab, with a
-     twentieth less chroma. */
+  /* destructive actions. The red is halfway from rgb(236 47 4) to Tailwind's
+     orange-500, mixed in oklab, with a twentieth less chroma. */
   --color-danger: oklch(65.8% 0.207 39.783);
-  --color-danger-hover: color-mix(in oklab, var(--color-danger) 80%, black);
 
   /* a published post's status, on a fill mixed from it: Tailwind's green-700
      warmed with a fifth of a yellowish grey, oklch(72% 0.06 95), mixed in oklab */
   --color-published: oklch(56.6% 0.13 145.744);
   --color-published-bg: color-mix(in oklab, var(--color-published) 12%, white);
 
-  /* a language a text is translated into, in the language switch and labels: the
-     same green */
+  /* a language a text is translated into, in the labels by a field: the same green */
   --color-translated: var(--color-published);
+
+  /* greys, warm: Tailwind's lightnesses, with a little of the accent's hue where
+     Tailwind's greys lean blue */
+  --color-gray-50: oklch(98.5% 0.005 85);
+  --color-gray-100: oklch(96.7% 0.009 85);
+  --color-gray-200: oklch(92.8% 0.011 85);
+  --color-gray-300: oklch(87.2% 0.013 85);
+  --color-gray-400: oklch(70.7% 0.015 85);
+  --color-gray-500: oklch(55.1% 0.016 85);
+  --color-gray-600: oklch(44.6% 0.015 85);
+  --color-gray-700: oklch(37.3% 0.014 85);
+  --color-gray-800: oklch(27.8% 0.012 85);
+  --color-gray-900: oklch(21% 0.01 85);
+  --color-gray-950: oklch(13% 0.008 85);
 }
 
 /* fills for buttons and selections, which lean a little to a red, or the danger
@@ -104,8 +115,8 @@ body {
     @apply px-2 py-1 rounded border border-transparent gradient-accent text-white hover:brightness-95 text-xs;
   }
 
-  .button-sm-danger {
-    @apply px-2 py-1 rounded border border-transparent bg-gray-100 text-danger hover:bg-gray-200 hover:text-danger-hover text-xs;
+  .button-sm-plain {
+    @apply px-2 py-1 rounded border border-transparent bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs;
   }
 
   .input-cnt {
@@ -124,15 +135,29 @@ body {
     @apply w-full p-1 border border-gray-300 rounded;
   }
 
+  /* bordered and rounded like a field, and filled with the accent and a white
+     tick when checked */
+  .checkbox {
+    @apply size-4 shrink-0 cursor-pointer appearance-none rounded border border-gray-300 bg-white bg-center bg-no-repeat focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+  }
+
+  .checkbox:checked {
+    border-color: transparent;
+    background-color: var(--color-accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5'/%3E%3C/svg%3E");
+  }
+
   .label {
-    @apply flex flex-col gap-1 text-gray-700;
+    @apply flex flex-col gap-0.5 text-gray-700;
   }
 
   .label-row {
     @apply flex flex-row gap-1 text-gray-700;
   }
 
-  .label span:first-child {
-    @apply text-sm;
+  /* a field's name, small and dimmed over it: the label's own first span, not one
+     in the field, like a tag's */
+  .label > span:first-child {
+    @apply text-xs text-gray-500;
   }
 }

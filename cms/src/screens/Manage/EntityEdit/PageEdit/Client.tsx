@@ -104,8 +104,10 @@ export const Client: FC<{
         assetSizes={assetSizes}
         assetMimes={assetMimes}
       />
-      <div className="h-8" />
-      <div className="sticky bottom-0 -mx-4 -mb-4 flex w-full justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3 box-content">
+      <div className="h-12" />
+      {/* at the bottom of the screen, however short the page, the spacer above
+          keeping what's last on it clear */}
+      <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
         {page && (
           <button type="button" className="button-danger" onClick={handleDelete}>
             Delete

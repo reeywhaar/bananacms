@@ -2,7 +2,7 @@
 
 import { type FC, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { marked } from 'marked'
-import type { BlockData, BlockTypeImage } from '#cms/lib/blocks/declarations.ts'
+import type { BlockData, BlockTypeAsset, BlockTypeImage } from '#cms/lib/blocks/declarations.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import type {
   AssetContent,
@@ -10,6 +10,7 @@ import type {
   AssetOutputFormat,
 } from '#cms/services/AssetStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
+import { formatChannels, formatDuration, formatSampleRate } from '#cms/lib/audioMeta.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
 import { X } from '#cms/components/icons.tsx'
 import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
@@ -125,7 +126,7 @@ export const BlockCard: FC<BlockCardProps> = ({
         <button
           type="button"
           aria-label="Remove block"
-          className="button-sm-danger"
+          className="button-sm-plain"
           onMouseEnter={() => setRemoving(true)}
           onMouseLeave={() => setRemoving(false)}
           onClick={(e) => {
@@ -202,17 +203,57 @@ const BlockSummary: FC<{
     )
   }
   if (content.type === 'asset') {
-    const name = content.pendingFile?.name ?? content.name
-    const size = content.pendingFile?.size ?? assetSizes[content.assetId]
-    if (!name) return <span className="text-sm italic text-gray-400">No file</span>
     return (
-      <span className="truncate text-sm text-gray-700">
-        {name}
-        {size != null && <span className="text-gray-400"> · {formatSize(size)}</span>}
-      </span>
+      <AssetSummary
+        content={content}
+        assetContent={assetContents[content.assetId] ?? null}
+        size={assetSizes[content.assetId]}
+        mime={assetMimes[content.assetId]}
+      />
     )
   }
   return null
+}
+
+// A file's details: its name, type and size, and what an audio file declares of
+// itself, read from it at upload, so a new one has none of that yet.
+const AssetSummary: FC<{
+  content: BlockTypeAsset
+  assetContent: AssetContent | null
+  size: number | undefined
+  mime: string | undefined
+}> = ({ content, assetContent, size, mime }) => {
+  const file = content.pendingFile
+  const name = file?.name ?? content.name
+  if (!name) return <span className="text-sm italic text-gray-400">No file</span>
+  const type = file ? file.type : mime
+  const bytes = file ? file.size : size
+  const audio = !file && assetContent?.type === 'audio' ? assetContent : null
+  const tags = audio?.tags
+
+  return (
+    <dl className="grid min-w-0 grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+      <Detail label="File">{name}</Detail>
+      {type && <Detail label="Type">{type}</Detail>}
+      {bytes != null && <Detail label="Size">{formatSize(bytes)}</Detail>}
+      {tags?.title && <Detail label="Title">{tags.title}</Detail>}
+      {tags?.artist && <Detail label="Artist">{tags.artist}</Detail>}
+      {tags?.album && <Detail label="Album">{tags.album}</Detail>}
+      {tags?.year && <Detail label="Year">{tags.year}</Detail>}
+      {audio?.duration !== undefined && (
+        <Detail label="Duration">{formatDuration(audio.duration)}</Detail>
+      )}
+      {audio?.bitrate !== undefined && (
+        <Detail label="Bitrate">{Math.round(audio.bitrate / 1000)} kbps</Detail>
+      )}
+      {audio?.sampleRate !== undefined && (
+        <Detail label="Sample rate">{formatSampleRate(audio.sampleRate)}</Detail>
+      )}
+      {audio?.channels !== undefined && (
+        <Detail label="Channels">{formatChannels(audio.channels)}</Detail>
+      )}
+    </dl>
+  )
 }
 
 // A word too long for the card, like a URL, breaks where it has to, rather than

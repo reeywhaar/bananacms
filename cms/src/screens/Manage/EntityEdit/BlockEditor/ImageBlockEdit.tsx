@@ -9,6 +9,7 @@ import type {
 } from '#cms/services/AssetStore.ts'
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
+import { SegmentedControl } from '#cms/components/SegmentedControl/SegmentedControl.tsx'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
 import { updateAssetContent } from './actions.ts'
@@ -287,20 +288,17 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
 
           <div className="flex flex-row gap-2">
             <div className="input-cnt">
-              <label className="label">
+              {/* not a <label>, whose click would reach the control's first button */}
+              <div className="label">
                 <span>Resolution</span>
-                <select
+                <SegmentedControl
                   value={resolution}
-                  onChange={(e) => handleResolutionChange(e.target.value as AssetResolution)}
-                  className="input"
-                >
-                  {RESOLUTIONS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  onChange={handleResolutionChange}
+                  options={RESOLUTIONS.map((r) => ({ value: r, label: r }))}
+                  size="sm"
+                  className="w-full"
+                />
+              </div>
             </div>
 
             <div className="input-cnt">
@@ -309,7 +307,7 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
                 <select
                   value={format.type}
                   onChange={(e) => handleFormatTypeChange(e.target.value as FormatType)}
-                  className="input"
+                  className="input h-7.5"
                 >
                   {FORMATS.map((f) => (
                     <option key={f} value={f}>
@@ -327,7 +325,7 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
                   <select
                     value={format.quality}
                     onChange={(e) => handleQualityChange(Number(e.target.value))}
-                    className="input"
+                    className="input h-7.5"
                   >
                     {QUALITIES.map((q) => (
                       <option key={q} value={q}>
@@ -344,6 +342,7 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
             <label className="label-row flex items-center gap-2">
               <input
                 type="checkbox"
+                className="checkbox"
                 checked={maxSize !== null}
                 onChange={(e) => handleMaxSizeToggle(e.target.checked)}
               />

@@ -41,7 +41,7 @@ export const TextBlockEdit: FC<TextBlockEditProps> = ({
         onChange={(contentType) => update({ contentType })}
         options={contentTypeOptions}
         size="sm"
-        className="max-w-[400px]"
+        className="w-full"
       />
       <LocalizableField
         label="Text"

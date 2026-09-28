@@ -49,7 +49,7 @@ export const TagInput: FC<TagInputProps> = ({ tags, value, onChange }) => {
   return (
     <div className="input-cnt">
       <div className="label">
-        <label htmlFor={inputId} className="text-sm">
+        <label htmlFor={inputId} className="text-xs text-gray-500">
           Tags
         </label>
         <div

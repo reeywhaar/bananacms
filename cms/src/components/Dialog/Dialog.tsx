@@ -98,13 +98,13 @@ export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer
         if (pressedBackdrop.current && e.target === e.currentTarget) onClose()
         pressedBackdrop.current = false
       }}
-      // hidden while closed, as open:flex would otherwise show it. m-auto centres
-      // it, which Tailwind's reset of margins undoes, and h-fit keeps it to its
-      // contents rather than stretching it between the top and bottom insets. On a
-      // phone, it's 5px from the screen's edges, past the browser's max-width for
-      // a modal, which keeps it 2em and more from them.
-      className={`m-auto hidden h-fit max-h-[85dvh] max-w-none flex-col overflow-hidden rounded-lg bg-white p-0 shadow-xl backdrop:bg-black/50 open:flex focus:outline-none ${
-        wide ? 'w-[min(42rem,calc(100vw-10px))]' : 'w-[min(28rem,calc(100vw-10px))]'
+      // hidden while closed, as open:flex would otherwise show it. On a phone it's
+      // the whole screen, past the browser's max sizes for a modal, which keep it
+      // 2em and more from the edges. Wider, m-auto centres it, which Tailwind's
+      // reset of margins undoes, and h-fit keeps it to its contents rather than
+      // stretching it between the top and bottom insets.
+      className={`m-0 hidden h-dvh max-h-none w-full max-w-none flex-col overflow-hidden bg-white p-0 backdrop:bg-black/50 open:flex focus:outline-none sm:m-auto sm:h-fit sm:max-h-[85dvh] sm:rounded-lg sm:shadow-xl ${
+        wide ? 'sm:w-[min(42rem,calc(100vw-2rem))]' : 'sm:w-[min(28rem,calc(100vw-2rem))]'
       }`}
     >
       {open && (
@@ -121,9 +121,13 @@ export const Dialog: FC<DialogProps> = ({ open, onClose, title, children, footer
               <X size={18} strokeWidth={2} />
             </button>
           </div>
+          {/* On a phone, the space between the title and the buttons. Wider, as tall
+              as what's in it, shrinking to scroll it once the dialog is as tall as it
+              goes: not flex-1 there, as WebKit sizes a dialog that fits its contents by
+              its rows' flex bases, and flex-1's is 0, which collapses the body. */}
           <div
             ref={bodyRef}
-            className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4"
+            className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-4 sm:flex-initial"
           >
             {children}
           </div>

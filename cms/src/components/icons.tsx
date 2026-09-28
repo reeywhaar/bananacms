@@ -77,6 +77,15 @@ export const List = icon(
   </>,
 )
 
+// Feather's, its shoulders closed along the bottom
+export const User = icon(
+  'User',
+  <>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2z" />
+    <circle cx="12" cy="7" r="4" />
+  </>,
+)
+
 export const X = icon(
   'X',
   <>

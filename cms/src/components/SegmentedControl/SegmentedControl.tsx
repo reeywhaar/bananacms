@@ -21,9 +21,11 @@ export function SegmentedControl<T extends string>({
   size?: 'sm' | 'md' | 'lg'
 }) {
   return (
+    // columns of one width, the widest option's, or a share of the control's when
+    // it's stretched
     <div
       role="radiogroup"
-      className={`inline-flex rounded border border-gray-300 p-0.5 gap-0.5 ${className ?? ''}`}
+      className={`inline-grid auto-cols-fr grid-flow-col rounded border border-gray-300 p-0.5 gap-0.5 ${className ?? ''}`}
     >
       {options.map((option) => {
         const selected = option.value === value
@@ -34,7 +36,7 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={selected}
             onClick={() => onChange(option.value)}
-            className={`px-2 py-1 flex-1 rounded ${size === 'sm' ? 'text-xs' : size === 'lg' ? 'text-base' : 'text-sm'} transition-colors ${
+            className={`px-2 py-1 rounded ${size === 'sm' ? 'text-xs' : size === 'lg' ? 'text-base' : 'text-sm'} transition-colors ${
               selected ? 'gradient-accent text-white' : 'text-gray-700 hover:bg-gray-100'
             }`}
           >

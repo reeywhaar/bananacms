@@ -32,7 +32,7 @@ export const MetaFields: FC<MetaFieldsProps> = ({
           value={keyName}
           onChange={(e) => onKeyChange(e.target.value)}
           placeholder="key"
-          className="input font-mono"
+          className="input"
         />
       </label>
     )}

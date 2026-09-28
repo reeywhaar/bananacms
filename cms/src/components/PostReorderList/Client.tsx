@@ -15,6 +15,7 @@ import { handleServerResult } from '#cms/lib/serverActions.ts'
 import { deletePost } from '#cms/screens/Manage/EntityEdit/PostEdit/utils.ts'
 import { useWithProgress } from '../ProgressOverlay/ProgressOverlay.tsx'
 import { Menu } from '../Menu/Menu.tsx'
+import { useConfirm } from '../Confirm/Confirm.tsx'
 
 // A card per post: its name and status, and under them its category, date and
 // tags. Its menu duplicates it, opening a new post that's a copy of it, or deletes
@@ -27,9 +28,18 @@ export const Client: FC<{
   const router = useRouter()
   const showToast = useToast()
   const withProgress = useWithProgress()
+  const confirm = useConfirm()
 
-  const remove = (post: PostData) => {
-    if (!window.confirm(`Delete “${post.name}”? This cannot be undone.`)) return
+  const remove = async (post: PostData) => {
+    if (
+      !(await confirm({
+        title: `Delete “${post.name}”?`,
+        message: 'This cannot be undone.',
+        action: 'Delete',
+        danger: true,
+      }))
+    )
+      return
     withProgress(async () => {
       try {
         handleServerResult(await deletePost(post.id))
@@ -78,7 +88,7 @@ export const Client: FC<{
                     label: 'Duplicate',
                     onSelect: () => router.push(`${routing.entityAdd('post')}?from=${item.id}`),
                   },
-                  { label: 'Delete', danger: true, onSelect: () => remove(item) },
+                  { label: 'Delete…', danger: true, onSelect: () => remove(item) },
                 ]}
               />
             </div>

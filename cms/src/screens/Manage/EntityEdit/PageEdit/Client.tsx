@@ -3,6 +3,7 @@
 import { useRouter } from '#cms/framework/navigation.ts'
 import { type FC, useState } from 'react'
 import { useToast } from '#cms/components/Toast/Toast.tsx'
+import { useConfirm } from '#cms/components/Confirm/Confirm.tsx'
 import { useEvent } from '#cms/hooks/useEvent.ts'
 import type { PageData } from '#cms/services/PageStore.ts'
 import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
@@ -70,6 +71,7 @@ export const Client: FC<{
   )
   const withProgress = useWithProgress()
   const showToast = useToast()
+  const confirm = useConfirm()
 
   const handleSave = useEvent(async () => {
     await withProgress(async () => {
@@ -94,7 +96,15 @@ export const Client: FC<{
 
   const handleDelete = useEvent(async () => {
     if (!page) return
-    if (!window.confirm('Delete this page? This cannot be undone.')) return
+    if (
+      !(await confirm({
+        title: 'Delete this page?',
+        message: 'This cannot be undone.',
+        action: 'Delete',
+        danger: true,
+      }))
+    )
+      return
     await withProgress(async () => {
       handleServerResult(await deletePage(page.id))
       router.replace(routing.manage)
@@ -136,7 +146,7 @@ export const Client: FC<{
       <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
         {page && (
           <button type="button" className="button-danger" onClick={handleDelete}>
-            Delete
+            Delete…
           </button>
         )}
         <button className="button">Save</button>

@@ -11,6 +11,7 @@ import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
 import { useToast } from '../Toast/Toast.tsx'
 import { useWithProgress } from '../ProgressOverlay/ProgressOverlay.tsx'
 import { Menu } from '../Menu/Menu.tsx'
+import { useConfirm } from '../Confirm/Confirm.tsx'
 
 // A card per page, its key, all of it a link to the page's editor but its menu,
 // which duplicates it, opening a new page that's a copy of it, or deletes it.
@@ -18,9 +19,18 @@ export const PageList: FC<{ pages: EntityListItem[] }> = ({ pages }) => {
   const router = useRouter()
   const showToast = useToast()
   const withProgress = useWithProgress()
+  const confirm = useConfirm()
 
-  const remove = (page: EntityListItem) => {
-    if (!window.confirm(`Delete “${page.name}”? This cannot be undone.`)) return
+  const remove = async (page: EntityListItem) => {
+    if (
+      !(await confirm({
+        title: `Delete “${page.name}”?`,
+        message: 'This cannot be undone.',
+        action: 'Delete',
+        danger: true,
+      }))
+    )
+      return
     withProgress(async () => {
       try {
         handleServerResult(await deletePage(page.id))
@@ -53,7 +63,7 @@ export const PageList: FC<{ pages: EntityListItem[] }> = ({ pages }) => {
                   label: 'Duplicate',
                   onSelect: () => router.push(`${routing.entityAdd('page')}?from=${page.id}`),
                 },
-                { label: 'Delete', danger: true, onSelect: () => remove(page) },
+                { label: 'Delete…', danger: true, onSelect: () => remove(page) },
               ]}
             />
           </div>

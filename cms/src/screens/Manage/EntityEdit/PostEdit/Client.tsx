@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from '#cms/framework/navigation.ts'
 import { type FC, useState } from 'react'
 import { useToast } from '#cms/components/Toast/Toast.tsx'
+import { useConfirm } from '#cms/components/Confirm/Confirm.tsx'
 import { useEvent } from '#cms/hooks/useEvent.ts'
 import type { PostData } from '#cms/services/PostStore.ts'
 import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
@@ -95,6 +96,7 @@ export const Client: FC<{
   )
   const withProgress = useWithProgress()
   const showToast = useToast()
+  const confirm = useConfirm()
 
   const handleSave = useEvent(async () => {
     await withProgress(async () => {
@@ -128,7 +130,15 @@ export const Client: FC<{
 
   const handleDelete = useEvent(async () => {
     if (!post) return
-    if (!window.confirm('Delete this post? This cannot be undone.')) return
+    if (
+      !(await confirm({
+        title: 'Delete this post?',
+        message: 'This cannot be undone.',
+        action: 'Delete',
+        danger: true,
+      }))
+    )
+      return
     await withProgress(async () => {
       handleServerResult(await deletePost(post.id))
       router.replace(routing.manage)
@@ -224,7 +234,7 @@ export const Client: FC<{
         />
         {post && (
           <button type="button" className="button-danger" onClick={handleDelete}>
-            Delete
+            Delete…
           </button>
         )}
         <button className="button">Save</button>

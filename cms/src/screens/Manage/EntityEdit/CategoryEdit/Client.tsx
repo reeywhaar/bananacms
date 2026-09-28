@@ -12,6 +12,7 @@ import { AttributesSection } from '../Meta/AttributesSection.tsx'
 import { resolveBlocks, preventFileNavigation } from '../BlockEditor/resolveBlocks.ts'
 import { routing } from '#cms/screens/Manage/routing.ts'
 import { useToast } from '#cms/components/Toast/Toast.tsx'
+import { useConfirm } from '#cms/components/Confirm/Confirm.tsx'
 import { useEvent } from '#cms/hooks/useEvent.ts'
 import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
 import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
@@ -46,6 +47,7 @@ export const Client: FC<{
   const [translations, setTranslations] = useState<Translations>(initialTranslations ?? {})
   const withProgress = useWithProgress()
   const showToast = useToast()
+  const confirm = useConfirm()
 
   const handleSave = useEvent(async () => {
     await withProgress(async () => {
@@ -71,9 +73,12 @@ export const Client: FC<{
   const handleDelete = useEvent(async () => {
     if (!category) return
     if (
-      !window.confirm(
-        'Delete this category? All posts inside will also be deleted. This cannot be undone.',
-      )
+      !(await confirm({
+        title: 'Delete this category?',
+        message: 'All posts inside will also be deleted. This cannot be undone.',
+        action: 'Delete',
+        danger: true,
+      }))
     )
       return
     await withProgress(async () => {
@@ -144,7 +149,7 @@ export const Client: FC<{
       <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
         {category && (
           <button type="button" className="button-danger" onClick={handleDelete}>
-            Delete
+            Delete…
           </button>
         )}
         <button className="button">Save</button>

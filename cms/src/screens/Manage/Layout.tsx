@@ -7,6 +7,7 @@ import type { ReactNode } from 'react'
 import { CMSLocalesProvider } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
 import { ProgressOverlayProvider } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
 import { ToastProvider } from '#cms/components/Toast/Toast.tsx'
+import { ConfirmProvider } from '#cms/components/Confirm/Confirm.tsx'
 import { TopLoader } from '#cms/components/TopLoader/TopLoader.tsx'
 import type { Context } from '#cms/framework/context.ts'
 import { getSiteConfig } from '#cms/framework/site_config.ts'
@@ -30,8 +31,10 @@ export default function ManageLayout({ ctx, children }: { ctx: Context; children
             <TopLoader color="var(--color-accent-600)" />
             <ProgressOverlayProvider>
               <ToastProvider>
-                <AdminBar user={getAuth(ctx)?.user} />
-                {children}
+                <ConfirmProvider>
+                  <AdminBar user={getAuth(ctx)?.user} />
+                  {children}
+                </ConfirmProvider>
               </ToastProvider>
             </ProgressOverlayProvider>
           </body>

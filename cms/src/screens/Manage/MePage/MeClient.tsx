@@ -4,6 +4,7 @@ import { type FC, type SyntheticEvent, useState } from 'react'
 import { useRouter } from '#cms/framework/navigation.ts'
 import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
 import { useToast } from '#cms/components/Toast/Toast.tsx'
+import { useConfirm } from '#cms/components/Confirm/Confirm.tsx'
 import { useEvent } from '#cms/hooks/useEvent.ts'
 import { handleServerResult } from '#cms/lib/serverActions.ts'
 import { changePassword, revokeOtherSessions } from '../actions.ts'
@@ -16,6 +17,7 @@ export const MeClient: FC<{
 }> = ({ user, otherSessions }) => {
   const withProgress = useWithProgress()
   const showToast = useToast()
+  const confirm = useConfirm()
   const router = useRouter()
   const [pwError, setPwError] = useState<string | null>(null)
 
@@ -49,9 +51,12 @@ export const MeClient: FC<{
   const handleRevoke = useEvent(async () => {
     if (otherSessions === 0) return
     if (
-      !window.confirm(
-        `Revoke ${otherSessions} other ${pluralize(otherSessions, { one: 'session', other: 'sessions' })}`,
-      )
+      !(await confirm({
+        title: `Revoke ${otherSessions} other ${pluralize(otherSessions, { one: 'session', other: 'sessions' })}?`,
+        message: `${pluralize(otherSessions, { one: 'It', other: 'They' })} will be signed out.`,
+        action: 'Revoke',
+        danger: true,
+      }))
     )
       return
     await withProgress(async () => {
@@ -139,7 +144,7 @@ export const MeClient: FC<{
             onClick={handleRevoke}
             disabled={otherSessions === 0}
           >
-            Revoke other sessions
+            Revoke other sessions…
           </button>
         </div>
       </section>

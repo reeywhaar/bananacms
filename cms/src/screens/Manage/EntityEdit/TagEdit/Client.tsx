@@ -14,6 +14,7 @@ import { type FC, useState } from 'react'
 import { addTag, editTag, deleteTag } from './utils.ts'
 import { routing } from '#cms/screens/Manage/routing.ts'
 import { useToast } from '#cms/components/Toast/Toast.tsx'
+import { useConfirm } from '#cms/components/Confirm/Confirm.tsx'
 import { useEvent } from '#cms/hooks/useEvent.ts'
 import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
 import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
@@ -46,6 +47,7 @@ export const Client: FC<{
   const [translations, setTranslations] = useState<Translations>(initialTranslations ?? {})
   const withProgress = useWithProgress()
   const showToast = useToast()
+  const confirm = useConfirm()
 
   const handleSave = useEvent(async () => {
     await withProgress(async () => {
@@ -70,7 +72,15 @@ export const Client: FC<{
 
   const handleDelete = useEvent(async () => {
     if (!tag) return
-    if (!window.confirm('Delete this tag? This cannot be undone.')) return
+    if (
+      !(await confirm({
+        title: 'Delete this tag?',
+        message: 'This cannot be undone.',
+        action: 'Delete',
+        danger: true,
+      }))
+    )
+      return
     await withProgress(async () => {
       handleServerResult(await deleteTag(tag.id))
       router.replace(routing.entityList('tag'))
@@ -139,7 +149,7 @@ export const Client: FC<{
       <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-end gap-3 border-t border-gray-200 bg-white px-4 py-3">
         {tag && (
           <button type="button" className="button-danger" onClick={handleDelete}>
-            Delete
+            Delete…
           </button>
         )}
         <button className="button">Save</button>

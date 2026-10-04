@@ -256,12 +256,13 @@ const AssetSummary: FC<{
   )
 }
 
-// A word too long for the card, like a URL, breaks where it has to, rather than
-// being cut off at its edge. So does one in RenderedSummary.
+// The text's spaces and line breaks show as written, like a meta block's indented
+// JSON. A word too long for the card, like a URL, breaks where it has to, rather
+// than being cut off at its edge. So does one in RenderedSummary.
 const PlainSummary: FC<{ text: string; missing: boolean }> = ({ text, missing }) =>
   text ? (
     <p
-      className={`line-clamp-3 whitespace-pre-line wrap-anywhere text-sm ${missing ? 'text-gray-400' : 'text-gray-700'}`}
+      className={`line-clamp-3 whitespace-pre-wrap wrap-anywhere text-sm ${missing ? 'text-gray-400' : 'text-gray-700'}`}
     >
       {text}
     </p>

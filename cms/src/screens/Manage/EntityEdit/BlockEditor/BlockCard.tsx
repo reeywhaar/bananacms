@@ -216,7 +216,9 @@ const BlockSummary: FC<{
 }
 
 // A file's details: its name, type and size, and what an audio file declares of
-// itself, read from it at upload, so a new one has none of that yet.
+// itself, read from it at upload, so a new one has none of that yet. A saved audio
+// file plays in the card. The details are in groups side by side, the file's, the
+// tags' and the sound's, which go under one another where there's no room.
 const AssetSummary: FC<{
   content: BlockTypeAsset
   assetContent: AssetContent | null
@@ -230,31 +232,64 @@ const AssetSummary: FC<{
   const bytes = file ? file.size : size
   const audio = !file && assetContent?.type === 'audio' ? assetContent : null
   const tags = audio?.tags
+  const hasTags = !!(tags?.title || tags?.artist || tags?.album || tags?.year)
+  const hasSound =
+    audio?.duration !== undefined ||
+    audio?.bitrate !== undefined ||
+    audio?.sampleRate !== undefined ||
+    audio?.channels !== undefined
 
   return (
-    <dl className="grid min-w-0 grid-cols-[minmax(0,max-content)_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
-      <Detail label="File">{name}</Detail>
-      {type && <Detail label="Type">{type}</Detail>}
-      {bytes != null && <Detail label="Size">{formatSize(bytes)}</Detail>}
-      {tags?.title && <Detail label="Title">{tags.title}</Detail>}
-      {tags?.artist && <Detail label="Artist">{tags.artist}</Detail>}
-      {tags?.album && <Detail label="Album">{tags.album}</Detail>}
-      {tags?.year && <Detail label="Year">{tags.year}</Detail>}
-      {audio?.duration !== undefined && (
-        <Detail label="Duration">{formatDuration(audio.duration)}</Detail>
-      )}
-      {audio?.bitrate !== undefined && (
-        <Detail label="Bitrate">{Math.round(audio.bitrate / 1000)} kbps</Detail>
-      )}
-      {audio?.sampleRate !== undefined && (
-        <Detail label="Sample rate">{formatSampleRate(audio.sampleRate)}</Detail>
-      )}
-      {audio?.channels !== undefined && (
-        <Detail label="Channels">{formatChannels(audio.channels)}</Detail>
-      )}
-    </dl>
+    <div className="flex min-w-0 flex-col gap-3">
+      {audio && content.assetId && <AudioPlayer src={getAssetUrl(content.assetId)} />}
+      <div className="flex min-w-0 flex-wrap gap-x-10 gap-y-3">
+        <DetailGroup>
+          <Detail label="File">{name}</Detail>
+          {type && <Detail label="Type">{type}</Detail>}
+          {bytes != null && <Detail label="Size">{formatSize(bytes)}</Detail>}
+        </DetailGroup>
+        {hasTags && (
+          <DetailGroup>
+            {tags?.title && <Detail label="Title">{tags.title}</Detail>}
+            {tags?.artist && <Detail label="Artist">{tags.artist}</Detail>}
+            {tags?.album && <Detail label="Album">{tags.album}</Detail>}
+            {tags?.year && <Detail label="Year">{tags.year}</Detail>}
+          </DetailGroup>
+        )}
+        {hasSound && (
+          <DetailGroup>
+            {audio?.duration !== undefined && (
+              <Detail label="Duration">{formatDuration(audio.duration)}</Detail>
+            )}
+            {audio?.bitrate !== undefined && (
+              <Detail label="Bitrate">{Math.round(audio.bitrate / 1000)} kbps</Detail>
+            )}
+            {audio?.sampleRate !== undefined && (
+              <Detail label="Sample rate">{formatSampleRate(audio.sampleRate)}</Detail>
+            )}
+            {audio?.channels !== undefined && (
+              <Detail label="Channels">{formatChannels(audio.channels)}</Detail>
+            )}
+          </DetailGroup>
+        )}
+      </div>
+    </div>
   )
 }
+
+const DetailGroup: FC<{ children: ReactNode }> = ({ children }) => (
+  <dl className="grid min-w-0 grid-cols-[minmax(0,max-content)_minmax(0,1fr)] content-start gap-x-4 gap-y-1 text-sm">
+    {children}
+  </dl>
+)
+
+// The browser's player, which loads nothing until it's played. A click on it is
+// the player's, rather than the card's, which would open the block.
+const AudioPlayer: FC<{ src: string }> = ({ src }) => (
+  <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+    <audio controls preload="none" src={src} className="h-10 w-full" />
+  </div>
+)
 
 // The text's spaces and line breaks show as written, like a meta block's indented
 // JSON. A word too long for the card, like a URL, breaks where it has to, rather

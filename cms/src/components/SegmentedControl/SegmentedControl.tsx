@@ -22,10 +22,12 @@ export function SegmentedControl<T extends string>({
 }) {
   return (
     // columns of one width, the widest option's, or a share of the control's when
-    // it's stretched
+    // it's stretched: 1fr, which is no narrower than what's in it, rather than
+    // Tailwind's auto-cols-fr, which is minmax(0, 1fr) and lets a squeezed control
+    // run its options over its edge
     <div
       role="radiogroup"
-      className={`inline-grid auto-cols-fr grid-flow-col rounded border border-gray-300 p-0.5 gap-0.5 ${className ?? ''}`}
+      className={`inline-grid auto-cols-[1fr] grid-flow-col rounded border border-gray-300 p-0.5 gap-0.5 ${className ?? ''}`}
     >
       {options.map((option) => {
         const selected = option.value === value

@@ -21,7 +21,7 @@ bananacms snapshot restore 2
 
 `BACKUP_URL` turns them on: archives of the databases, sent to a backup agent, which keeps them wherever it keeps things. The CMS holds no credentials for the storage.
 
-- **The request:** a multipart `POST` to `BACKUP_URL`, with the archive under `backup` and its name, `bananacms-<YYYYMMDD_HHmmss>.tgz`, under `name`. Any 2xx answer means the agent took it.
+- **The request:** a multipart `POST` to `BACKUP_URL`, with the archive under `backup` and its name, `bananacms-<YYYYMMDD_HHmmss>.tgz`, under `name`, streamed from disk. Any 2xx answer means the agent took it. The site waits for it up to 30 minutes: an agent that keeps the archives somewhere else, like backio's sidecar, answers once the archive is there, and for a large one that's minutes.
 - **The archive:** a gzipped tar of `database.db`, and `derived.db` unless `BACKUP_MODE` is `main`. Each is copied with SQLite's `VACUUM INTO`, which gives the database as of one moment even while the site writes to it.
 - **When:** while `dev` or `start` runs, every five minutes, and once more as it stops, only when `database.db` has changed since the archive the agent last took. Finding out costs a read: SQLite says whether anything was committed, and only then is a copy made and compared.
 - **`BACKUP_MODE`:** `main` sends `database.db` alone; `relaxed`, the default, adds `derived.db`, so a restore keeps everybody signed in; `all` also sends every half hour, so the agent can tell a stalled site from a quiet one.
@@ -40,6 +40,8 @@ bananacms snapshot restore 2
 6. remove the `.pid` file, and exit with 0.
 
 A second signal exits straight away, without the rest. The data is safe in the `-wal` files, which SQLite reads back as the site starts.
+
+The last backup waits for the agent's answer, which can take minutes, so give the site's container a `stop_grace_period` that covers it: `docker stop` kills a container 10 seconds after its SIGTERM. A site killed while it waits has its archive kept by the agent but not recorded here, and sends it again as it starts.
 
 ## Where it lives
 

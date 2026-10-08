@@ -3,7 +3,13 @@ import { join } from 'node:path'
 import { createClient, type Client } from '@libsql/client'
 import type { Logger } from '../logger/Logger.ts'
 import type { SnapshotsConfig } from './config.ts'
-import { hashFile, listSnapshots, snapshotFilename, type SnapshotMeta } from './files.ts'
+import {
+  hashFile,
+  listSnapshots,
+  listSqlSnapshots,
+  snapshotFilename,
+  type SnapshotMeta,
+} from './files.ts'
 
 export type CreateResult = 'created' | 'skipped-unchanged' | 'skipped-locked'
 
@@ -28,7 +34,8 @@ export class SnapshotStore {
   }
 
   // Copies the database, through `client`, and keeps the copy unless it's the
-  // same as the newest snapshot; then removes the oldest past SNAPSHOTS_COUNT.
+  // same as the newest snapshot; then removes the oldest past SNAPSHOTS_COUNT,
+  // and the SQL snapshots of earlier versions.
   // Callers at once, the site's server and the CLI, take turns by a lock file:
   // the one that finds it taken skips rather than waits.
   async createSnapshot(client: Client): Promise<CreateResult> {
@@ -49,6 +56,7 @@ export class SnapshotStore {
         await rm(pending, { force: true })
       }
       await this.removeOldest()
+      await this.removeSqlSnapshots()
       return 'created'
     })
   }
@@ -104,6 +112,15 @@ export class SnapshotStore {
     for (const snapshot of snapshots.slice(this.config.count)) {
       await unlink(snapshot.path)
       this.logger?.info('snapshot removed', { file: snapshot.file })
+    }
+  }
+
+  // The SQL snapshots of earlier versions, which nothing reads now, once there's
+  // a copy to take their place
+  private async removeSqlSnapshots(): Promise<void> {
+    for (const file of await listSqlSnapshots(this.config.dir)) {
+      await unlink(join(this.config.dir, file))
+      this.logger?.info('SQL snapshot of an earlier version removed', { file })
     }
   }
 

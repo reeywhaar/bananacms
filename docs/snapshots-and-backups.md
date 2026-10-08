@@ -7,7 +7,7 @@ The CMS keeps copies of a site's data two ways. Both are off until their variabl
 `SNAPSHOTS_COUNT` turns them on: copies of `database.db`, the content, in `DATA_PATH/snapshots`, where the CLI can list and restore them. `derived.db`, which holds the sessions, has none.
 
 - **When:** as `bananacms dev` or `start` starts and as it stops, and `SNAPSHOTS_DELAY` seconds after a write to the site's database, 600 by default. The writes made in that time go into the same snapshot, and those still waiting when the site stops go into the one it takes then. A snapshot the same as the newest one isn't written.
-- **How many:** `SNAPSHOTS_COUNT`. Past the count, the oldest is removed.
+- **How many:** `SNAPSHOTS_COUNT`. Past the count, the oldest is removed. The SQL dumps and diffs that snapshots were in earlier versions are removed once the first copy is written.
 - **The files:** each is a whole SQLite database, uploads included, made with `VACUUM INTO`, which copies the database as of one moment, page by page, so a snapshot of any size takes little memory. Its name is `snapshot_<YYYYMMDD_HHmmssSSS>_<hash>.db`: when it was taken, in UTC, and the start of the file's sha256, which tells an unchanged database from a changed one, and which the CLI checks on the way back. `sqlite3` opens one as it is.
 
 ```sh

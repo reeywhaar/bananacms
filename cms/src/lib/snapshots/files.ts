@@ -36,19 +36,14 @@ export async function hashFile(path: string): Promise<string> {
   return hash.digest('hex').slice(0, HASH_LENGTH)
 }
 
-// The snapshots in `dir`, newest first: the CLI's n is [n - 1]. Files of other
-// names, like the SQL snapshots of earlier versions, aren't snapshots to it.
-export async function listSnapshots(dir: string): Promise<SnapshotMeta[]> {
-  let names: string[]
-  try {
-    names = await readdir(dir)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
-    throw error
-  }
+// the SQL dumps and diffs snapshots were before they were copies of the
+// database, and the .tmp files they were written through
+const SQL_SNAPSHOT_RE = /^snapshot_\d{8}_\d{9}(_\d+)?\.(sql|diff)(\.tmp)?$/
 
+// The snapshots in `dir`, newest first: the CLI's n is [n - 1]
+export async function listSnapshots(dir: string): Promise<SnapshotMeta[]> {
   const metas: SnapshotMeta[] = []
-  for (const file of names) {
+  for (const file of await readNames(dir)) {
     const match = FILENAME_RE.exec(file)
     if (!match) continue
     const [, year, month, day, hours, minutes, seconds, ms, hash] = match
@@ -62,4 +57,18 @@ export async function listSnapshots(dir: string): Promise<SnapshotMeta[]> {
     })
   }
   return metas.sort((a, b) => b.file.localeCompare(a.file))
+}
+
+// the files in `dir` of the SQL snapshots of earlier versions
+export async function listSqlSnapshots(dir: string): Promise<string[]> {
+  return (await readNames(dir)).filter((file) => SQL_SNAPSHOT_RE.test(file))
+}
+
+async function readNames(dir: string): Promise<string[]> {
+  try {
+    return await readdir(dir)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+    throw error
+  }
 }

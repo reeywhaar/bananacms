@@ -95,15 +95,22 @@ describe('SnapshotStore.createSnapshot', () => {
     expect(await readdir(config.dir)).toEqual([expect.stringMatching(/\.db$/)])
   })
 
-  it('leaves alone files that are not its snapshots', async () => {
-    const { client, config, store } = await setup(1)
+  it('removes the SQL snapshots of earlier versions once it has written a copy', async () => {
+    const { client, config, store } = await setup()
     await mkdir(config.dir, { recursive: true })
-    const old = 'snapshot_20260101_000000000.sql'
-    await writeFile(join(config.dir, old), '-- bananacms-snapshot v1\n')
-    await store.createSnapshot(client)
-    await setItem(client, 'a', 'v2')
-    await store.createSnapshot(client)
-    expect(await readdir(config.dir)).toContain(old)
+    const old = [
+      'snapshot_20260101_000000000.sql',
+      'snapshot_20260102_000000000.diff',
+      'snapshot_20260102_000000000_2.diff',
+      'snapshot_20260103_000000000.sql.tmp',
+    ]
+    for (const file of old) await writeFile(join(config.dir, file), '-- bananacms-snapshot v1\n')
+    await writeFile(join(config.dir, 'notes.txt'), 'mine')
+
+    expect(await store.createSnapshot(client)).toBe('created')
+    const files = await readdir(config.dir)
+    for (const file of old) expect(files).not.toContain(file)
+    expect(files).toContain('notes.txt')
     expect(await listSnapshots(config.dir)).toHaveLength(1)
   })
 })

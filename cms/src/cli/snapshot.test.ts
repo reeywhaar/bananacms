@@ -3,13 +3,15 @@ import { createServer, type Server } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { gunzipSync } from 'node:zlib'
+import { createClient } from '@libsql/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { snapshotsConfig } from '../lib/snapshots/config.ts'
+import { listSnapshots } from '../lib/snapshots/files.ts'
 import { removePidFile, writePidFile } from '../lib/snapshots/pidfile.ts'
 import { SnapshotStore } from '../lib/snapshots/store.ts'
 import { migrate } from './migrate.ts'
 import { openSiteDatabases } from './site_databases.ts'
-import { backupNow, listSnapshotsCommand, restoreSnapshot, viewSnapshot } from './snapshot.ts'
+import { backupNow, listSnapshotsCommand, restoreSnapshot } from './snapshot.ts'
 
 let root: string
 let info: ReturnType<typeof vi.spyOn>
@@ -55,16 +57,7 @@ describe('snapshot', () => {
   it('lists the snapshots, 1 being the newest', async () => {
     info.mockClear()
     await listSnapshotsCommand(root)
-    expect(printed()).toMatch(/^#\s+kind\s+created\s+size\s+file\n1\s+diff\s.+\n2\s+full\s/)
-  })
-
-  it('prints a snapshot as SQL, and its stored diff with --raw', async () => {
-    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-    await viewSnapshot(root, 1)
-    expect(String(write.mock.calls[0][0])).toContain(`INSERT INTO "category"`)
-    write.mockClear()
-    await viewSnapshot(root, 1, { raw: true })
-    expect(String(write.mock.calls[0][0])).toMatch(/^-- bananacms-snapshot v1\n-- kind: diff\n/)
+    expect(printed()).toMatch(/^#\s+created\s+size\s+file\n1\s.+snapshot_.+\.db\n2\s.+\.db$/)
   })
 
   it('restores a snapshot, having snapshotted the database as it was first', async () => {
@@ -72,9 +65,14 @@ describe('snapshot', () => {
     await restoreSnapshot(root, 2)
     expect(await categories()).toEqual([])
     // the database as it was before the restore is the newest snapshot now
-    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-    await viewSnapshot(root, 1)
-    expect(String(write.mock.calls[0][0])).toContain("'c2'")
+    const [newest] = await listSnapshots(path.join(root, 'private', 'snapshots'))
+    const client = createClient({ url: `file:${newest.path}` })
+    try {
+      const rows = await client.execute('SELECT id FROM category ORDER BY id')
+      expect(rows.rows.map((row) => String(row.id))).toEqual(['c1', 'c2'])
+    } finally {
+      client.close()
+    }
   })
 
   it("won't restore while the site runs", async () => {

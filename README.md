@@ -332,7 +332,6 @@ Run it in the site directory. It reads the site's `.env`.
 | `bananacms user reset <name>`                        | print a recovery link, where a user sets a new password, once, within 24 hours; it signs them out everywhere else                                 |
 | `bananacms assets cleanup [--dry-run]`               | delete the files in `ASSETS_DIRECTORY` that belong to no asset                                                                                    |
 | `bananacms snapshot list`                            | list the snapshots of `database.db`, 1 being the newest ([docs/snapshots-and-backups.md](docs/snapshots-and-backups.md))                          |
-| `bananacms snapshot view <n> [--raw]`                | print snapshot `<n>` as the SQL that makes the database, or as its file has it                                                                    |
 | `bananacms snapshot restore <n>`                     | replace `database.db` with snapshot `<n>`, snapshotting the current one first; the site must be stopped                                           |
 | `bananacms backup now`                               | back the databases up to `BACKUP_URL` now                                                                                                         |
 

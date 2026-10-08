@@ -167,7 +167,7 @@ program
 
 const snapshot = program
   .command('snapshot')
-  .description('list, view or restore the snapshots of database.db, in DATA_PATH/snapshots')
+  .description('list or restore the snapshots of database.db, in DATA_PATH/snapshots')
 
 snapshot
   .command('list')
@@ -175,16 +175,6 @@ snapshot
   .action(async () => {
     const { listSnapshotsCommand } = await import('./snapshot.ts')
     await listSnapshotsCommand(process.cwd())
-  })
-
-snapshot
-  .command('view')
-  .description('print a snapshot as the SQL that makes the database')
-  .argument('<n>', 'the snapshot, 1 being the newest', parseIndex)
-  .option('--raw', 'print its file as it is: a diff, for all but the oldest')
-  .action(async (index: number, options: { raw?: boolean }) => {
-    const { viewSnapshot } = await import('./snapshot.ts')
-    await viewSnapshot(process.cwd(), index, options)
   })
 
 snapshot

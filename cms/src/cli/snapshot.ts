@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { backupConfig } from '../lib/backup/config.ts'
 import { BackupPusher } from '../lib/backup/pusher.ts'
@@ -20,10 +19,9 @@ export async function listSnapshotsCommand(root: string): Promise<void> {
     return
   }
   printTable(
-    ['#', 'kind', 'created', 'size', 'file'],
+    ['#', 'created', 'size', 'file'],
     snapshots.map((snapshot, i) => [
       String(i + 1),
-      snapshot.kind,
       snapshot.createdAt,
       formatSize(snapshot.sizeBytes),
       snapshot.file,
@@ -31,31 +29,9 @@ export async function listSnapshotsCommand(root: string): Promise<void> {
   )
 }
 
-// Prints snapshot `index` as the SQL that makes the database, or with `raw`, as
-// its file has it: a diff for all but the oldest.
-export async function viewSnapshot(
-  root: string,
-  index: number,
-  options: { raw?: boolean } = {},
-): Promise<void> {
-  // `snapshot view 1 | head` closes the pipe early, and that's no failure
-  process.stdout.on('error', (error: NodeJS.ErrnoException) => {
-    if (error.code === 'EPIPE') process.exit(0)
-    throw error
-  })
-  const dbPath = databasePath(root)
-  if (options.raw) {
-    const snapshots = await listSnapshots(snapshotsDirFor(dbPath))
-    const snapshot = snapshots[index - 1]
-    if (!snapshot) throw new Error(`No snapshot ${index}: there are ${snapshots.length}`)
-    process.stdout.write(await readFile(snapshot.path, 'utf8'))
-    return
-  }
-  process.stdout.write(await new SnapshotStore(cliConfig(dbPath, 1)).reconstruct(index))
-}
-
 // Replaces database.db with snapshot `index`, once the site has stopped. The
-// current database is snapshotted first, so the restore can be undone.
+// snapshot is checked first, then the current database is snapshotted, so the
+// restore can be undone.
 export async function restoreSnapshot(root: string, index: number): Promise<void> {
   const pid = readRunningPid(root)
   if (pid !== null) {
@@ -66,11 +42,11 @@ export async function restoreSnapshot(root: string, index: number): Promise<void
   const target = snapshots[index - 1]
   if (!target) throw new Error(`No snapshot ${index}: there are ${snapshots.length}`)
   // keeps SNAPSHOTS_COUNT for the snapshot of the current state, or else room
-  // enough to merge nothing away for it
+  // enough to remove none for it
   const count = snapshotsConfig(path.dirname(dbPath))?.count ?? snapshots.length + 1
   console.info(`Restoring ${dbPath}`)
   console.info(`  from ${index}: ${target.file}, of ${target.createdAt}`)
-  console.info('  snapshotting the current database first...')
+  console.info('  checking it, and snapshotting the current database first...')
   await new SnapshotStore(cliConfig(dbPath, count)).restore(index)
   console.info('bananacms: restored')
 }

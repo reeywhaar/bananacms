@@ -1,10 +1,11 @@
 import { mkdtempSync, rmSync } from 'node:fs'
-import { mkdir, open, readdir, unlink } from 'node:fs/promises'
+import { appendFile, mkdir, open, readdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createClient, type Client } from '@libsql/client'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { SnapshotsConfig } from './config.ts'
+import { listSnapshots } from './files.ts'
 import { SnapshotStore } from './store.ts'
 
 const dirs: string[] = []
@@ -19,8 +20,7 @@ async function setup(count = 10) {
   const dir = mkdtempSync(join(tmpdir(), 'bananacms-store-'))
   dirs.push(dir)
   const dbPath = join(dir, 'database.db')
-  const client = createClient({ url: `file:${dbPath}` })
-  clients.push(client)
+  const client = connect(dbPath)
   await client.executeMultiple(`
     CREATE TABLE migrations (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);
     CREATE TABLE item (id TEXT PRIMARY KEY, v TEXT NOT NULL);
@@ -35,33 +35,45 @@ async function setup(count = 10) {
   return { client, config, store: new SnapshotStore(config) }
 }
 
+function connect(path: string): Client {
+  const client = createClient({ url: `file:${path}` })
+  clients.push(client)
+  return client
+}
+
 const setItem = (client: Client, id: string, v: string) =>
   client.execute({
     sql: 'INSERT INTO item (id, v) VALUES (?, ?) ON CONFLICT (id) DO UPDATE SET v = excluded.v',
     args: [id, v],
   })
 
-const snapshotFiles = async (config: SnapshotsConfig) => (await readdir(config.dir)).sort()
+// item a in snapshot n, 1 being the newest, read from its file
+async function itemIn(config: SnapshotsConfig, n: number): Promise<string | null> {
+  const snapshot = (await listSnapshots(config.dir))[n - 1]
+  const client = connect(snapshot.path)
+  const rows = await client.execute("SELECT v FROM item WHERE id = 'a'")
+  return rows.rows[0] ? String(rows.rows[0].v) : null
+}
 
 describe('SnapshotStore.createSnapshot', () => {
-  it('writes a full snapshot first, diffs after, and dedupes unchanged states', async () => {
+  it('copies the database into a file of its own, and skips an unchanged one', async () => {
     const { client, config, store } = await setup()
+    await setItem(client, 'a', 'v1')
 
     expect(await store.createSnapshot(client)).toBe('created')
-    expect(await snapshotFiles(config)).toEqual([expect.stringMatching(/\.sql$/)])
+    expect(await readdir(config.dir)).toEqual([
+      expect.stringMatching(/^snapshot_\d{8}_\d{9}_[0-9a-f]{16}\.db$/),
+    ])
 
+    // a write that changes nothing is no change
+    await setItem(client, 'a', 'v1')
     expect(await store.createSnapshot(client)).toBe('skipped-unchanged')
 
     await setItem(client, 'a', 'v2')
     expect(await store.createSnapshot(client)).toBe('created')
-
-    const files = await snapshotFiles(config)
-    expect(files).toHaveLength(2)
-    expect(files.filter((f) => f.endsWith('.sql'))).toHaveLength(1)
-    expect(files.filter((f) => f.endsWith('.diff'))).toHaveLength(1)
-
-    expect(await store.reconstruct(1)).toContain("'v2'")
-    expect(await store.reconstruct(2)).not.toContain("'v2'")
+    expect(await listSnapshots(config.dir)).toHaveLength(2)
+    expect(await itemIn(config, 1)).toBe('v2')
+    expect(await itemIn(config, 2)).toBe('v1')
   })
 
   it('skips when the lock is held', async () => {
@@ -75,50 +87,43 @@ describe('SnapshotStore.createSnapshot', () => {
     }
   })
 
-  it('self-heals a broken chain by writing a full snapshot', async () => {
+  it('writes over a copy a snapshot cut short left behind', async () => {
     const { client, config, store } = await setup()
+    await mkdir(config.dir, { recursive: true })
+    await writeFile(join(config.dir, '.pending.db'), 'half a database')
+    expect(await store.createSnapshot(client)).toBe('created')
+    expect(await readdir(config.dir)).toEqual([expect.stringMatching(/\.db$/)])
+  })
+
+  it('leaves alone files that are not its snapshots', async () => {
+    const { client, config, store } = await setup(1)
+    await mkdir(config.dir, { recursive: true })
+    const old = 'snapshot_20260101_000000000.sql'
+    await writeFile(join(config.dir, old), '-- bananacms-snapshot v1\n')
     await store.createSnapshot(client)
     await setItem(client, 'a', 'v2')
     await store.createSnapshot(client)
-
-    const fullFile = (await snapshotFiles(config)).find((f) => f.endsWith('.sql'))
-    await unlink(join(config.dir, fullFile as string))
-
-    await setItem(client, 'a', 'v3')
-    expect(await store.createSnapshot(client)).toBe('created')
-
-    const files = await snapshotFiles(config)
-    expect(files.filter((f) => f.endsWith('.sql'))).toHaveLength(1)
-    expect(await store.reconstruct(1)).toContain("'v3'")
-    await expect(store.reconstruct(2)).rejects.toThrow(/chain is broken/)
+    expect(await readdir(config.dir)).toContain(old)
+    expect(await listSnapshots(config.dir)).toHaveLength(1)
   })
 })
 
 describe('SnapshotStore retention', () => {
-  it('folds the oldest snapshot into its successor when over the limit', async () => {
+  it('removes the oldest past the count', async () => {
     const { client, config, store } = await setup(2)
-
-    await setItem(client, 'a', 'v1')
-    await store.createSnapshot(client)
-    await setItem(client, 'a', 'v2')
-    await store.createSnapshot(client)
-    await setItem(client, 'a', 'v3')
-    await store.createSnapshot(client)
-
-    const files = await snapshotFiles(config)
-    expect(files).toHaveLength(2)
-    expect(files.filter((f) => f.endsWith('.sql'))).toHaveLength(1)
-
-    expect(await store.reconstruct(1)).toContain("'v3'")
-    expect(await store.reconstruct(2)).toContain("'v2'")
-    await expect(store.reconstruct(3)).rejects.toThrow(/No snapshot at index/)
+    for (const v of ['v1', 'v2', 'v3']) {
+      await setItem(client, 'a', v)
+      await store.createSnapshot(client)
+    }
+    expect(await listSnapshots(config.dir)).toHaveLength(2)
+    expect(await itemIn(config, 1)).toBe('v3')
+    expect(await itemIn(config, 2)).toBe('v2')
   })
 })
 
 describe('SnapshotStore.restore', () => {
-  it('restores an older state and safety-snapshots the current one first', async () => {
+  it('restores an older state, and snapshots the current one first', async () => {
     const { client, config, store } = await setup()
-
     await setItem(client, 'a', 'v1')
     await store.createSnapshot(client)
     await setItem(client, 'a', 'v2')
@@ -126,13 +131,44 @@ describe('SnapshotStore.restore', () => {
 
     await store.restore(1)
 
-    const restored = createClient({ url: `file:${config.dbPath}` })
-    clients.push(restored)
+    const restored = connect(config.dbPath)
     const rows = await restored.execute("SELECT v FROM item WHERE id = 'a'")
     expect(rows.rows[0].v).toBe('v1')
+    // the state before the restore is the newest snapshot
+    expect(await itemIn(config, 1)).toBe('v2')
+  })
 
-    // The pre-restore state (v2) was captured as the newest snapshot.
-    expect(await store.reconstruct(1)).toContain("'v2'")
+  it('restores the oldest snapshot, which snapshotting the current state removes', async () => {
+    const { client, config, store } = await setup(2)
+    await setItem(client, 'a', 'v1')
+    await store.createSnapshot(client)
+    await setItem(client, 'a', 'v2')
+    await store.createSnapshot(client)
+    await setItem(client, 'a', 'v3')
+    client.close()
+
+    await store.restore(2)
+
+    const restored = connect(config.dbPath)
+    const rows = await restored.execute("SELECT v FROM item WHERE id = 'a'")
+    expect(rows.rows[0].v).toBe('v1')
+    expect(await itemIn(config, 1)).toBe('v3')
+    expect(await itemIn(config, 2)).toBe('v2')
+  })
+
+  it("refuses a snapshot that isn't the file its name says, leaving the database be", async () => {
+    const { client, config, store } = await setup()
+    await setItem(client, 'a', 'v1')
+    await store.createSnapshot(client)
+    await setItem(client, 'a', 'v2')
+    client.close()
+    await appendFile((await listSnapshots(config.dir))[0].path, 'more')
+
+    await expect(store.restore(1)).rejects.toThrow(/isn't the file its name says/)
+    const current = connect(config.dbPath)
+    const rows = await current.execute("SELECT v FROM item WHERE id = 'a'")
+    expect(rows.rows[0].v).toBe('v2')
+    expect(await readdir(join(config.dbPath, '..'))).not.toContain('database.db.restore-tmp')
   })
 
   it('rejects an out-of-range index without touching anything', async () => {

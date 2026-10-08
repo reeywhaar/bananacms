@@ -83,12 +83,22 @@ describe.each(['dev', 'start'] as const)('bananacms %s, on SIGTERM', (command) =
   })
 
   it('takes a snapshot as it starts, and another as it stops', async () => {
-    const view = async (n: number) =>
-      (await runCli(['snapshot', 'view', String(n)], dataPath, snapshots)).stdout
-    const [last, first] = [await view(1), await view(2)]
-    expect(first).toContain("'before'")
-    expect(first).not.toContain("'while-running'")
-    expect(last).toContain("'while-running'")
+    const dir = join(dataPath, 'snapshots')
+    // the categories in a snapshot, which is a copy of the database
+    const categories = async (file: string) => {
+      const client = createClient({ url: `file:${join(dir, file)}` })
+      try {
+        return (await client.execute('SELECT id FROM category')).rows.map((row) => String(row.id))
+      } finally {
+        client.close()
+      }
+    }
+    // the names sort in the order they were taken
+    const [first, last] = readdirSync(dir)
+      .filter((file) => file.startsWith('snapshot_'))
+      .sort()
+    expect(await categories(first)).toEqual(['before'])
+    expect(await categories(last)).toContain('while-running')
   })
 
   it('sends a last backup, which has the last write', () => {

@@ -4,19 +4,18 @@ The CMS keeps copies of a site's data two ways. Both are off until their variabl
 
 ## Snapshots
 
-`SNAPSHOTS_COUNT` turns them on: copies of `database.db`, the content, in `DATA_PATH/snapshots`, where the CLI can list, show and restore them. `derived.db`, which holds the sessions, has none.
+`SNAPSHOTS_COUNT` turns them on: copies of `database.db`, the content, in `DATA_PATH/snapshots`, where the CLI can list and restore them. `derived.db`, which holds the sessions, has none.
 
 - **When:** as `bananacms dev` or `start` starts and as it stops, and `SNAPSHOTS_DELAY` seconds after a write to the site's database, 600 by default. The writes made in that time go into the same snapshot, and those still waiting when the site stops go into the one it takes then. A snapshot the same as the newest one isn't written.
-- **How many:** `SNAPSHOTS_COUNT`. The oldest is a full SQL dump of the database, and each newer one a diff against the one before it, so a snapshot after a small change is small. Past the count, the oldest is merged into the next.
-- **The files:** plain SQL, a row per line, in the same order every time, so that diffs stay small. Each file starts with a header: `-- bananacms-snapshot v1`, its kind, when it was taken, and the hash of the dump it stands for, which the CLI checks on the way back.
+- **How many:** `SNAPSHOTS_COUNT`. Past the count, the oldest is removed.
+- **The files:** each is a whole SQLite database, uploads included, made with `VACUUM INTO`, which copies the database as of one moment, page by page, so a snapshot of any size takes little memory. Its name is `snapshot_<YYYYMMDD_HHmmssSSS>_<hash>.db`: when it was taken, in UTC, and the start of the file's sha256, which tells an unchanged database from a changed one, and which the CLI checks on the way back. `sqlite3` opens one as it is.
 
 ```sh
 bananacms snapshot list              # 1 is the newest
-bananacms snapshot view 2 | less     # the SQL that makes that database
 bananacms snapshot restore 2
 ```
 
-`snapshot restore` works only while the site is stopped: `dev` and `start` keep a `.pid` file in the site's directory while they run, and warn when another server of the site has one. It snapshots the database as it is first, so a restore can be undone, then builds the snapshot's database in a separate file and swaps it in once SQLite's integrity check passes.
+`snapshot restore` works only while the site is stopped: `dev` and `start` keep a `.pid` file in the site's directory while they run, and warn when another server of the site has one. It copies the snapshot beside `database.db` and checks it, its hash and SQLite's integrity check, then snapshots the database as it is, so a restore can be undone, and swaps the copy in.
 
 ## Backups
 
@@ -44,7 +43,7 @@ A second signal exits straight away, without the rest. The data is safe in the `
 
 ## Where it lives
 
-- [`cms/src/lib/snapshots/`](../cms/src/lib/snapshots/): the dumps, the files and their diffs, the store that writes, merges and restores them, and the scheduler.
+- [`cms/src/lib/snapshots/`](../cms/src/lib/snapshots/): the files, the store that takes, removes and restores them, and the scheduler.
 - [`cms/src/lib/backup/`](../cms/src/lib/backup/): the archives, the tar writer, and the loop that sends them.
 - [`cms/src/framework/databases.ts`](../cms/src/framework/databases.ts): the scheduler, started with the site's databases, which the requests' writes wake.
 - [`cms/src/cli/site_services.ts`](../cms/src/cli/site_services.ts): what `dev` and `start` run around the server: the `.pid` file, the snapshots as the site starts and stops, the backup loop, and the shutdown. [`cli/snapshot.ts`](../cms/src/cli/snapshot.ts): the `snapshot` and `backup` commands.

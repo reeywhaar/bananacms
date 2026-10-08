@@ -79,7 +79,6 @@
     "@vitejs/plugin-react": "^6.1.1",
     "@vitejs/plugin-rsc": "^0.5.35",
     "commander": "^15.0.0",
-    "diff": "^9.0.0",
     "disposablestack": "^1.1.8",
     "drizzle-orm": "^0.45.3",
     "json5": "^2.2.3",

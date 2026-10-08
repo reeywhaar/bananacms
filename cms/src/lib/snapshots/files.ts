@@ -1,85 +1,43 @@
-import { open, readdir, readFile, stat } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { createReadStream } from 'node:fs'
+import { readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
-export type SnapshotKind = 'full' | 'diff'
-
-export interface SnapshotHeader {
-  kind: SnapshotKind
-  createdAt: string
-  /** sha256 of the FULL dump text this snapshot represents (not of the file). */
-  hash: string
-  /** For diff snapshots: hash of the predecessor snapshot. */
-  parentHash?: string
-}
-
-export interface SnapshotMeta extends SnapshotHeader {
+export interface SnapshotMeta {
   file: string
   path: string
+  // when it was taken, as an ISO string
+  createdAt: string
+  // the start of the file's sha256, which its name carries
+  hash: string
   sizeBytes: number
 }
 
-const HEADER_MAGIC = '-- bananacms-snapshot v1'
-const HEADER_FIELD_RE = /^-- ([a-z-]+): (.*)$/
-// Enough for the magic line plus four fields.
-const HEADER_READ_BYTES = 1024
+// as many of the sha256's hex digits as a snapshot's name carries
+const HASH_LENGTH = 16
 
-const FILENAME_RE = /^snapshot_\d{8}_\d{9}(_\d+)?\.(sql|diff)$/
+const FILENAME_RE =
+  /^snapshot_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})(\d{3})_([0-9a-f]{16})\.db$/
 
-/**
- * snapshot_YYYYMMDD_HHmmssSSS.<sql|diff>, in UTC so lexicographic order
- * matches creation order year-round.
- */
-export const snapshotFilename = (date: Date, kind: SnapshotKind, suffix?: number): string => {
+// snapshot_YYYYMMDD_HHmmssSSS_<hash>.db, in UTC so that the names sort in the
+// order the snapshots were taken, year-round
+export const snapshotFilename = (date: Date, hash: string): string => {
   const pad = (n: number, width = 2) => String(n).padStart(width, '0')
   const day = `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}`
   const time = `${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}${pad(date.getUTCMilliseconds(), 3)}`
-  const dedupe = suffix === undefined ? '' : `_${suffix}`
-  return `snapshot_${day}_${time}${dedupe}.${kind === 'full' ? 'sql' : 'diff'}`
+  return `snapshot_${day}_${time}_${hash}.db`
 }
 
-export const serializeSnapshot = (header: SnapshotHeader, body: string): string => {
-  const lines = [
-    HEADER_MAGIC,
-    `-- kind: ${header.kind}`,
-    `-- created: ${header.createdAt}`,
-    `-- hash: ${header.hash}`,
-  ]
-  if (header.parentHash !== undefined) lines.push(`-- parent-hash: ${header.parentHash}`)
-  return `${lines.join('\n')}\n${body}`
+// The start of a file's sha256, read in chunks: a snapshot is as large as the
+// database, uploads and all.
+export async function hashFile(path: string): Promise<string> {
+  const hash = createHash('sha256')
+  for await (const chunk of createReadStream(path)) hash.update(chunk as Buffer)
+  return hash.digest('hex').slice(0, HASH_LENGTH)
 }
 
-export const parseSnapshotHeader = (content: string): SnapshotHeader | null => {
-  const lines = content.split('\n')
-  if (lines[0] !== HEADER_MAGIC) return null
-  const fields: Record<string, string> = {}
-  for (let i = 1; i < lines.length; i++) {
-    const match = HEADER_FIELD_RE.exec(lines[i])
-    if (!match) break
-    fields[match[1]] = match[2]
-  }
-  const kind = fields['kind']
-  if ((kind !== 'full' && kind !== 'diff') || !fields['created'] || !fields['hash']) return null
-  return {
-    kind,
-    createdAt: fields['created'],
-    hash: fields['hash'],
-    parentHash: fields['parent-hash'],
-  }
-}
-
-/** The snapshot payload: the full dump for .sql files, the patch for .diff files. */
-export async function readSnapshotBody(path: string): Promise<string> {
-  const content = await readFile(path, 'utf8')
-  const lines = content.split('\n')
-  let start = 0
-  if (lines[0] === HEADER_MAGIC) {
-    start = 1
-    while (start < lines.length && HEADER_FIELD_RE.test(lines[start])) start++
-  }
-  return lines.slice(start).join('\n')
-}
-
-/** Snapshots in `dir`, sorted newest first — CLI index n maps to `[n - 1]`. */
+// The snapshots in `dir`, newest first: the CLI's n is [n - 1]. Files of other
+// names, like the SQL snapshots of earlier versions, aren't snapshots to it.
 export async function listSnapshots(dir: string): Promise<SnapshotMeta[]> {
   let names: string[]
   try {
@@ -90,28 +48,18 @@ export async function listSnapshots(dir: string): Promise<SnapshotMeta[]> {
   }
 
   const metas: SnapshotMeta[] = []
-  for (const name of names.filter((n) => FILENAME_RE.test(n))) {
-    const path = join(dir, name)
-    const header = await readSnapshotHeaderFromFile(path)
-    if (!header) continue
-    metas.push({ ...header, file: name, path, sizeBytes: (await stat(path)).size })
+  for (const file of names) {
+    const match = FILENAME_RE.exec(file)
+    if (!match) continue
+    const [, year, month, day, hours, minutes, seconds, ms, hash] = match
+    const path = join(dir, file)
+    metas.push({
+      file,
+      path,
+      createdAt: `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${ms}Z`,
+      hash,
+      sizeBytes: (await stat(path)).size,
+    })
   }
-  // Order by the created header (millisecond ISO), not by filename: same-stamp
-  // files would tie-break on the .diff/.sql extension — the wrong order.
-  // Writes are serialized by the lock file, so created stamps are distinct in
-  // practice.
-  return metas.sort(
-    (a, b) => b.createdAt.localeCompare(a.createdAt) || b.file.localeCompare(a.file),
-  )
-}
-
-async function readSnapshotHeaderFromFile(path: string): Promise<SnapshotHeader | null> {
-  const handle = await open(path, 'r')
-  try {
-    const buffer = Buffer.alloc(HEADER_READ_BYTES)
-    const { bytesRead } = await handle.read(buffer, 0, HEADER_READ_BYTES, 0)
-    return parseSnapshotHeader(buffer.subarray(0, bytesRead).toString('utf8'))
-  } finally {
-    await handle.close()
-  }
+  return metas.sort((a, b) => b.file.localeCompare(a.file))
 }

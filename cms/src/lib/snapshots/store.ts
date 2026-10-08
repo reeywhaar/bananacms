@@ -1,24 +1,23 @@
-import { existsSync } from 'node:fs'
-import { mkdir, open, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, open, rename, rm, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createClient, type Client } from '@libsql/client'
 import type { Logger } from '../logger/Logger.ts'
 import type { SnapshotsConfig } from './config.ts'
-import { createDiff, applyDiff } from './diff.ts'
-import { dumpDatabase, hashDump } from './dump.ts'
-import {
-  listSnapshots,
-  readSnapshotBody,
-  serializeSnapshot,
-  snapshotFilename,
-  type SnapshotHeader,
-  type SnapshotMeta,
-} from './files.ts'
+import { hashFile, listSnapshots, snapshotFilename, type SnapshotMeta } from './files.ts'
 
 export type CreateResult = 'created' | 'skipped-unchanged' | 'skipped-locked'
 
 const LOCK_STALE_MS = 60_000
 
+// where a snapshot is written before it's known to be new, in the snapshots'
+// directory, so that it's renamed into place rather than copied
+const PENDING_FILE = '.pending.db'
+
+// A snapshot is a copy of the database file, made with SQLite's VACUUM INTO: the
+// database as of one read transaction, with the -wal folded in, written page by
+// page, so a database of any size passes through no more memory than SQLite's
+// page cache. A copy of unchanged content is the same bytes, so the hash in a
+// snapshot's name tells whether the database has changed since.
 export class SnapshotStore {
   private readonly config: SnapshotsConfig
   private readonly logger?: Logger
@@ -28,187 +27,84 @@ export class SnapshotStore {
     this.logger = logger
   }
 
-  /**
-   * Dumps the database and stores it: as a full .sql snapshot when it is the
-   * first one (or the diff chain is broken), otherwise as a .diff against the
-   * previous snapshot. Concurrent callers (the site's server, the CLI) are
-   * serialized by a lock file; losers skip instead of waiting.
-   */
+  // Copies the database, through `client`, and keeps the copy unless it's the
+  // same as the newest snapshot; then removes the oldest past SNAPSHOTS_COUNT.
+  // Callers at once, the site's server and the CLI, take turns by a lock file:
+  // the one that finds it taken skips rather than waits.
   async createSnapshot(client: Client): Promise<CreateResult> {
     await mkdir(this.config.dir, { recursive: true })
     return this.withLock(async () => {
-      const dump = await dumpDatabase(client)
-      const hash = hashDump(dump)
-      const snapshots = await listSnapshots(this.config.dir)
-      const newest = snapshots[0]
-
-      if (newest?.hash === hash) return 'skipped-unchanged'
-
-      if (!newest) {
-        await this.writeSnapshot({ kind: 'full', hash }, dump)
-      } else {
-        const newestText = await this.reconstructText(snapshots, 0)
-        if (newestText === null) {
-          this.logger?.error('snapshot chain is broken; writing a full snapshot')
-          await this.writeSnapshot({ kind: 'full', hash }, dump)
-        } else {
-          const patch = createDiff(newestText, dump)
-          await this.writeSnapshot({ kind: 'diff', hash, parentHash: newest.hash }, patch)
-        }
+      const pending = join(this.config.dir, PENDING_FILE)
+      // one left by a snapshot that was cut short; VACUUM INTO won't overwrite it
+      await rm(pending, { force: true })
+      try {
+        await client.execute({ sql: 'VACUUM INTO ?', args: [pending] })
+        const hash = await hashFile(pending)
+        const newest = (await listSnapshots(this.config.dir))[0]
+        if (newest?.hash === hash) return 'skipped-unchanged'
+        const path = join(this.config.dir, snapshotFilename(new Date(), hash))
+        await rename(pending, path)
+        this.logger?.info('snapshot written', { file: path })
+      } finally {
+        await rm(pending, { force: true })
       }
-
-      await this.cleanup()
+      await this.removeOldest()
       return 'created'
     })
   }
 
-  /** Full SQL dump of the snapshot at `index` (1 = newest). */
-  async reconstruct(index: number): Promise<string> {
-    const snapshots = await listSnapshots(this.config.dir)
-    if (!Number.isInteger(index) || index < 1 || index > snapshots.length) {
-      throw new Error(`No snapshot at index ${index} (${snapshots.length} available)`)
-    }
-    const text = await this.reconstructText(snapshots, index - 1)
-    if (text === null) {
-      throw new Error(`Snapshot chain is broken; cannot reconstruct index ${index}`)
-    }
-    return text
-  }
-
-  /**
-   * Replaces the live database with the snapshot at `index` (1 = newest).
-   * The current state is snapshotted first, and the restored database is
-   * materialized and integrity-checked in a temp file before the atomic
-   * rename — a failure at any point leaves the live database untouched.
-   * The app must be stopped: running processes keep the old file open.
-   */
+  // Replaces the database with the snapshot at `index`, 1 being the newest, once
+  // the app has stopped: a running one keeps the old file open. The snapshot is
+  // copied beside the database and checked first: its hash, SQLite's integrity
+  // check, and its migrations. Only then is the database as it is snapshotted,
+  // so that the restore can be undone, which can remove the oldest snapshot,
+  // the one being restored perhaps. A failure on the way leaves the database as
+  // it was.
   async restore(index: number): Promise<void> {
-    const dump = await this.reconstruct(index)
-
-    const currentClient = createClient({ url: `file:${this.config.dbPath}` })
+    const target = await this.snapshotAt(index)
+    const restoring = `${this.config.dbPath}.restore-tmp`
+    await removeDbFiles(restoring)
     try {
-      const result = await this.createSnapshot(currentClient)
-      if (result === 'skipped-locked') {
-        throw new Error('another process is snapshotting right now; try again')
+      await copyFile(target.path, restoring)
+      if ((await hashFile(restoring)) !== target.hash) {
+        throw new Error(`${target.file} isn't the file its name says: it has changed since`)
       }
-    } finally {
-      currentClient.close()
-    }
+      await checkDatabase(restoring)
 
-    const tmpPath = `${this.config.dbPath}.restore-tmp`
-    await removeDbFiles(tmpPath)
-    const tmpClient = createClient({ url: `file:${tmpPath}` })
-    try {
-      await tmpClient.executeMultiple(dump)
-      const integrity = await tmpClient.execute('PRAGMA integrity_check')
-      const verdict = String(integrity.rows[0]?.[0] ?? '')
-      if (integrity.rows.length !== 1 || verdict !== 'ok') {
-        throw new Error(`integrity_check failed on the restored database: ${verdict}`)
+      const current = createClient({ url: `file:${this.config.dbPath}` })
+      try {
+        const result = await this.createSnapshot(current)
+        if (result === 'skipped-locked') {
+          throw new Error('another process is snapshotting right now; try again')
+        }
+      } finally {
+        current.close()
       }
-      await tmpClient.execute('SELECT count(*) FROM migrations')
     } catch (error) {
-      tmpClient.close()
-      await removeDbFiles(tmpPath)
+      await removeDbFiles(restoring)
       throw error
     }
-    tmpClient.close()
-    await rm(`${tmpPath}-wal`, { force: true })
-    await rm(`${tmpPath}-shm`, { force: true })
 
-    await rename(tmpPath, this.config.dbPath)
+    await rename(restoring, this.config.dbPath)
     await rm(`${this.config.dbPath}-wal`, { force: true })
     await rm(`${this.config.dbPath}-shm`, { force: true })
   }
 
-  /**
-   * Walks the chain from the nearest full snapshot forward, applying diffs
-   * until `snapshotIndex` (position in the newest-first array). Every link is
-   * verified against its hash header; null means the chain is broken.
-   * Snapshots older than that full one are irrelevant — self-healing can
-   * leave orphaned diffs behind them.
-   */
-  private async reconstructText(
-    snapshots: SnapshotMeta[],
-    snapshotIndex: number,
-  ): Promise<string | null> {
-    const base = snapshots.findIndex((s, i) => i >= snapshotIndex && s.kind === 'full')
-    if (base === -1) return null
-
-    let text: string | null = null
-    let previousHash: string | null = null
-    for (let i = base; i >= snapshotIndex; i--) {
-      const snapshot = snapshots[i]
-      if (snapshot.kind === 'full') {
-        text = await readSnapshotBody(snapshot.path)
-      } else {
-        if (text === null || snapshot.parentHash !== previousHash) return null
-        const applied = applyDiff(text, await readSnapshotBody(snapshot.path))
-        if (applied === null) return null
-        text = applied
-      }
-      if (hashDump(text) !== snapshot.hash) return null
-      previousHash = snapshot.hash
+  private async snapshotAt(index: number): Promise<SnapshotMeta> {
+    const snapshots = await listSnapshots(this.config.dir)
+    const snapshot = Number.isInteger(index) && index >= 1 ? snapshots[index - 1] : undefined
+    if (!snapshot) {
+      throw new Error(`No snapshot at index ${index} (${snapshots.length} available)`)
     }
-    return text
+    return snapshot
   }
 
-  /**
-   * Retention: while over SNAPSHOTS_COUNT, fold the oldest snapshot into its
-   * successor — the successor becomes the new oldest full snapshot.
-   */
-  private async cleanup(): Promise<void> {
-    let snapshots = await listSnapshots(this.config.dir)
-    while (snapshots.length > this.config.count) {
-      const oldest = snapshots[snapshots.length - 1]
-      const next = snapshots[snapshots.length - 2]
-
-      if (next.kind === 'diff') {
-        const merged = await this.reconstructText(snapshots, snapshots.length - 2)
-        if (merged === null) {
-          // An oldest snapshot nothing can reconstruct (orphaned diff, corrupt
-          // full) is dead weight — drop it and retry.
-          if ((await this.reconstructText(snapshots, snapshots.length - 1)) === null) {
-            this.logger?.warn('dropping unreachable oldest snapshot', { file: oldest.file })
-            await unlink(oldest.path)
-            snapshots = await listSnapshots(this.config.dir)
-            continue
-          }
-          this.logger?.error('cannot merge snapshots, chain is broken; keeping files', {
-            file: next.file,
-          })
-          return
-        }
-        const mergedPath = join(this.config.dir, next.file.replace(/\.diff$/, '.sql'))
-        const content = serializeSnapshot(
-          { kind: 'full', createdAt: next.createdAt, hash: next.hash },
-          merged,
-        )
-        await writeFile(`${mergedPath}.tmp`, content, 'utf8')
-        await rename(`${mergedPath}.tmp`, mergedPath)
-        await unlink(next.path)
-      }
-      await unlink(oldest.path)
-      snapshots = await listSnapshots(this.config.dir)
+  private async removeOldest(): Promise<void> {
+    const snapshots = await listSnapshots(this.config.dir)
+    for (const snapshot of snapshots.slice(this.config.count)) {
+      await unlink(snapshot.path)
+      this.logger?.info('snapshot removed', { file: snapshot.file })
     }
-  }
-
-  private async writeSnapshot(header: Omit<SnapshotHeader, 'createdAt'>, body: string) {
-    const now = new Date()
-    // A timestamp slot is unique across kinds so same-second snapshots never
-    // share a basename (filenames have second resolution; order comes from
-    // the created header).
-    const slotTaken = (suffix?: number) =>
-      existsSync(join(this.config.dir, snapshotFilename(now, 'full', suffix))) ||
-      existsSync(join(this.config.dir, snapshotFilename(now, 'diff', suffix)))
-    let slot: number | undefined = undefined
-    for (let suffix = 2; slotTaken(slot); suffix++) {
-      slot = suffix
-    }
-    const path = join(this.config.dir, snapshotFilename(now, header.kind, slot))
-    const content = serializeSnapshot({ ...header, createdAt: now.toISOString() }, body)
-    await writeFile(`${path}.tmp`, content, 'utf8')
-    await rename(`${path}.tmp`, path)
-    this.logger?.info('snapshot written', { file: path, kind: header.kind })
   }
 
   private async withLock<T>(fn: () => Promise<T>): Promise<T | 'skipped-locked'> {
@@ -233,6 +129,23 @@ export class SnapshotStore {
       await rm(lockPath, { force: true })
     }
   }
+}
+
+// SQLite's integrity check, and a migrations table: a database of the site's
+async function checkDatabase(dbPath: string): Promise<void> {
+  const client = createClient({ url: `file:${dbPath}` })
+  try {
+    const integrity = await client.execute('PRAGMA integrity_check')
+    const verdict = String(integrity.rows[0]?.[0] ?? '')
+    if (integrity.rows.length !== 1 || verdict !== 'ok') {
+      throw new Error(`integrity_check failed on the snapshot: ${verdict}`)
+    }
+    await client.execute('SELECT count(*) FROM migrations')
+  } finally {
+    client.close()
+  }
+  await rm(`${dbPath}-wal`, { force: true })
+  await rm(`${dbPath}-shm`, { force: true })
 }
 
 async function tryAcquire(lockPath: string) {

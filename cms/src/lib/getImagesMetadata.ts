@@ -14,7 +14,7 @@ export type ImageLayout = { width: number; height: number }
  * Consumers that already hold a `getContent()` result can derive dimensions
  * from it directly instead of paying a second content scan through
  * getImagesMetadata() (or duplicating this math and drifting from it).
- * Returns null when the content predates persisted width/height —
+ * Returns null when the content has no width/height —
  * getImagesMetadata() covers those with a sharp probe of the cached file.
  */
 export const imageDimensionsFromContent = (
@@ -66,9 +66,12 @@ export const getImagesMetadata = async (
       // carries dimensions.
       const raw = contents[id]
       const content = raw?.type === 'image' ? raw : undefined
-      // Dimensions are persisted into asset.content at upload time (both via
-      // sharp autoOrient, so the values are interchangeable); probing the
-      // cached file is only a fallback for assets predating that.
+      // Dimensions are persisted into asset.content at upload time, and for
+      // older images by the image_sizes migration (both via sharp autoOrient,
+      // so the values are interchangeable); probing the cached file is only a
+      // fallback for an image without them. Its result isn't stored: rendering
+      // a page never writes to the database, which backups and snapshots
+      // would take for a change.
       const fromContent = imageDimensionsFromContent(content)
       if (fromContent) return [id, fromContent]
       const dims = await probeDimensions(id, store)
@@ -101,8 +104,5 @@ const probeDimensions = async (
   const w = meta.autoOrient?.width ?? meta.width
   const h = meta.autoOrient?.height ?? meta.height
   if (!w || !h) return null
-  // Persist the probe so later renders read dimensions straight from content
-  // instead of re-running sharp on every request for this asset.
-  await store.updateContent(id, { width: w, height: h })
   return { w, h }
 }

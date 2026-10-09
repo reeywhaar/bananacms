@@ -276,8 +276,9 @@ describe('bananacms build + start', () => {
     expect(response.headers.get('location')).toBe('/manage/login?next=%2Fmanage')
   })
 
+  // whatever the order of a link's attributes, like a crossorigin before its href
   const stylesheets = async (path: string) =>
-    [...(await html(path)).matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(
+    [...(await html(path)).matchAll(/<link\b[^>]*\brel="stylesheet"[^>]*\bhref="([^"]+)"/g)].map(
       (match) => match[1],
     )
 

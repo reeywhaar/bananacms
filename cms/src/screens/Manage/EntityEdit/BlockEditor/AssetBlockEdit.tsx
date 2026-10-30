@@ -1,12 +1,13 @@
 'use client'
 
-import { type FC, type DragEvent, useState, useRef } from 'react'
+import { type FC, type DragEvent, useEffect, useState, useRef } from 'react'
 import type { BlockData, BlockTypeAsset } from '#cms/lib/blocks/declarations.ts'
-import { describeAudio } from '#cms/lib/audioMeta.ts'
+import { type AudioMeta, describeAudio, readAudioMeta } from '#cms/lib/audioMeta.ts'
 import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
 import { AudioPlayer } from './AudioPlayer.tsx'
+import { AudioTagFields } from './AudioTagFields.tsx'
 import { FilenameField } from './FilenameField.tsx'
 
 type AssetBlockEditProps = {
@@ -30,12 +31,18 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Another file takes the place of this one in the same block, which keeps its
-  // id, key and attributes. The file is a new asset; the old one goes once
-  // nothing uses it.
+  // id, key and attributes, with its own name and tags. The file is a new asset;
+  // the old one goes once nothing uses it.
   const handleFile = (file: File) => {
     onChange({
       ...block,
-      content: { ...block.content, assetId: '', pendingFile: file, pendingFilename: undefined },
+      content: {
+        ...block.content,
+        assetId: '',
+        pendingFile: file,
+        pendingFilename: undefined,
+        pendingTags: undefined,
+      },
     })
   }
 
@@ -61,78 +68,107 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({
   // is optional — plenty of files declare almost nothing — so these render only
   // when there is something to say, and the block looks exactly as it did
   // before when there is not.
-  const audio = content?.type === 'audio' ? content : null
-  const audioInfo = audio ? describeAudio(audio) : ''
-  const audioTags = audio?.tags
-  const tagLine = [audioTags?.title, audioTags?.artist].filter(Boolean).join(' — ')
   const stagedAudio = block.content.pendingFile?.type.startsWith('audio/')
     ? block.content.pendingFile
     : null
+  // what a new audio file says of itself, read here as its upload will read it:
+  // undefined while it's being read, null when it isn't readable as audio
+  const [stagedMeta, setStagedMeta] = useState<AudioMeta | null | undefined>(undefined)
+  useEffect(() => {
+    if (!stagedAudio) return
+    let cancelled = false
+    setStagedMeta(undefined)
+    void stagedAudio
+      .arrayBuffer()
+      .then((data) => readAudioMeta(new Uint8Array(data), stagedAudio.type))
+      .then((meta) => {
+        if (!cancelled) setStagedMeta(meta)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [stagedAudio])
+
+  // a new file's details, or the saved file's
+  const audio = stagedAudio ? stagedMeta : content?.type === 'audio' ? content : null
+  const audioInfo = audio ? describeAudio(audio) : ''
 
   return (
-    <div
-      className={[
-        'border-2 border-dashed rounded p-4 flex flex-col items-start gap-4 cursor-pointer transition-colors',
-        dragging ? 'border-accent-500 bg-accent-50' : 'border-gray-200 hover:border-gray-400',
-      ].join(' ')}
-      onClick={() => inputRef.current?.click()}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-    >
-      {displayName ? (
-        // the file and what it says of itself, close together, then its player
-        <div className="flex w-full flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <FilenameField
-              name={displayName}
-              pending={block.content.pendingFilename}
-              onChange={(pendingFilename) =>
-                onChange({ ...block, content: { ...block.content, pendingFilename } })
-              }
-            />
-            <div className="flex flex-col gap-0.5 text-xs text-gray-500">
-              <span>
-                {fileSize != null && formatSize(fileSize)}
-                {assetUrl && (
-                  <>
-                    {fileSize != null && ' · '}
-                    <a
-                      href={assetUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-link hover:underline"
-                    >
-                      Open
-                    </a>
-                  </>
-                )}
-              </span>
-              {tagLine && <span>{tagLine}</span>}
-              {audioInfo && <span>{audioInfo}</span>}
+    <div className="flex flex-col gap-3">
+      <div
+        className={[
+          'border-2 border-dashed rounded p-4 flex flex-col items-start gap-4 cursor-pointer transition-colors',
+          dragging ? 'border-accent-500 bg-accent-50' : 'border-gray-200 hover:border-gray-400',
+        ].join(' ')}
+        onClick={() => inputRef.current?.click()}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
+        {displayName ? (
+          // the file and what it says of itself, close together, then its player
+          <div className="flex w-full flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <FilenameField
+                name={displayName}
+                pending={block.content.pendingFilename}
+                onChange={(pendingFilename) =>
+                  onChange({ ...block, content: { ...block.content, pendingFilename } })
+                }
+              />
+              <div className="flex flex-col gap-0.5 text-xs text-gray-500">
+                <span>
+                  {fileSize != null && formatSize(fileSize)}
+                  {assetUrl && (
+                    <>
+                      {fileSize != null && ' · '}
+                      <a
+                        href={assetUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-link hover:underline"
+                      >
+                        Open
+                      </a>
+                    </>
+                  )}
+                </span>
+                {audioInfo && <span>{audioInfo}</span>}
+              </div>
             </div>
+            {(audio || (stagedAudio && stagedMeta !== undefined)) && (
+              <AudioTagFields
+                // fields that start from the tags of the file there, once they're read
+                key={`${block.content.pendingFile?.name ?? block.content.assetId}:${stagedMeta === undefined}`}
+                tags={audio?.tags ?? {}}
+                pending={block.content.pendingTags}
+                onChange={(pendingTags) =>
+                  onChange({ ...block, content: { ...block.content, pendingTags } })
+                }
+              />
+            )}
+            {stagedAudio ? (
+              <AudioPlayer file={stagedAudio} />
+            ) : (
+              audio && assetUrl && <AudioPlayer src={assetUrl} duration={audio.duration} />
+            )}
           </div>
-          {stagedAudio ? (
-            <AudioPlayer file={stagedAudio} />
-          ) : (
-            audio && assetUrl && <AudioPlayer src={assetUrl} duration={audio.duration} />
-          )}
-        </div>
-      ) : (
-        <span className="text-sm text-gray-400">Drop file here or click to select</span>
-      )}
-      {displayName && <span className="text-xs text-gray-400">Drop or click to replace</span>}
-      <input
-        ref={inputRef}
-        type="file"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) handleFile(file)
-          e.target.value = ''
-        }}
-      />
+        ) : (
+          <span className="text-sm text-gray-400">Drop file here or click to select</span>
+        )}
+        {displayName && <span className="text-xs text-gray-400">Drop or click to replace</span>}
+        <input
+          ref={inputRef}
+          type="file"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) handleFile(file)
+            e.target.value = ''
+          }}
+        />
+      </div>
     </div>
   )
 }

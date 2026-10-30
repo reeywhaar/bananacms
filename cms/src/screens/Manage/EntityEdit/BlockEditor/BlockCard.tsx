@@ -10,7 +10,13 @@ import type {
   AssetOutputFormat,
 } from '#cms/services/AssetStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
-import { formatChannels, formatDuration, formatSampleRate } from '#cms/lib/audioMeta.ts'
+import {
+  type AudioTagEdits,
+  type AudioTags,
+  formatChannels,
+  formatDuration,
+  formatSampleRate,
+} from '#cms/lib/audioMeta.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
 import { X } from '#cms/components/icons.tsx'
 import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProvider.tsx'
@@ -241,7 +247,7 @@ const AssetSummary: FC<{
   const bytes = file ? file.size : size
   const audio = !file && assetContent?.type === 'audio' ? assetContent : null
   const stagedAudio = file?.type.startsWith('audio/') ? file : null
-  const tags = audio?.tags
+  const tags = withEdits(audio?.tags, content.pendingTags)
   const hasTags = !!(tags?.title || tags?.artist || tags?.album || tags?.year)
   const hasSound =
     audio?.duration !== undefined ||
@@ -292,6 +298,23 @@ const AssetSummary: FC<{
       </div>
     </div>
   )
+}
+
+// an audio file's tags as they'll be once the block is saved: its own, changed by
+// the edits, which an empty field or a year of 0 clears
+const withEdits = (tags: AudioTags | undefined, edits: AudioTagEdits | undefined): AudioTags => {
+  const next: AudioTags = { ...tags }
+  for (const key of ['title', 'artist', 'album'] as const) {
+    const value = edits?.[key]?.trim()
+    if (value === undefined) continue
+    if (value) next[key] = value
+    else delete next[key]
+  }
+  if (edits?.year !== undefined) {
+    if (edits.year > 0) next.year = edits.year
+    else delete next.year
+  }
+  return next
 }
 
 const DetailGroup: FC<{ children: ReactNode }> = ({ children }) => (

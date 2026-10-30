@@ -2,7 +2,7 @@
 
 import type { DragEvent } from 'react'
 import type { BlockData } from '#cms/lib/blocks/declarations.ts'
-import { renameAsset, uploadAsset } from './actions.ts'
+import { renameAsset, retagAudio, uploadAsset } from './actions.ts'
 import { handleServerResult } from '#cms/lib/serverActions.ts'
 
 export const resolveBlocks = async (blocks: BlockData[]): Promise<BlockData[]> => {
@@ -40,8 +40,23 @@ export const resolveBlocks = async (blocks: BlockData[]): Promise<BlockData[]> =
         if (block.content.pendingFilename !== undefined) {
           formData.append('filename', block.content.pendingFilename)
         }
+        if (block.content.pendingTags) {
+          formData.append('tags', JSON.stringify(block.content.pendingTags))
+        }
         const { id } = handleServerResult(await uploadAsset(formData))
-        const { pendingFile: _pf, pendingFilename: _pn, ...rest } = block.content
+        const { pendingFile: _pf, pendingFilename: _pn, pendingTags: _pt, ...rest } = block.content
+        return { ...block, content: { ...rest, assetId: id } }
+      }
+      // a saved audio file with other tags: a new asset, given any new name too
+      if (block.content.type === 'asset' && block.content.pendingTags) {
+        const { id } = handleServerResult(
+          await retagAudio(
+            block.content.assetId,
+            JSON.stringify(block.content.pendingTags),
+            block.content.pendingFilename,
+          ),
+        )
+        const { pendingFilename: _pn, pendingTags: _pt, ...rest } = block.content
         return { ...block, content: { ...rest, assetId: id } }
       }
       // a saved file given another name: its asset is renamed

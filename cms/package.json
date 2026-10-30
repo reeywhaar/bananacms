@@ -87,6 +87,7 @@
     "rsc-html-stream": "^0.0.8",
     "sharp": "^0.35.4",
     "srvx": "^1.0.5",
+    "taglib-wasm": "^2.4.0",
     "tailwindcss": "^4.3.3",
     "uuid": "^14.0.2",
     "vite": "^8.3.1"

@@ -4,7 +4,9 @@ import { mkdir, unlink, writeFile } from 'fs/promises'
 import { join } from 'path'
 import sharp from 'sharp'
 import { assetVariantFilenames } from '#cms/lib/assetHash.ts'
-import { readAudioMeta } from '#cms/lib/audioMeta.ts'
+import { type AudioTagEdits, readAudioMeta, yearError } from '#cms/lib/audioMeta.ts'
+import { writeAudioTags } from '#cms/lib/audioTags.ts'
+import { valita } from '#cms/utils/valita.ts'
 import {
   AssetStore,
   type AssetContent,
@@ -28,7 +30,12 @@ export const uploadAsset = adminAction(async (ctx, formData: FormData): Promise<
 
   const id = v7()
   const arrayBuffer = await file.arrayBuffer()
-  const data = Buffer.from(arrayBuffer)
+  // an audio file with the tags the dialog gave it written in
+  const tags = formData.get('tags')
+  const data =
+    typeof tags === 'string' && file.type.startsWith('audio/')
+      ? Buffer.from(await writeAudioTags(new Uint8Array(arrayBuffer), checkedTags(tags)))
+      : Buffer.from(arrayBuffer)
 
   const content: AssetContent = await (async () => {
     if (file.type.startsWith('audio/')) {
@@ -66,15 +73,60 @@ export const uploadAsset = adminAction(async (ctx, formData: FormData): Promise<
 
   const db = getDb(ctx)
   await new AssetStore(db).add(id, { filename, mime: file.type, data, content })
-
-  const assetsDir = process.env.ASSETS_DIRECTORY
-  if (assetsDir) {
-    await mkdir(assetsDir, { recursive: true })
-    await writeFile(join(assetsDir, id), data)
-  }
+  await cacheFile(id, data)
 
   return { id }
 })
+
+// Writes tags into a saved audio file. Its bytes are served as never changing, so
+// the file with them is a new asset, under the old one's filename or `filename`,
+// and the old one goes once nothing uses it.
+export const retagAudio = adminAction(
+  async (ctx, id: string, edits: string, filename?: string): Promise<{ id: string }> => {
+    const store = new AssetStore(getDb(ctx))
+    const [meta, data] = await Promise.all([store.getMeta(id), store.getData(id)])
+    if (!meta || !data) throw new ApiError('There is no such file').expose().withStatus(404)
+    const tagged = Buffer.from(await writeAudioTags(new Uint8Array(data), checkedTags(edits)))
+    const audio = await readAudioMeta(tagged, meta.mime)
+    const newId = v7()
+    await store.add(newId, {
+      filename: filename === undefined ? meta.filename : checkedFilename(filename),
+      mime: meta.mime,
+      data: tagged,
+      content: assetContentSchema.parse({ type: 'audio', ...(audio ?? {}) }),
+    })
+    await cacheFile(newId, tagged)
+    return { id: newId }
+  },
+)
+
+// a copy of an asset's file in ASSETS_DIRECTORY, which the site serves from
+const cacheFile = async (id: string, data: Buffer): Promise<void> => {
+  const assetsDir = process.env.ASSETS_DIRECTORY
+  if (!assetsDir) return
+  await mkdir(assetsDir, { recursive: true })
+  await writeFile(join(assetsDir, id), data)
+}
+
+const audioTagEditsSchema = valita.object({
+  title: valita.string().optional(),
+  artist: valita.string().optional(),
+  album: valita.string().optional(),
+  year: valita.number().optional(),
+})
+
+// tag edits, as JSON, which have to be fields of the tags a file is written with
+const checkedTags = (json: string): AudioTagEdits => {
+  let edits: AudioTagEdits
+  try {
+    edits = audioTagEditsSchema.parse(JSON.parse(json))
+  } catch {
+    throw new ApiError("Those aren't tags to write into a file").expose().withStatus(400)
+  }
+  const error = edits.year === undefined ? null : yearError(edits.year)
+  if (error) throw new ApiError(error).expose().withStatus(400)
+  return edits
+}
 
 // Gives an asset another filename, which a download is saved as: every block
 // that shows the asset has it.

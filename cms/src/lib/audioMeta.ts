@@ -20,6 +20,14 @@ export interface AudioTags {
   year?: number
 }
 
+// Changes to the tags written into an audio file: a field left out keeps what the
+// file has, and an empty title, artist or album, or a year of 0, clears it.
+export type AudioTagEdits = AudioTags
+
+// What's wrong with `year` as one to write, or null when nothing is
+export const yearError = (year: number): string | null =>
+  Number.isInteger(year) && year >= 0 && year <= 9999 ? null : 'A year is a whole number, like 2026'
+
 /**
  * Everything worth keeping from an audio file's headers, or null if it is not
  * readable as audio.
@@ -31,7 +39,7 @@ export interface AudioTags {
  * without complaint and simply reports nothing, so every field is checked
  * rather than trusted.
  */
-export async function readAudioMeta(data: Buffer, mime?: string): Promise<AudioMeta | null> {
+export async function readAudioMeta(data: Uint8Array, mime?: string): Promise<AudioMeta | null> {
   try {
     const { format, common } = await parseBuffer(data, mime ? { mimeType: mime } : undefined)
     const meta: AudioMeta = {

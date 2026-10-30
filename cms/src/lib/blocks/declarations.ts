@@ -2,6 +2,7 @@ import type { Translations } from '#cms/services/LocalizationStore.ts'
 import type { AttributeData } from '#cms/services/AttributeStore.ts'
 import { valita } from '#cms/utils/valita.ts'
 import type { AssetOutputFormat, AssetResolution } from '#cms/services/AssetStore.ts'
+import type { AudioTagEdits } from '#cms/lib/audioMeta.ts'
 
 // ─── Block types ─────────────────────────────────────────────────────────────
 
@@ -46,6 +47,8 @@ export type BlockTypeAsset = {
   pendingFile?: File
   // a new filename for the asset, which saving the entity gives it
   pendingFilename?: string
+  // changes to an audio file's own tags, which saving the entity writes into it
+  pendingTags?: AudioTagEdits
 }
 
 export type BlockType =

@@ -18,6 +18,7 @@ import { AssetBlockEdit } from './AssetBlockEdit.tsx'
 import { MetaBlockEdit } from './MetaBlockEdit.tsx'
 import { attributesInvalid } from '../AttributesEditor/AttributesEditor.tsx'
 import { filenameError } from '#cms/lib/filename.ts'
+import { yearError } from '#cms/lib/audioMeta.ts'
 
 type BlockEditDialogProps = {
   block: BlockData
@@ -59,10 +60,13 @@ export const BlockEditDialog: FC<BlockEditDialogProps> = ({
     draft.content.type === 'image' || draft.content.type === 'asset'
       ? draft.content.pendingFilename
       : undefined
-  // the attributes, or a file's new name, which says what's wrong with it
+  const pendingYear = draft.content.type === 'asset' ? draft.content.pendingTags?.year : undefined
+  // the attributes, a file's new name or the year to write into it, which say
+  // what's wrong with them
   const invalid =
     attributesInvalid(draft.attributes) ||
-    (pendingFilename !== undefined && filenameError(pendingFilename) !== null)
+    (pendingFilename !== undefined && filenameError(pendingFilename) !== null) ||
+    (pendingYear !== undefined && yearError(pendingYear) !== null)
   // Add or Apply has been pressed, so what's wrong with the attributes shows, until
   // it's put right, as in MetaEditDialog
   const [tried, setTried] = useState(false)

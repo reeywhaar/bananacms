@@ -217,7 +217,7 @@ const GroupRow: FC<GroupRowProps> = ({
 
   return (
     <div
-      className={`flex flex-col gap-2 rounded border p-3 shadow-sm transition-colors ${removing ? 'border-red-400 bg-red-50' : 'border-gray-200'}`}
+      className={`flex flex-col gap-2 rounded border p-3 shadow-sm transition-colors ${removing ? 'border-danger-300 bg-danger-50' : 'border-gray-200'}`}
     >
       <div className="flex min-w-0 items-center gap-2">
         <span className="shrink-0 text-xs uppercase tracking-wide text-gray-400">

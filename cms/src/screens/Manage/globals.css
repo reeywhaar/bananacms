@@ -26,6 +26,10 @@
   /* destructive actions. The red is halfway from rgb(236 47 4) to Tailwind's
      orange-500, mixed in oklab, with a twentieth less chroma. */
   --color-danger: oklch(65.8% 0.207 39.783);
+  /* paler, mixed as the accent's are: what's about to go, like a block whose
+     remove button is under the pointer */
+  --color-danger-50: color-mix(in oklab, var(--color-danger) 15%, white);
+  --color-danger-300: color-mix(in oklab, var(--color-danger) 80%, white);
 
   /* a published post's status, on a fill mixed from it: Tailwind's green-700
      warmed with a fifth of a yellowish grey, oklch(72% 0.06 95), mixed in oklab */

@@ -105,7 +105,7 @@ export const BlockCard: FC<BlockCardProps> = ({
 
   return (
     <div
-      className={`flex cursor-pointer flex-col gap-2 rounded border p-3 shadow-sm transition-colors ${removing ? 'border-red-400 bg-red-50' : 'border-gray-200 hover:border-gray-300'}`}
+      className={`flex cursor-pointer flex-col gap-2 rounded border p-3 shadow-sm transition-colors ${removing ? 'border-danger-300 bg-danger-50' : 'border-gray-200 hover:border-gray-300'}`}
       onClick={onEdit}
     >
       <div className="flex min-w-0 items-center gap-2">

@@ -137,12 +137,13 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({
                 {audioInfo && <span>{audioInfo}</span>}
               </div>
             </div>
-            {(audio || (stagedAudio && stagedMeta !== undefined)) && (
+            {(audio || stagedAudio) && (
               <AudioTagFields
                 // fields that start from the tags of the file there, once they're read
                 key={`${block.content.pendingFile?.name ?? block.content.assetId}:${stagedMeta === undefined}`}
                 tags={audio?.tags ?? {}}
                 pending={block.content.pendingTags}
+                reading={!!stagedAudio && stagedMeta === undefined}
                 onChange={(pendingTags) =>
                   onChange({ ...block, content: { ...block.content, pendingTags } })
                 }

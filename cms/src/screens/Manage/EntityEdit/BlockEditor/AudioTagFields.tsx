@@ -9,13 +9,17 @@ type TextTag = 'title' | 'artist' | 'album'
 // An audio file's title, artist, album and year, to change, starting from what the
 // file has, and from a new file's own when it replaces it. A change waits with the
 // block, and saving the entity writes it into the file, which makes it a new asset.
-// A field emptied clears that tag.
+// A field emptied clears that tag. While a new file is being read, the fields
+// wait, pulsing.
 export const AudioTagFields: FC<{
   // the tags as the file has them
   tags: AudioTags
   pending: AudioTagEdits | undefined
   onChange: (pending: AudioTagEdits | undefined) => void
-}> = ({ tags, pending, onChange }) => {
+  // a new file whose tags are still being read
+  reading?: boolean
+}> = ({ tags, pending, onChange, reading = false }) => {
+  const inputClass = reading ? 'input animate-pulse bg-gray-100' : 'input'
   const year = pending?.year ?? tags.year
   // as typed, so that a year half typed, or not one, shows as it is
   const [yearText, setYearText] = useState(year ? String(year) : '')
@@ -33,7 +37,8 @@ export const AudioTagFields: FC<{
       <input
         value={pending?.[key] ?? tags[key] ?? ''}
         onChange={(e) => set(key, e.target.value)}
-        className="input"
+        disabled={reading}
+        className={inputClass}
       />
     </Field>
   )
@@ -41,6 +46,7 @@ export const AudioTagFields: FC<{
   return (
     // on what picks another file, so a click in them is theirs
     <div
+      aria-busy={reading}
       className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2"
       onClick={(e) => e.stopPropagation()}
     >
@@ -56,7 +62,8 @@ export const AudioTagFields: FC<{
             const text = e.target.value.trim()
             set('year', text ? Number(text) : 0)
           }}
-          className="input"
+          disabled={reading}
+          className={inputClass}
         />
       </Field>
     </div>

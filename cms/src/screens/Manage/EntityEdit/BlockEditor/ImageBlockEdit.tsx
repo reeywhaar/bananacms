@@ -17,7 +17,6 @@ import { handleServerResult } from '#cms/lib/serverActions.ts'
 import { useToast } from '#cms/components/Toast/Toast.tsx'
 import { useWithProgress } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
 import { extractErrorMessage } from '#cms/utils/extractErrorMessage.ts'
-import { v7 } from 'uuid'
 
 const RESOLUTIONS: AssetResolution[] = ['@1x', '@2x', '@3x']
 
@@ -52,10 +51,8 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
   onTranslationsChange,
 }) => {
   const [dragging, setDragging] = useState(false)
-  const [objectUrl] = useState<string | null>(() => {
-    const pf = block.content.pendingFile
-    return pf ? URL.createObjectURL(pf) : null
-  })
+  // the pending file's own preview, made anew when another file is dropped
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [naturalDims, setNaturalDims] = useState<{ width: number; height: number } | null>(null)
   const [resolution, setResolution] = useState<AssetResolution>(
     block.content.pendingResolution ?? content?.resolution ?? '@1x',
@@ -71,19 +68,17 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
   const [maxHeightInput, setMaxHeightInput] = useState<string>(
     initialMaxSize ? String(initialMaxSize.height) : '',
   )
-  const objectUrlRef = useRef<string | null>(objectUrl)
   const inputRef = useRef<HTMLInputElement>(null)
   const withProgress = useWithProgress()
   const showToast = useToast()
 
-  // Revoke the object URL when the component unmounts
   useEffect(() => {
-    return () => {
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      const url = objectUrlRef.current
-      if (url) URL.revokeObjectURL(url)
-    }
-  }, [])
+    const file = block.content.pendingFile
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    setObjectUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [block.content.pendingFile])
 
   useEffect(() => {
     const file = block.content.pendingFile
@@ -105,19 +100,18 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
     onChange({ ...block, content: { ...block.content, ...patch } })
   }
 
+  // Another file takes the place of the image in the same block: its id, which
+  // the alt's translations are under, its alt, key and attributes stay, and the
+  // settings shown are the ones its asset is uploaded with. The file is a new
+  // asset; the old one goes once nothing uses it.
   const handleFile = (file: File) => {
-    onChange({
-      id: v7(),
-      parent: block.parent,
-      content: {
-        type: 'image',
-        key: block.content.key,
-        name: file.name,
-        alt: '',
-        assetId: '',
-        pendingFile: file,
-      },
-      attributes: block.attributes,
+    update({
+      name: file.name,
+      assetId: '',
+      pendingFile: file,
+      pendingResolution: resolution,
+      pendingOutputAs: format,
+      pendingMaxSize: maxSize ?? undefined,
     })
   }
 
@@ -214,7 +208,9 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
 
   const handleDragLeave = () => setDragging(false)
 
-  const previewSrc = objectUrl ?? getAssetUrl(block.content.assetId)
+  const previewSrc = block.content.pendingFile
+    ? objectUrl
+    : block.content.assetId && getAssetUrl(block.content.assetId)
   const displayName = block.content.pendingFile?.name ?? block.content.name
   const fileSize = block.content.pendingFile?.size ?? (block.content.assetId ? size : null)
 

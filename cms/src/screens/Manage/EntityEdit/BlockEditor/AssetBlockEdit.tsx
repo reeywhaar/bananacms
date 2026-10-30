@@ -6,7 +6,6 @@ import { describeAudio } from '#cms/lib/audioMeta.ts'
 import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
-import { v7 } from 'uuid'
 
 type AssetBlockEditProps = {
   block: BlockData & { content: BlockTypeAsset }
@@ -20,18 +19,13 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({ block, size, content, 
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Another file takes the place of this one in the same block, which keeps its
+  // id, key and attributes. The file is a new asset; the old one goes once
+  // nothing uses it.
   const handleFile = (file: File) => {
     onChange({
-      id: v7(),
-      parent: block.parent,
-      content: {
-        type: 'asset',
-        key: block.content.key,
-        name: file.name,
-        assetId: '',
-        pendingFile: file,
-      },
-      attributes: block.attributes,
+      ...block,
+      content: { ...block.content, name: file.name, assetId: '', pendingFile: file },
     })
   }
 

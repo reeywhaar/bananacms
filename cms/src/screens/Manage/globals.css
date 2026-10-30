@@ -90,6 +90,15 @@ body {
   height: calc(100% - var(--spacing) * 8);
 }
 
+/* what the keyboard has got to, ringed in the accent rather than the browser's
+   blue; under everything that rings its own */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
 @layer utilities {
   .interactive {
     transition: opacity 0.2s ease;
@@ -138,6 +147,17 @@ body {
   /* a field with an error (Field.tsx) */
   [data-invalid] > :is(.input, .input-sm, .input-xl) {
     border-color: var(--color-danger);
+  }
+
+  /* a field with the cursor in it: its border, and a line right around it, one
+     ring, in the accent, or the danger color when it has an error */
+  :is(.input, .input-sm, .input-xl):focus {
+    @apply border-accent outline-1 outline-offset-0 outline-accent;
+  }
+
+  [data-invalid] > :is(.input, .input-sm, .input-xl):focus {
+    border-color: var(--color-danger);
+    outline-color: var(--color-danger);
   }
 
   /* bordered and rounded like a field, and filled with the accent and a white

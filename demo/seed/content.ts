@@ -23,7 +23,7 @@ export type Block =
       attributes?: Attributes
     }
   | { type: 'image'; key: string; file: string; alt: Localized; attributes?: Attributes }
-  | { type: 'asset'; key: string; file: string; name: string; attributes?: Attributes }
+  | { type: 'asset'; key: string; file: string; attributes?: Attributes }
   | { type: 'meta'; key: string; text: string; attributes?: Attributes }
   | { type: 'group'; key: string; blocks: Block[]; attributes?: Attributes }
 
@@ -106,12 +106,11 @@ export const image = (
     },
   }
 }
-// a file that isn't an image, like a PDF, under a name to link it by
-export const asset = (key: string, file: string, name: string, attributes?: Attributes): Block => ({
+// a file that isn't an image, like a PDF, which a link names by its filename
+export const asset = (key: string, file: string, attributes?: Attributes): Block => ({
   type: 'asset',
   key,
   file,
-  name,
   attributes,
 })
 export const meta = (key: string, text: string, attributes?: Attributes): Block => ({

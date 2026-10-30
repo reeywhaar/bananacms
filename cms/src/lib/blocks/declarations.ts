@@ -23,7 +23,6 @@ export type BlockTypeGroup = {
 export type BlockTypeImage = {
   type: 'image'
   key: string
-  name: string
   alt: string
   assetId: string
   pendingFile?: File
@@ -41,7 +40,6 @@ export type BlockTypeMeta = {
 export type BlockTypeAsset = {
   type: 'asset'
   key: string
-  name: string
   assetId: string
   pendingFile?: File
 }
@@ -100,7 +98,6 @@ export type SerializedGroupBlock = {
 export type SerializedImageBlock = {
   type: 'image'
   key: string
-  name: string
   alt: Record<string, string>
   assetId: string
   attributes?: SerializedAttribute[]
@@ -116,7 +113,6 @@ export type SerializedMetaBlock = {
 export type SerializedAssetBlock = {
   type: 'asset'
   key: string
-  name: string
   assetId: string
   attributes?: SerializedAttribute[]
 }
@@ -242,7 +238,6 @@ class ImageBlockMatcher implements Matcher {
     return {
       type: 'image',
       key: block.content.key,
-      name: block.content.name,
       alt: altTranslations,
       assetId: block.content.assetId,
       attributes: serializeAttributes(block, translations, defaultLocale),
@@ -276,7 +271,6 @@ class AssetBlockMatcher implements Matcher {
     return {
       type: 'asset',
       key: block.content.key,
-      name: block.content.name,
       assetId: block.content.assetId,
       attributes: serializeAttributes(block, translations, defaultLocale),
     }
@@ -302,6 +296,10 @@ const serializedAttributeSchema: valita.Type<SerializedAttribute> = valita.objec
 
 const serializedAttributesField = valita.array(serializedAttributeSchema).optional()
 
+// the block's name, which an image or a file block had before its asset's filename
+// took its place: still taken from an export of an earlier version, and dropped
+const legacyNameField = valita.string().optional()
+
 export const serializedBlockSchema: valita.Type<SerializedBlock> = valita.union(
   valita.object({
     type: valita.literal('text'),
@@ -321,7 +319,7 @@ export const serializedBlockSchema: valita.Type<SerializedBlock> = valita.union(
   valita.object({
     type: valita.literal('image'),
     key: valita.string(),
-    name: valita.string(),
+    name: legacyNameField,
     alt: valita.record(valita.string()),
     assetId: valita.string(),
     attributes: serializedAttributesField,
@@ -335,7 +333,7 @@ export const serializedBlockSchema: valita.Type<SerializedBlock> = valita.union(
   valita.object({
     type: valita.literal('asset'),
     key: valita.string(),
-    name: valita.string(),
+    name: legacyNameField,
     assetId: valita.string(),
     attributes: serializedAttributesField,
   }),

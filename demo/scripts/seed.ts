@@ -160,7 +160,6 @@ function toBlock(block: Block, parent: BlockParent, translate: Translate): Block
         content: {
           type: 'image',
           key: block.key,
-          name: path.basename(block.file),
           alt: block.alt[defaultLocale],
           assetId: assetIds.get(block.file)!,
         },
@@ -173,7 +172,6 @@ function toBlock(block: Block, parent: BlockParent, translate: Translate): Block
         content: {
           type: 'asset',
           key: block.key,
-          name: block.name,
           assetId: assetIds.get(block.file)!,
         },
       }

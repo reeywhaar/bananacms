@@ -39,13 +39,14 @@ export default async function PageEdit({ ctx, id: pageId }: { ctx: Context; id?:
   collect(blocks)
 
   const assetStore = new AssetStore(db)
-  const [assetContents, assetSizes, assetMimes] = assetIds.length
+  const [assetContents, assetSizes, assetMimes, assetNames] = assetIds.length
     ? await Promise.all([
         assetStore.getContent(assetIds),
         assetStore.getSizes(assetIds),
         assetStore.getMimes(assetIds),
+        assetStore.getNames(assetIds),
       ])
-    : [{}, {}, {}]
+    : [{}, {}, {}, {}]
 
   return (
     <WithBreadcrumbs
@@ -64,6 +65,7 @@ export default async function PageEdit({ ctx, id: pageId }: { ctx: Context; id?:
         assetContents={assetContents}
         assetSizes={assetSizes}
         assetMimes={assetMimes}
+        assetNames={assetNames}
       />
     </WithBreadcrumbs>
   )

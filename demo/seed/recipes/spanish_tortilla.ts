@@ -54,6 +54,6 @@ export default post('spanish-tortilla', {
         'Dale la vuelta con ayuda de un plato, vuelve a deslizarla en la sartén y cuaja 3 minutos más.',
       ),
     }),
-    asset('card', 'recipes/spanish-tortilla-card.pdf', 'Recipe card (PDF)'),
+    asset('card', 'recipes/spanish-tortilla-card.pdf'),
   ],
 })

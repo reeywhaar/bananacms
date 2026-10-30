@@ -174,7 +174,6 @@ async function readBack(db: Awaited<ReturnType<typeof openDatabases>>['db']) {
           type: 'asset',
           key: content.key,
           file: await fileOf(content.assetId),
-          name: content.name,
           attributes,
         }
       case 'meta':

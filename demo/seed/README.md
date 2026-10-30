@@ -26,15 +26,15 @@ Each text is written in every language: `{ en: '…', fr: '…', es: '…' }`. A
 
 ## Blocks
 
-| Function                 | Block              |                                                                                                                 |
-| ------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `text(key, texts)`       | text, plain        |                                                                                                                 |
-| `markdown(key, texts)`   | text, markdown     | `list(…)` and `steps(…)` write a list and numbered steps                                                        |
-| `html(key, texts)`       | text, HTML         |                                                                                                                 |
-| `image(key, file, alt)`  | image              | with its credit from `credits.ts`, as the attributes `credit`, `creditUrl`, `source`, `sourceUrl` and `license` |
-| `asset(key, file, name)` | a file, like a PDF | `name` is what a link to it says                                                                                |
-| `meta(key, text)`        | meta               | a text with no translations, like a link, or JSON                                                               |
-| `group(key, blocks)`     | group              | blocks in a block, like a gallery's images                                                                      |
+| Function                | Block              |                                                                                                                 |
+| ----------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `text(key, texts)`      | text, plain        |                                                                                                                 |
+| `markdown(key, texts)`  | text, markdown     | `list(…)` and `steps(…)` write a list and numbered steps                                                        |
+| `html(key, texts)`      | text, HTML         |                                                                                                                 |
+| `image(key, file, alt)` | image              | with its credit from `credits.ts`, as the attributes `credit`, `creditUrl`, `source`, `sourceUrl` and `license` |
+| `asset(key, file)`      | a file, like a PDF | a link to it says its filename                                                                                  |
+| `meta(key, text)`       | meta               | a text with no translations, like a link, or JSON                                                               |
+| `group(key, blocks)`    | group              | blocks in a block, like a gallery's images                                                                      |
 
 Each one takes attributes last: `{ servings: '4' }`, or `{ difficulty: { en: 'Easy', fr: 'Facile', es: 'Fácil' } }` for one in every language. Posts, categories, tags and pages take `attributes` too.
 

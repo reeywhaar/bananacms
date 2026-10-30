@@ -25,6 +25,7 @@ type BlockEditDialogProps = {
   translations: Translations
   assetContents: Record<string, AssetContent>
   assetSizes: Record<string, number>
+  assetNames: Record<string, string>
   onApply: (block: BlockData, translations: Translations) => void
   onClose: () => void
 }
@@ -47,6 +48,7 @@ export const BlockEditDialog: FC<BlockEditDialogProps> = ({
   translations,
   assetContents,
   assetSizes,
+  assetNames,
   onApply,
   onClose,
 }) => {
@@ -101,6 +103,7 @@ export const BlockEditDialog: FC<BlockEditDialogProps> = ({
           block={draft as BlockData & { content: BlockTypeImage }}
           content={imageContent(assetContents[assetId])}
           size={assetSizes[assetId] ?? null}
+          filename={assetNames[assetId] ?? null}
           onChange={setDraft}
           translations={draftTranslations}
           onTranslationsChange={setDraftTranslations}
@@ -109,6 +112,7 @@ export const BlockEditDialog: FC<BlockEditDialogProps> = ({
         <AssetBlockEdit
           block={draft as BlockData & { content: BlockTypeAsset }}
           size={assetSizes[assetId] ?? null}
+          filename={assetNames[assetId] ?? null}
           content={assetContents[assetId] ?? null}
           onChange={setDraft}
         />

@@ -24,7 +24,6 @@ const blocks: BlockData[] = [
           content: {
             type: 'image',
             key: 'still',
-            name: 'a.jpg',
             alt: 'A train',
             assetId: 'asset-1',
           },

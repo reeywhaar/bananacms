@@ -165,7 +165,6 @@ function deserializeBlock(
     const content: BlockType = {
       type: 'asset',
       key: serialized.key,
-      name: serialized.name,
       assetId: serialized.assetId,
     }
     return { id, parent: { type: 'post', id: '' }, content, attributes }
@@ -194,7 +193,6 @@ function deserializeImageBlock(
   const content: BlockType = {
     type: 'image',
     key: serialized.key,
-    name: serialized.name,
     alt,
     assetId: serialized.assetId,
   }

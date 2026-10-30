@@ -260,6 +260,20 @@ export class AssetStore {
     return result
   }
 
+  // each asset's filename, which a download is saved as, and the admin shows it by
+  async getNames(ids: string[]): Promise<Record<string, string>> {
+    if (ids.length === 0) return {}
+    const rows = await this.db
+      .select({ id: asset.id, filename: asset.filename })
+      .from(asset)
+      .where(inArray(asset.id, ids))
+    const result: Record<string, string> = {}
+    for (const row of rows) {
+      if (row.id != null) result[row.id] = row.filename
+    }
+    return result
+  }
+
   async add(id: string, payload: AssetPayload): Promise<void> {
     await this.db.transaction(async (tx) => {
       await tx.insert(asset).values({

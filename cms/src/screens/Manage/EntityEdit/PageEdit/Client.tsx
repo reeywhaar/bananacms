@@ -33,6 +33,7 @@ export const Client: FC<{
   assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
   assetMimes?: Record<string, string>
+  assetNames?: Record<string, string>
 }> = ({
   page,
   copyOf,
@@ -42,6 +43,7 @@ export const Client: FC<{
   assetContents = {},
   assetSizes = {},
   assetMimes = {},
+  assetNames = {},
 }) => {
   const router = useRouter()
   const [entityId] = useState(() => page?.id ?? v7())
@@ -139,6 +141,7 @@ export const Client: FC<{
         assetContents={assetContents}
         assetSizes={assetSizes}
         assetMimes={assetMimes}
+        assetNames={assetNames}
       />
       <div className="h-12" />
       {/* at the bottom of the screen, however short the page, the spacer above

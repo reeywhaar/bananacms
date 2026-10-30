@@ -99,4 +99,20 @@ describe('blocks JSON serialization of attributes', () => {
     )
     expect(result.blocks[0].attributes).toEqual([])
   })
+
+  it("takes an image or a file block's name from an older snippet, and drops it", () => {
+    const result = deserializeData(
+      [
+        { type: 'image', key: 'still', name: 'a.jpg', alt: { en: 'A train' }, assetId: 'a1' },
+        { type: 'asset', key: 'card', name: 'Recipe card (PDF)', assetId: 'a2' },
+      ],
+      {},
+      DEFAULT_LOCALE,
+      [],
+    )
+    expect(result.blocks.map((block) => block.content)).toEqual([
+      { type: 'image', key: 'still', alt: 'A train', assetId: 'a1' },
+      { type: 'asset', key: 'card', assetId: 'a2' },
+    ])
+  })
 })

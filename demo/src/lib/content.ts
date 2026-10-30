@@ -17,7 +17,7 @@ export type ImageBlock = BlockData & { content: BlockTypeImage }
 // what an <img> needs for an image, and the file's URL for any other asset
 export type ImageSource = { src: string; srcSet: string; width?: number; height?: number }
 export type Assets = { images: Map<string, ImageSource>; files: Map<string, AssetFile> }
-export type AssetFile = { url: string; size?: number; mime?: string }
+export type AssetFile = { url: string; filename?: string; size?: number; mime?: string }
 
 export const byKey = (blocks: BlockData[], key: string): BlockData | undefined =>
   blocks.find((block) => block.content.key === key)
@@ -87,7 +87,7 @@ export async function assetsOf(ctx: Context, blocks: BlockData[]): Promise<Asset
   const files = new Map(
     fileIds.map((id, i): [string, AssetFile] => [
       id,
-      { url: getAssetUrl(id), size: sizes[id], mime: metas[i]?.mime },
+      { url: getAssetUrl(id), filename: metas[i]?.filename, size: sizes[id], mime: metas[i]?.mime },
     ]),
   )
   return { images, files }

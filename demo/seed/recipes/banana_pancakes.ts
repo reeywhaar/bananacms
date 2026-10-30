@@ -69,6 +69,6 @@ export default post('banana-pancakes', {
         'Sirve calientes, con sirope de arce.',
       ),
     }),
-    asset('card', 'recipes/banana-pancakes-card.pdf', 'Recipe card (PDF)'),
+    asset('card', 'recipes/banana-pancakes-card.pdf'),
   ],
 })

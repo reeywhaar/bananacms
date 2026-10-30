@@ -20,6 +20,7 @@ type BlockEditProps = {
   assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
   assetMimes?: Record<string, string>
+  assetNames?: Record<string, string>
 }
 
 // The block being edited in the dialog: one in the list at `index`, or a new one
@@ -37,6 +38,7 @@ export const BlockEdit: FC<BlockEditProps> = ({
   assetContents = {},
   assetSizes = {},
   assetMimes = {},
+  assetNames = {},
 }) => {
   const [dragging, setDragging] = useState(false)
   const [editing, setEditing] = useState<Editing | null>(null)
@@ -83,7 +85,6 @@ export const BlockEdit: FC<BlockEditProps> = ({
         ? makeBlock({
             type: 'image',
             key: '',
-            name: file.name,
             alt: '',
             assetId: '',
             pendingFile: file,
@@ -91,7 +92,6 @@ export const BlockEdit: FC<BlockEditProps> = ({
         : makeBlock({
             type: 'asset',
             key: '',
-            name: file.name,
             assetId: '',
             pendingFile: file,
           }),
@@ -118,6 +118,7 @@ export const BlockEdit: FC<BlockEditProps> = ({
             assetContents={assetContents}
             assetSizes={assetSizes}
             assetMimes={assetMimes}
+            assetNames={assetNames}
           />
         ) : (
           <BlockCard
@@ -127,6 +128,7 @@ export const BlockEdit: FC<BlockEditProps> = ({
             assetContents={assetContents}
             assetSizes={assetSizes}
             assetMimes={assetMimes}
+            assetNames={assetNames}
             onEdit={() => setEditing({ index, block })}
             onRemove={() => removeBlock(index)}
           />
@@ -143,14 +145,14 @@ export const BlockEdit: FC<BlockEditProps> = ({
         <button
           type="button"
           className="button-sm"
-          onClick={() => addBlock({ type: 'image', key: '', name: '', alt: '', assetId: '' })}
+          onClick={() => addBlock({ type: 'image', key: '', alt: '', assetId: '' })}
         >
           + Image
         </button>
         <button
           type="button"
           className="button-sm"
-          onClick={() => addBlock({ type: 'asset', key: '', name: '', assetId: '' })}
+          onClick={() => addBlock({ type: 'asset', key: '', assetId: '' })}
         >
           + Asset
         </button>
@@ -172,6 +174,7 @@ export const BlockEdit: FC<BlockEditProps> = ({
           translations={translations}
           assetContents={assetContents}
           assetSizes={assetSizes}
+          assetNames={assetNames}
           onApply={(block, nextTranslations) => {
             if (editing.index === null) onChange([...blocks, block])
             else updateBlock(editing.index, block)
@@ -193,6 +196,7 @@ type GroupRowProps = {
   assetContents: Record<string, AssetContent>
   assetSizes: Record<string, number>
   assetMimes: Record<string, string>
+  assetNames: Record<string, string>
 }
 
 const GroupRow: FC<GroupRowProps> = ({
@@ -204,6 +208,7 @@ const GroupRow: FC<GroupRowProps> = ({
   assetContents,
   assetSizes,
   assetMimes,
+  assetNames,
 }) => {
   const [removing, setRemoving] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -264,6 +269,7 @@ const GroupRow: FC<GroupRowProps> = ({
           assetContents={assetContents}
           assetSizes={assetSizes}
           assetMimes={assetMimes}
+          assetNames={assetNames}
         />
       </div>
       {editing && (

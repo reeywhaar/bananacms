@@ -72,7 +72,8 @@ describe('bananacms dev', () => {
     expect(page).toMatch(/Serves<\/dt><dd[^>]*>10<\/dd>/)
     expect(page).toMatch(/href="\/en\/tags\/baking"[^>]*>Baking<\/a>/)
     expect(page).toMatch(/Photo by <a href="https:\/\/unsplash\.com\/@evangelinas_photography\?/)
-    expect(page).toMatch(/href="\/d\/[\w-]+"[^>]*>↓ Recipe card \(PDF\)/)
+    // a file's link says its filename
+    expect(page).toMatch(/href="\/d\/[\w-]+"[^>]*>↓ (<!-- -->)?banana-bread-card\.pdf/)
     const film = await html('/en/movies/a-trip-to-the-moon')
     expect(film).toContain('<em>coloured by hand</em>')
     expect(film).toContain('>Gallery</h2>')

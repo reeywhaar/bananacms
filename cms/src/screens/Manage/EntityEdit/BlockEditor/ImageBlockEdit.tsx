@@ -37,6 +37,8 @@ type ImageBlockEditProps = {
   block: BlockData & { content: BlockTypeImage }
   content: AssetImageContent | null
   size: number | null
+  // the asset's filename, which a download is saved as
+  filename: string | null
   onChange: (block: BlockData) => void
   translations: Translations
   onTranslationsChange: (translations: Translations) => void
@@ -46,6 +48,7 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
   block,
   content,
   size,
+  filename,
   onChange,
   translations,
   onTranslationsChange,
@@ -106,7 +109,6 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
   // asset; the old one goes once nothing uses it.
   const handleFile = (file: File) => {
     update({
-      name: file.name,
       assetId: '',
       pendingFile: file,
       pendingResolution: resolution,
@@ -211,7 +213,7 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
   const previewSrc = block.content.pendingFile
     ? objectUrl
     : block.content.assetId && getAssetUrl(block.content.assetId)
-  const displayName = block.content.pendingFile?.name ?? block.content.name
+  const displayName = block.content.pendingFile?.name ?? filename
   const fileSize = block.content.pendingFile?.size ?? (block.content.assetId ? size : null)
 
   return (

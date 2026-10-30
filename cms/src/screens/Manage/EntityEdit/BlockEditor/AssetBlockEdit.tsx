@@ -10,12 +10,20 @@ import { formatSize } from '#cms/utils/formatSize.ts'
 type AssetBlockEditProps = {
   block: BlockData & { content: BlockTypeAsset }
   size: number | null
+  // the asset's filename, which a download is saved as
+  filename: string | null
   /** Whatever was measured from the file at upload; null for older assets. */
   content?: AssetContent | null
   onChange: (block: BlockData) => void
 }
 
-export const AssetBlockEdit: FC<AssetBlockEditProps> = ({ block, size, content, onChange }) => {
+export const AssetBlockEdit: FC<AssetBlockEditProps> = ({
+  block,
+  size,
+  filename,
+  content,
+  onChange,
+}) => {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -25,7 +33,7 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({ block, size, content, 
   const handleFile = (file: File) => {
     onChange({
       ...block,
-      content: { ...block.content, name: file.name, assetId: '', pendingFile: file },
+      content: { ...block.content, assetId: '', pendingFile: file },
     })
   }
 
@@ -43,7 +51,7 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({ block, size, content, 
 
   const handleDragLeave = () => setDragging(false)
 
-  const displayName = block.content.pendingFile?.name ?? block.content.name
+  const displayName = block.content.pendingFile?.name ?? filename
   const fileSize = block.content.pendingFile?.size ?? (block.content.assetId ? size : null)
   const assetUrl = block.content.assetId ? getAssetUrl(block.content.assetId) : null
 

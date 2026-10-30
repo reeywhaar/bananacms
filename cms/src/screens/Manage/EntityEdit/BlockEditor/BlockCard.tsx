@@ -24,6 +24,7 @@ type BlockCardProps = {
   assetContents: Record<string, AssetContent>
   assetSizes: Record<string, number>
   assetMimes: Record<string, string>
+  assetNames: Record<string, string>
   onEdit: () => void
   onRemove: () => void
 }
@@ -78,6 +79,7 @@ export const BlockCard: FC<BlockCardProps> = ({
   assetContents,
   assetSizes,
   assetMimes,
+  assetNames,
   onEdit,
   onRemove,
 }) => {
@@ -143,6 +145,7 @@ export const BlockCard: FC<BlockCardProps> = ({
         assetContents={assetContents}
         assetSizes={assetSizes}
         assetMimes={assetMimes}
+        assetNames={assetNames}
         localize={localize}
       />
       {block.attributes.length > 0 && (
@@ -158,8 +161,9 @@ const BlockSummary: FC<{
   assetContents: Record<string, AssetContent>
   assetSizes: Record<string, number>
   assetMimes: Record<string, string>
+  assetNames: Record<string, string>
   localize: Localize
-}> = ({ block, translations, assetContents, assetSizes, assetMimes, localize }) => {
+}> = ({ block, translations, assetContents, assetSizes, assetMimes, assetNames, localize }) => {
   const { locales } = useCMSLocales()
   const withStatus = locales.length > 1
   const { content } = block
@@ -197,6 +201,7 @@ const BlockSummary: FC<{
         assetContent={assetContent?.type === 'image' ? assetContent : null}
         size={assetSizes[content.assetId]}
         mime={assetMimes[content.assetId]}
+        filename={assetNames[content.assetId]}
         translations={translations}
         withStatus={withStatus}
       />
@@ -209,6 +214,7 @@ const BlockSummary: FC<{
         assetContent={assetContents[content.assetId] ?? null}
         size={assetSizes[content.assetId]}
         mime={assetMimes[content.assetId]}
+        filename={assetNames[content.assetId]}
       />
     )
   }
@@ -224,9 +230,10 @@ const AssetSummary: FC<{
   assetContent: AssetContent | null
   size: number | undefined
   mime: string | undefined
-}> = ({ content, assetContent, size, mime }) => {
+  filename: string | undefined
+}> = ({ content, assetContent, size, mime, filename }) => {
   const file = content.pendingFile
-  const name = file?.name ?? content.name
+  const name = file?.name ?? filename
   if (!name) return <span className="text-sm italic text-gray-400">No file</span>
   const type = file ? file.type : mime
   const bytes = file ? file.size : size
@@ -336,9 +343,10 @@ const ImageSummary: FC<{
   assetContent: AssetImageContent | null
   size: number | undefined
   mime: string | undefined
+  filename: string | undefined
   translations: Translations
   withStatus: boolean
-}> = ({ block, alt, assetContent, size, mime, translations, withStatus }) => {
+}> = ({ block, alt, assetContent, size, mime, filename, translations, withStatus }) => {
   const { content } = block
   const file = content.pendingFile
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
@@ -380,7 +388,7 @@ const ImageSummary: FC<{
       : natural
   const type = file ? file.type : mime
   const bytes = file ? file.size : size
-  const name = file?.name ?? content.name
+  const name = file?.name ?? filename
 
   return (
     // on a phone, the details go under the image, having no room beside it

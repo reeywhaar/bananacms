@@ -63,7 +63,7 @@ function BlockView(props: { block: BlockData; assets: Assets; locale: string }) 
             href={file.url}
             className="inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm hover:bg-amber-100"
           >
-            ↓ {block.content.name}
+            ↓ {file.filename}
             {file.size !== undefined && (
               <span className="text-stone-400">{Math.max(1, Math.round(file.size / 1024))} KB</span>
             )}

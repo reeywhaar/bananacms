@@ -17,6 +17,7 @@ type BlockEditorProps = {
   assetContents?: Record<string, AssetContent>
   assetSizes?: Record<string, number>
   assetMimes?: Record<string, string>
+  assetNames?: Record<string, string>
 }
 
 export const BlockEditor: FC<BlockEditorProps> = ({
@@ -27,6 +28,7 @@ export const BlockEditor: FC<BlockEditorProps> = ({
   assetContents = {},
   assetSizes = {},
   assetMimes = {},
+  assetNames = {},
 }) => {
   const [serializeModalOpen, setSerializeModalOpen] = useState(false)
   const [reorderModalOpen, setReorderModalOpen] = useState(false)
@@ -60,6 +62,7 @@ export const BlockEditor: FC<BlockEditorProps> = ({
         assetContents={assetContents}
         assetSizes={assetSizes}
         assetMimes={assetMimes}
+        assetNames={assetNames}
       />
       {serializeModalOpen && (
         <SerializeModal
@@ -75,6 +78,7 @@ export const BlockEditor: FC<BlockEditorProps> = ({
       {reorderModalOpen && (
         <BlockReorderModal
           blocks={blocks}
+          assetNames={assetNames}
           onSave={onChange}
           onClose={() => setReorderModalOpen(false)}
         />

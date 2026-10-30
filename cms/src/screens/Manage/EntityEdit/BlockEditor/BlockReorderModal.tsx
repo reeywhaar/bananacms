@@ -37,6 +37,8 @@ type Drop = { index: number; depth: number; top: number }
 
 type BlockReorderModalProps = {
   blocks: BlockData[]
+  // each asset's filename, which an image or a file block shows by
+  assetNames: Record<string, string>
   onSave: (blocks: BlockData[]) => void
   onClose: () => void
 }
@@ -44,7 +46,12 @@ type BlockReorderModalProps = {
 // The blocks as a list to reorder, a group's own under it. A dragged block, and a
 // group's blocks with it, stay in place, greyed, and a line shows where it would
 // go (DropLine.tsx), at the depth dragging it sideways picks.
-export const BlockReorderModal: FC<BlockReorderModalProps> = ({ blocks, onSave, onClose }) => {
+export const BlockReorderModal: FC<BlockReorderModalProps> = ({
+  blocks,
+  assetNames,
+  onSave,
+  onClose,
+}) => {
   const listRef = useRef<HTMLDivElement>(null)
   const rows = useRef(new Map<string, HTMLElement>())
   const initialFlat = useMemo(() => flatten(blocks), [blocks])
@@ -127,6 +134,7 @@ export const BlockReorderModal: FC<BlockReorderModalProps> = ({ blocks, onSave, 
               key={item.id}
               item={item}
               dragged={dragged.has(item.id)}
+              assetNames={assetNames}
               register={(el) => {
                 if (el) rows.current.set(item.id, el)
                 else rows.current.delete(item.id)
@@ -146,7 +154,8 @@ const BlockRow: FC<{
   // being dragged, or in a group that is
   dragged: boolean
   register: (el: HTMLElement | null) => void
-}> = ({ item, dragged, register }) => {
+  assetNames: Record<string, string>
+}> = ({ item, dragged, register, assetNames }) => {
   const { attributes, listeners, setNodeRef } = useDraggable({ id: item.id })
   const { content } = item.block
   return (
@@ -171,7 +180,9 @@ const BlockRow: FC<{
       </button>
       <span className="uppercase tracking-wide text-gray-400 w-12 shrink-0">{content.type}</span>
       <span className="font-mono text-gray-700 w-28 truncate shrink-0">{content.key || '—'}</span>
-      <span className="text-gray-500 truncate flex-1 min-w-0">{getPreview(content)}</span>
+      <span className="text-gray-500 truncate flex-1 min-w-0">
+        {getPreview(content, assetNames)}
+      </span>
     </div>
   )
 }
@@ -298,13 +309,13 @@ function buildTree(flat: FlatItem[]): BlockData[] {
   return roots
 }
 
-function getPreview(content: BlockType): string {
+function getPreview(content: BlockType, assetNames: Record<string, string>): string {
   if (content.type === 'text' || content.type === 'meta') {
     const text = content.text.replace(/\s+/g, ' ').trim()
     return text.length > 50 ? text.slice(0, 50) + '…' : text
   }
   if (content.type === 'image' || content.type === 'asset') {
-    return content.name || '(no name)'
+    return content.pendingFile?.name ?? assetNames[content.assetId] ?? '(no file)'
   }
   return `(${content.blocks.length} items)`
 }

@@ -80,6 +80,6 @@ export default post('banana-bread', {
       fr: '<p>Plus les bananes sont brunes, meilleur c’est : une <strong>peau noire</strong>, c’est plus de sucre et plus de goût.</p>',
       es: '<p>Cuanto más oscuros los plátanos, mejor: una <strong>piel negra</strong> significa más azúcar y más sabor.</p>',
     }),
-    asset('card', 'recipes/banana-bread-card.pdf', 'Recipe card (PDF)'),
+    asset('card', 'recipes/banana-bread-card.pdf'),
   ],
 })

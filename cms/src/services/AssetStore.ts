@@ -274,6 +274,10 @@ export class AssetStore {
     return result
   }
 
+  async rename(id: string, filename: string): Promise<void> {
+    await this.db.update(asset).set({ filename }).where(eq(asset.id, id))
+  }
+
   async add(id: string, payload: AssetPayload): Promise<void> {
     await this.db.transaction(async (tx) => {
       await tx.insert(asset).values({

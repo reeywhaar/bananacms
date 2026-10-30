@@ -17,6 +17,7 @@ import { ImageBlockEdit } from './ImageBlockEdit.tsx'
 import { AssetBlockEdit } from './AssetBlockEdit.tsx'
 import { MetaBlockEdit } from './MetaBlockEdit.tsx'
 import { attributesInvalid } from '../AttributesEditor/AttributesEditor.tsx'
+import { filenameError } from '#cms/lib/filename.ts'
 
 type BlockEditDialogProps = {
   block: BlockData
@@ -54,7 +55,14 @@ export const BlockEditDialog: FC<BlockEditDialogProps> = ({
 }) => {
   const [draft, setDraft] = useState(block)
   const [draftTranslations, setDraftTranslations] = useState(translations)
-  const invalid = attributesInvalid(draft.attributes)
+  const pendingFilename =
+    draft.content.type === 'image' || draft.content.type === 'asset'
+      ? draft.content.pendingFilename
+      : undefined
+  // the attributes, or a file's new name, which says what's wrong with it
+  const invalid =
+    attributesInvalid(draft.attributes) ||
+    (pendingFilename !== undefined && filenameError(pendingFilename) !== null)
   // Add or Apply has been pressed, so what's wrong with the attributes shows, until
   // it's put right, as in MetaEditDialog
   const [tried, setTried] = useState(false)

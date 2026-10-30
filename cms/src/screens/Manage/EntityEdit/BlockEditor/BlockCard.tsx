@@ -235,7 +235,7 @@ const AssetSummary: FC<{
   filename: string | undefined
 }> = ({ content, assetContent, size, mime, filename }) => {
   const file = content.pendingFile
-  const name = file?.name ?? filename
+  const name = content.pendingFilename ?? file?.name ?? filename
   if (!name) return <span className="text-sm italic text-gray-400">No file</span>
   const type = file ? file.type : mime
   const bytes = file ? file.size : size
@@ -390,7 +390,7 @@ const ImageSummary: FC<{
       : natural
   const type = file ? file.type : mime
   const bytes = file ? file.size : size
-  const name = file?.name ?? filename
+  const name = content.pendingFilename ?? file?.name ?? filename
 
   return (
     // on a phone, the details go under the image, having no room beside it

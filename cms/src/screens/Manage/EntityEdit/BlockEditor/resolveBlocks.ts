@@ -2,7 +2,7 @@
 
 import type { DragEvent } from 'react'
 import type { BlockData } from '#cms/lib/blocks/declarations.ts'
-import { uploadAsset } from './actions.ts'
+import { renameAsset, uploadAsset } from './actions.ts'
 import { handleServerResult } from '#cms/lib/serverActions.ts'
 
 export const resolveBlocks = async (blocks: BlockData[]): Promise<BlockData[]> => {
@@ -20,12 +20,16 @@ export const resolveBlocks = async (blocks: BlockData[]): Promise<BlockData[]> =
         if (block.content.pendingMaxSize) {
           formData.append('maxSize', JSON.stringify(block.content.pendingMaxSize))
         }
+        if (block.content.pendingFilename !== undefined) {
+          formData.append('filename', block.content.pendingFilename)
+        }
         const { id } = handleServerResult(await uploadAsset(formData))
         const {
           pendingFile: _pf,
           pendingResolution: _pr,
           pendingOutputAs: _po,
           pendingMaxSize: _pm,
+          pendingFilename: _pn,
           ...rest
         } = block.content
         return { ...block, content: { ...rest, assetId: id } }
@@ -33,9 +37,23 @@ export const resolveBlocks = async (blocks: BlockData[]): Promise<BlockData[]> =
       if (block.content.type === 'asset' && block.content.pendingFile) {
         const formData = new FormData()
         formData.append('file', block.content.pendingFile)
+        if (block.content.pendingFilename !== undefined) {
+          formData.append('filename', block.content.pendingFilename)
+        }
         const { id } = handleServerResult(await uploadAsset(formData))
-        const { pendingFile: _pf, ...rest } = block.content
+        const { pendingFile: _pf, pendingFilename: _pn, ...rest } = block.content
         return { ...block, content: { ...rest, assetId: id } }
+      }
+      // a saved file given another name: its asset is renamed
+      if (block.content.type === 'image' && block.content.pendingFilename !== undefined) {
+        handleServerResult(await renameAsset(block.content.assetId, block.content.pendingFilename))
+        const { pendingFilename: _pn, ...rest } = block.content
+        return { ...block, content: rest }
+      }
+      if (block.content.type === 'asset' && block.content.pendingFilename !== undefined) {
+        handleServerResult(await renameAsset(block.content.assetId, block.content.pendingFilename))
+        const { pendingFilename: _pn, ...rest } = block.content
+        return { ...block, content: rest }
       }
       if (block.content.type === 'group') {
         const resolvedChildren = await resolveBlocks(block.content.blocks)

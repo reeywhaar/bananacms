@@ -10,6 +10,7 @@ import type {
 import type { Translations } from '#cms/services/LocalizationStore.ts'
 import { LocalizableField } from '#cms/screens/Manage/LocalizableField.tsx'
 import { SegmentedControl } from '#cms/components/SegmentedControl/SegmentedControl.tsx'
+import { FilenameField } from './FilenameField.tsx'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
 import { updateAssetContent } from './actions.ts'
@@ -105,12 +106,13 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
 
   // Another file takes the place of the image in the same block: its id, which
   // the alt's translations are under, its alt, key and attributes stay, and the
-  // settings shown are the ones its asset is uploaded with. The file is a new
-  // asset; the old one goes once nothing uses it.
+  // settings shown are the ones its asset is uploaded with, under the file's own
+  // name. The file is a new asset; the old one goes once nothing uses it.
   const handleFile = (file: File) => {
     update({
       assetId: '',
       pendingFile: file,
+      pendingFilename: undefined,
       pendingResolution: resolution,
       pendingOutputAs: format,
       pendingMaxSize: maxSize ?? undefined,
@@ -238,8 +240,14 @@ export const ImageBlockEdit: FC<ImageBlockEditProps> = ({
             <span className="text-sm text-gray-400">Drop image here or click to select</span>
           )}
           {previewSrc && (
-            <div className="text-xs text-gray-500 flex flex-col items-center gap-0.5">
-              {displayName && <span>{displayName}</span>}
+            <div className="w-full text-xs text-gray-500 flex flex-col items-center gap-0.5">
+              {displayName && (
+                <FilenameField
+                  name={displayName}
+                  pending={block.content.pendingFilename}
+                  onChange={(pendingFilename) => update({ pendingFilename })}
+                />
+              )}
               {displayDims && (
                 <span>
                   {displayDims.width} × {displayDims.height}

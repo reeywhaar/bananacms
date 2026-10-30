@@ -16,10 +16,15 @@ import {
 import { v7 } from 'uuid'
 import { adminAction } from '#cms/lib/adminAction.ts'
 import { getDb } from '#cms/framework/context.ts'
+import { ApiError } from '#cms/lib/api/error.ts'
+import { filenameError } from '#cms/lib/filename.ts'
 
 export const uploadAsset = adminAction(async (ctx, formData: FormData): Promise<{ id: string }> => {
   const file = formData.get('file')
   if (!(file instanceof File)) throw new Error('No file provided')
+  // the name it was given in the dialog, or its own
+  const given = formData.get('filename')
+  const filename = typeof given === 'string' ? checkedFilename(given) : file.name
 
   const id = v7()
   const arrayBuffer = await file.arrayBuffer()
@@ -60,7 +65,7 @@ export const uploadAsset = adminAction(async (ctx, formData: FormData): Promise<
   })()
 
   const db = getDb(ctx)
-  await new AssetStore(db).add(id, { filename: file.name, mime: file.type, data, content })
+  await new AssetStore(db).add(id, { filename, mime: file.type, data, content })
 
   const assetsDir = process.env.ASSETS_DIRECTORY
   if (assetsDir) {
@@ -70,6 +75,18 @@ export const uploadAsset = adminAction(async (ctx, formData: FormData): Promise<
 
   return { id }
 })
+
+// Gives an asset another filename, which a download is saved as: every block
+// that shows the asset has it.
+export const renameAsset = adminAction(async (ctx, id: string, filename: string): Promise<void> => {
+  await new AssetStore(getDb(ctx)).rename(id, checkedFilename(filename))
+})
+
+const checkedFilename = (name: string): string => {
+  const error = filenameError(name)
+  if (error) throw new ApiError(error).expose().withStatus(400)
+  return name.trim()
+}
 
 export const updateAssetContent = adminAction(
   async (ctx, id: string, patch: AssetContentUpdate): Promise<void> => {

@@ -29,6 +29,8 @@ export type BlockTypeImage = {
   pendingResolution?: AssetResolution
   pendingOutputAs?: AssetOutputFormat
   pendingMaxSize?: { width: number; height: number }
+  // a new filename for the asset, which saving the entity gives it
+  pendingFilename?: string
 }
 
 export type BlockTypeMeta = {
@@ -42,6 +44,8 @@ export type BlockTypeAsset = {
   key: string
   assetId: string
   pendingFile?: File
+  // a new filename for the asset, which saving the entity gives it
+  pendingFilename?: string
 }
 
 export type BlockType =

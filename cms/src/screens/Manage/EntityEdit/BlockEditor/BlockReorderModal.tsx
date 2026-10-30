@@ -315,7 +315,12 @@ function getPreview(content: BlockType, assetNames: Record<string, string>): str
     return text.length > 50 ? text.slice(0, 50) + '…' : text
   }
   if (content.type === 'image' || content.type === 'asset') {
-    return content.pendingFile?.name ?? assetNames[content.assetId] ?? '(no file)'
+    return (
+      content.pendingFilename ??
+      content.pendingFile?.name ??
+      assetNames[content.assetId] ??
+      '(no file)'
+    )
   }
   return `(${content.blocks.length} items)`
 }

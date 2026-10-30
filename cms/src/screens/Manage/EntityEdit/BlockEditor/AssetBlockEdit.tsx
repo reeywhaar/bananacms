@@ -7,6 +7,7 @@ import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
 import { AudioPlayer } from './AudioPlayer.tsx'
+import { FilenameField } from './FilenameField.tsx'
 
 type AssetBlockEditProps = {
   block: BlockData & { content: BlockTypeAsset }
@@ -34,7 +35,7 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({
   const handleFile = (file: File) => {
     onChange({
       ...block,
-      content: { ...block.content, assetId: '', pendingFile: file },
+      content: { ...block.content, assetId: '', pendingFile: file, pendingFilename: undefined },
     })
   }
 
@@ -83,7 +84,13 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({
         // the file and what it says of itself, close together, then its player
         <div className="flex w-full flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <span className="font-mono text-sm break-all text-gray-700">{displayName}</span>
+            <FilenameField
+              name={displayName}
+              pending={block.content.pendingFilename}
+              onChange={(pendingFilename) =>
+                onChange({ ...block, content: { ...block.content, pendingFilename } })
+              }
+            />
             <div className="flex flex-col gap-0.5 text-xs text-gray-500">
               <span>
                 {fileSize != null && formatSize(fileSize)}

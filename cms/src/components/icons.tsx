@@ -86,6 +86,16 @@ export const MoreHorizontal = icon(
   </>,
 )
 
+export const Pause = icon(
+  'Pause',
+  <>
+    <rect x="6" y="4" width="4" height="16" />
+    <rect x="14" y="4" width="4" height="16" />
+  </>,
+)
+
+export const Play = icon('Play', <polygon points="5 3 19 12 5 21 5 3" />)
+
 // Feather's, its shoulders closed along the bottom
 export const User = icon(
   'User',

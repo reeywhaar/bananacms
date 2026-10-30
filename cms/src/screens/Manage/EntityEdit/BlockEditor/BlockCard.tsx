@@ -17,6 +17,7 @@ import { useCMSLocales } from '#cms/components/CMSLocalesProvider/CMSLocalesProv
 import { LocaleSwitch } from '#cms/screens/Manage/LocaleSwitch.tsx'
 import { LocaleStatus } from '#cms/screens/Manage/LocaleStatus.tsx'
 import { MetaView } from '../Meta/MetaView.tsx'
+import { AudioPlayer } from './AudioPlayer.tsx'
 
 type BlockCardProps = {
   block: BlockData
@@ -222,9 +223,10 @@ const BlockSummary: FC<{
 }
 
 // A file's details: its name, type and size, and what an audio file declares of
-// itself, read from it at upload, so a new one has none of that yet. A saved audio
-// file plays in the card. The details are in groups side by side, the file's, the
-// tags' and the sound's, which go under one another where there's no room.
+// itself, read from it at upload, so a new one has none of that yet. An audio file
+// plays in the card, a staged one too. The details are in groups side by side, the
+// file's, the tags' and the sound's, which go under one another where there's no
+// room.
 const AssetSummary: FC<{
   content: BlockTypeAsset
   assetContent: AssetContent | null
@@ -238,6 +240,7 @@ const AssetSummary: FC<{
   const type = file ? file.type : mime
   const bytes = file ? file.size : size
   const audio = !file && assetContent?.type === 'audio' ? assetContent : null
+  const stagedAudio = file?.type.startsWith('audio/') ? file : null
   const tags = audio?.tags
   const hasTags = !!(tags?.title || tags?.artist || tags?.album || tags?.year)
   const hasSound =
@@ -248,7 +251,14 @@ const AssetSummary: FC<{
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      {audio && content.assetId && <AudioPlayer src={getAssetUrl(content.assetId)} />}
+      {stagedAudio ? (
+        <AudioPlayer file={stagedAudio} />
+      ) : (
+        audio &&
+        content.assetId && (
+          <AudioPlayer src={getAssetUrl(content.assetId)} duration={audio.duration} />
+        )
+      )}
       <div className="flex min-w-0 flex-wrap gap-x-10 gap-y-3">
         <DetailGroup>
           <Detail label="File">{name}</Detail>
@@ -288,14 +298,6 @@ const DetailGroup: FC<{ children: ReactNode }> = ({ children }) => (
   <dl className="grid min-w-0 grid-cols-[minmax(0,max-content)_minmax(0,1fr)] content-start gap-x-4 gap-y-1 text-sm">
     {children}
   </dl>
-)
-
-// The browser's player, which loads nothing until it's played. A click on it is
-// the player's, rather than the card's, which would open the block.
-const AudioPlayer: FC<{ src: string }> = ({ src }) => (
-  <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-    <audio controls preload="none" src={src} className="h-10 w-full" />
-  </div>
 )
 
 // The text's spaces and line breaks show as written, like a meta block's indented

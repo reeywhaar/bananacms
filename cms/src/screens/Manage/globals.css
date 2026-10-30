@@ -152,6 +152,46 @@ body {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5'/%3E%3C/svg%3E");
   }
 
+  /* a bar to move along, like an audio player's (AudioPlayer.tsx): a thin grey bar,
+     the part up to the handle in the accent, and a round accent handle, drawn
+     inside a control as tall as a finger needs. Each engine draws them with its
+     own parts, so each has its rules: Chrome and Safari fill the bar from
+     --filled, Firefox fills it itself. */
+  .range {
+    @apply h-7 w-full cursor-pointer appearance-none bg-transparent outline-none disabled:cursor-default;
+  }
+
+  .range::-webkit-slider-runnable-track {
+    @apply h-1.5 rounded-full bg-gray-200 bg-no-repeat;
+    background-image: linear-gradient(var(--color-accent), var(--color-accent));
+    background-size: var(--filled, 0%) 100%;
+  }
+
+  .range::-moz-range-track {
+    @apply h-1.5 rounded-full bg-gray-200;
+  }
+
+  .range::-moz-range-progress {
+    @apply h-1.5 rounded-full bg-accent;
+  }
+
+  /* on the bar's middle: Chrome and Safari put a handle's top on the bar's */
+  .range::-webkit-slider-thumb {
+    @apply -mt-1 size-3.5 appearance-none rounded-full border-2 border-white bg-accent shadow-sm;
+  }
+
+  .range::-moz-range-thumb {
+    @apply size-3.5 rounded-full border-2 border-white bg-accent shadow-sm;
+  }
+
+  .range:focus-visible::-webkit-slider-thumb {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+
+  .range:focus-visible::-moz-range-thumb {
+    @apply outline-2 outline-offset-2 outline-accent;
+  }
+
   .label {
     @apply flex flex-col gap-0.5 text-gray-700;
   }

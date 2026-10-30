@@ -6,6 +6,7 @@ import { describeAudio } from '#cms/lib/audioMeta.ts'
 import type { AssetContent } from '#cms/services/AssetStore.ts'
 import { getAssetUrl } from '#cms/lib/getAssetUrl.ts'
 import { formatSize } from '#cms/utils/formatSize.ts'
+import { AudioPlayer } from './AudioPlayer.tsx'
 
 type AssetBlockEditProps = {
   block: BlockData & { content: BlockTypeAsset }
@@ -63,11 +64,14 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({
   const audioInfo = audio ? describeAudio(audio) : ''
   const audioTags = audio?.tags
   const tagLine = [audioTags?.title, audioTags?.artist].filter(Boolean).join(' — ')
+  const stagedAudio = block.content.pendingFile?.type.startsWith('audio/')
+    ? block.content.pendingFile
+    : null
 
   return (
     <div
       className={[
-        'border-2 border-dashed rounded p-4 flex flex-col items-center gap-2 cursor-pointer transition-colors',
+        'border-2 border-dashed rounded p-4 flex flex-col items-start gap-4 cursor-pointer transition-colors',
         dragging ? 'border-accent-500 bg-accent-50' : 'border-gray-200 hover:border-gray-400',
       ].join(' ')}
       onClick={() => inputRef.current?.click()}
@@ -76,23 +80,36 @@ export const AssetBlockEdit: FC<AssetBlockEditProps> = ({
       onDragLeave={handleDragLeave}
     >
       {displayName ? (
-        <div className="text-sm text-gray-700 flex flex-col items-center gap-0.5">
-          <span className="font-mono break-all text-center">{displayName}</span>
-          {fileSize != null && (
-            <span className="text-xs text-gray-500">{formatSize(fileSize)}</span>
-          )}
-          {tagLine && <span className="text-xs text-gray-500">{tagLine}</span>}
-          {audioInfo && <span className="text-xs text-gray-500">{audioInfo}</span>}
-          {assetUrl && (
-            <a
-              href={assetUrl}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-xs text-link hover:underline"
-            >
-              Open
-            </a>
+        // the file and what it says of itself, close together, then its player
+        <div className="flex w-full flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="font-mono text-sm break-all text-gray-700">{displayName}</span>
+            <div className="flex flex-col gap-0.5 text-xs text-gray-500">
+              <span>
+                {fileSize != null && formatSize(fileSize)}
+                {assetUrl && (
+                  <>
+                    {fileSize != null && ' · '}
+                    <a
+                      href={assetUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-link hover:underline"
+                    >
+                      Open
+                    </a>
+                  </>
+                )}
+              </span>
+              {tagLine && <span>{tagLine}</span>}
+              {audioInfo && <span>{audioInfo}</span>}
+            </div>
+          </div>
+          {stagedAudio ? (
+            <AudioPlayer file={stagedAudio} />
+          ) : (
+            audio && assetUrl && <AudioPlayer src={assetUrl} duration={audio.duration} />
           )}
         </div>
       ) : (

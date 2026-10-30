@@ -8,6 +8,7 @@ import { CMSLocalesProvider } from '#cms/components/CMSLocalesProvider/CMSLocale
 import { ProgressOverlayProvider } from '#cms/components/ProgressOverlay/ProgressOverlay.tsx'
 import { ToastProvider } from '#cms/components/Toast/Toast.tsx'
 import { ConfirmProvider } from '#cms/components/Confirm/Confirm.tsx'
+import { PlayerProvider } from '#cms/components/PlayerContext/PlayerContext.tsx'
 import { TopLoader } from '#cms/components/TopLoader/TopLoader.tsx'
 import type { Context } from '#cms/framework/context.ts'
 import { getSiteConfig } from '#cms/framework/site_config.ts'
@@ -32,8 +33,10 @@ export default function ManageLayout({ ctx, children }: { ctx: Context; children
             <ProgressOverlayProvider>
               <ToastProvider>
                 <ConfirmProvider>
-                  <AdminBar user={getAuth(ctx)?.user} />
-                  {children}
+                  <PlayerProvider>
+                    <AdminBar user={getAuth(ctx)?.user} />
+                    {children}
+                  </PlayerProvider>
                 </ConfirmProvider>
               </ToastProvider>
             </ProgressOverlayProvider>

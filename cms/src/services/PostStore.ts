@@ -515,7 +515,8 @@ export class PostQuery extends EntityQuery<PostData, PostOrderField, PostQuerySt
     const anchorState = fn(PostQuery.for(this.db) as this).state
     if (!anchorState.predicates.length) return -1
 
-    const [anchor] = (await this.db
+    // the anchor among this query's rows, so that one it leaves out has no place
+    let anchorQuery = this.db
       .select({
         id: post.id,
         position: parentPost.position,
@@ -528,7 +529,12 @@ export class PostQuery extends EntityQuery<PostData, PostOrderField, PostQuerySt
         parentPost,
         and(eq(parentPost.postId, post.id), eq(parentPost.parentTable, 'category')),
       )
-      .where(and(...anchorState.predicates))
+      .$dynamic()
+    if (state.categorySlug !== undefined) {
+      anchorQuery = anchorQuery.innerJoin(category, eq(category.id, parentPost.parentId))
+    }
+    const [anchor] = (await anchorQuery
+      .where(and(...this.conditions(), ...anchorState.predicates))
       .limit(1)) as {
       id: string
       position: number | null

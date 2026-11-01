@@ -277,6 +277,7 @@ export class TagQuery extends EntityQuery<TagData, TagOrderField, TagQueryState>
     const anchorState = fn(TagQuery.for(this.db) as this).state
     if (!anchorState.predicates.length) return -1
 
+    // the anchor among this query's rows, so that one it leaves out has no place
     const [anchor] = (await this.db
       .select({
         id: tag.id,
@@ -285,7 +286,7 @@ export class TagQuery extends EntityQuery<TagData, TagOrderField, TagQueryState>
         updatedAt: tag.updatedAt,
       })
       .from(tag)
-      .where(and(...anchorState.predicates))
+      .where(and(...this.buildWhere(), ...anchorState.predicates))
       .limit(1)) as { id: string; name: string; createdAt: string; updatedAt: string }[]
 
     if (!anchor) return -1

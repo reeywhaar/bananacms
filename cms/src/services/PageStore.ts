@@ -164,10 +164,11 @@ export class PageQuery extends EntityQuery<PageData, PageOrderField, PageQuerySt
     const anchorState = fn(PageQuery.for(this.db) as this).state
     if (!anchorState.predicates.length) return -1
 
+    // the anchor among this query's rows, so that one it leaves out has no place
     const [anchor] = (await this.db
       .select({ id: page.id, key: page.key })
       .from(page)
-      .where(and(...anchorState.predicates))
+      .where(and(...state.predicates, ...anchorState.predicates))
       .limit(1)) as { id: string; key: string }[]
 
     if (!anchor) return -1

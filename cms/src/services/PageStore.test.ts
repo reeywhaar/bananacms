@@ -36,6 +36,16 @@ describe('PageStore.query', () => {
       expect(idx).toBe(0)
     })
 
+    it('returns -1 for a page the query leaves out', async () => {
+      using testDb = await createTestDb()
+      await seedPages(testDb)
+      const idx = await new PageStore(testDb.db)
+        .query()
+        .byKey('about')
+        .indexOf((q) => q.byKey('contact'))
+      expect(idx).toBe(-1)
+    })
+
     it('returns 1 for the second page', async () => {
       using testDb = await createTestDb()
       await seedPages(testDb)

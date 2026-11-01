@@ -112,6 +112,17 @@ describe('AttributeStore.query', () => {
       expect(idx).toBe(0)
     })
 
+    it('returns -1 for an attribute of another parent', async () => {
+      using testDb = await createTestDb()
+      await seedThreeAttrs(testDb)
+      const idx = await new AttributeStore(testDb.db)
+        .query()
+        .parentedBy({ table: 'post', id: 'another-post' })
+        .orderBy('key')
+        .indexOf((q) => q.byId(ATTR_TRANSLATABLE))
+      expect(idx).toBe(-1)
+    })
+
     it('returns 1 for the middle attribute', async () => {
       using testDb = await createTestDb()
       await seedThreeAttrs(testDb)

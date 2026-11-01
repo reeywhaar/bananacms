@@ -206,6 +206,16 @@ describe('BlockStore.query', () => {
       expect(idx).toBe(0)
     })
 
+    it('returns -1 for a block under another parent', async () => {
+      using testDb = await createTestDb()
+      await seedOrderedBlocks(testDb)
+      const idx = await new BlockStore(testDb.db)
+        .query()
+        .parentedBy({ table: 'post', id: 'another-post' })
+        .indexOf((q) => q.byId(BLOCK_B))
+      expect(idx).toBe(-1)
+    })
+
     it('returns 1 for the second block', async () => {
       using testDb = await createTestDb()
       await seedOrderedBlocks(testDb)

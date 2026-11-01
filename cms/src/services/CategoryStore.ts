@@ -177,10 +177,11 @@ export class CategoryQuery extends EntityQuery<
     const anchorState = fn(CategoryQuery.for(this.db) as this).state
     if (!anchorState.predicates.length) return -1
 
+    // the anchor among this query's rows, so that one it leaves out has no place
     const [anchor] = (await this.db
       .select({ id: category.id, name: category.name, slug: category.slug })
       .from(category)
-      .where(and(...anchorState.predicates))
+      .where(and(...state.predicates, ...anchorState.predicates))
       .limit(1)) as { id: string; name: string; slug: string }[]
 
     if (!anchor) return -1

@@ -20,6 +20,17 @@ describe('CategoryStore.query', () => {
       expect(idx).toBe(0)
     })
 
+    it('returns -1 for a category the query leaves out', async () => {
+      using testDb = await createTestDb()
+      await seedCategories(testDb)
+      const idx = await new CategoryStore(testDb.db)
+        .query()
+        .orderBy('name')
+        .byShortId(CAT_A.slice(-8))
+        .indexOf((q) => q.byShortId(CAT_B.slice(-8)))
+      expect(idx).toBe(-1)
+    })
+
     it('returns 1 for the second category', async () => {
       using testDb = await createTestDb()
       await seedCategories(testDb)

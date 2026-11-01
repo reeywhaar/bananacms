@@ -315,11 +315,18 @@ export class BlockQuery extends EntityQuery<BlockData, BlockOrderField, BlockQue
     const anchorState = fn(BlockQuery.for(this.db) as this).state
     if (!anchorState.predicates.length) return -1
 
-    const [anchor] = (await this.db
-      .select({ id: block.id, position: parentBlock.position })
-      .from(block)
-      .leftJoin(parentBlock, eq(parentBlock.blockId, block.id))
-      .where(and(...anchorState.predicates))
+    // the anchor among this query's rows, under its parent, so that one it leaves
+    // out has no place, and its position is the one under that parent
+    const scoped = this.applyParentSpecJoinsAndWhere(
+      this.db
+        .select({ id: block.id, position: parentBlock.position })
+        .from(block)
+        .leftJoin(parentBlock, eq(parentBlock.blockId, block.id))
+        .$dynamic(),
+      false,
+    )
+    const [anchor] = (await scoped.q
+      .where(and(...scoped.where, ...anchorState.predicates))
       .limit(1)) as { id: string; position: number | null }[]
 
     if (!anchor) return -1

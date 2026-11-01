@@ -649,12 +649,22 @@ describe('PostStore.query filters together', () => {
   it('counts only the posts the search finds for indexOf()', async () => {
     using testDb = await createTestDb()
     await seedAll(testDb)
+    const searched = () => new PostStore(testDb.db).query().textSearch('banana')
+    // Banana is the one match, so first: Apple, before it, isn't one
+    expect(await searched().indexOf((q) => q.byShortId(POST_B.slice(-8)))).toBe(0)
+    // and Cherry, which isn't one either, has no place
+    expect(await searched().indexOf((q) => q.byShortId(POST_C.slice(-8)))).toBe(-1)
+  })
+
+  it('gives a post the query leaves out no place for indexOf()', async () => {
+    using testDb = await createTestDb()
+    await seedAll(testDb)
+    // Banana is a draft
     const idx = await new PostStore(testDb.db)
       .query()
-      .textSearch('banana')
-      .indexOf((q) => q.byShortId(POST_C.slice(-8)))
-    // Banana is the one match before Cherry, and Apple isn't one
-    expect(idx).toBe(1)
+      .published()
+      .indexOf((q) => q.byShortId(POST_B.slice(-8)))
+    expect(idx).toBe(-1)
   })
 
   it("counts only the category's posts for indexOf() with inCategory({ slug })", async () => {

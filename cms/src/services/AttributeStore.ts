@@ -279,10 +279,17 @@ export class AttributeQuery extends EntityQuery<
     const anchorState = fn(AttributeQuery.for(this.db) as this).state
     if (!anchorState.predicates.length) return -1
 
-    const [anchor] = (await this.db
+    // the anchor among this query's rows, so that one it leaves out has no place
+    let anchorQuery = this.db
       .select({ id: attribute.id, key: attribute.key })
       .from(attribute)
-      .where(and(...anchorState.predicates))
+      .innerJoin(parentAttribute, eq(parentAttribute.attributeId, attribute.id))
+      .$dynamic()
+    const anchorWhere = this.applyParentJoinsAndBuildWhere<typeof anchorQuery>((tbl, on) => {
+      anchorQuery = anchorQuery.innerJoin(tbl as never, on)
+    })
+    const [anchor] = (await anchorQuery
+      .where(and(...anchorWhere, ...anchorState.predicates))
       .limit(1)) as { id: string; key: string }[]
 
     if (!anchor) return -1

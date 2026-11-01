@@ -259,6 +259,16 @@ describe('TagStore.query', () => {
       expect(idx).toBe(0)
     })
 
+    it('returns -1 for a tag the query leaves out', async () => {
+      using testDb = await createTestDb()
+      await seedPostsAndTags(testDb)
+      const idx = await new TagStore(testDb.db)
+        .query()
+        .byShortId('bravshrt')
+        .indexOf((q) => q.byShortId('alphshrt'))
+      expect(idx).toBe(-1)
+    })
+
     it('returns 1 for the second tag', async () => {
       using testDb = await createTestDb()
       await seedPostsAndTags(testDb)

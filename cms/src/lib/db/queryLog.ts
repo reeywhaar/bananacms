@@ -25,10 +25,10 @@ const truncateSql = (sql: string): string =>
 const report = (
   logger: Logger,
   sql: string,
-  startedAt: number,
+  tookMs: number,
   args: Record<string, unknown>,
 ): void => {
-  const durationMs = Math.round((performance.now() - startedAt) * 10) / 10
+  const durationMs = Math.round(tookMs * 10) / 10
   const log = logger.child('DB')
   const payload = { sql: truncateSql(sql), durationMs, ...args }
   if ('error' in args) log.warn('query.failed', payload)
@@ -36,19 +36,32 @@ const report = (
   else log.debug('query', payload)
 }
 
+// The query's own time, not the wait for its result, which takes in whatever else
+// the event loop runs first. A local query runs in the call (in a transaction), or
+// else in the microtask right after it, once the pool gives it a connection:
+// between the two queued around the call. One that waited for a connection
+// counts as ~0ms.
 const timed = async <T>(
   logger: Logger,
   sql: string,
   run: () => Promise<T>,
   resultArgs: (result: T) => Record<string, unknown>,
 ): Promise<T> => {
+  let ranFrom = 0
+  let ranTo = 0
+  queueMicrotask(() => (ranFrom = performance.now()))
   const startedAt = performance.now()
+  let returnedAt = startedAt
+  const tookMs = () => returnedAt - startedAt + (ranTo - ranFrom)
   try {
-    const result = await run()
-    report(logger, sql, startedAt, resultArgs(result))
+    const pending = run()
+    returnedAt = performance.now()
+    queueMicrotask(() => (ranTo = performance.now()))
+    const result = await pending
+    report(logger, sql, tookMs(), resultArgs(result))
     return result
   } catch (error) {
-    report(logger, sql, startedAt, {
+    report(logger, sql, tookMs(), {
       error: error instanceof Error ? error.message : String(error),
     })
     throw error

@@ -9,6 +9,16 @@ afterEach(() => {
   for (const client of clients.splice(0)) client.close()
 })
 
+// counts to 3 million: some 300ms
+const SLOW_SQL =
+  'WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 3000000) SELECT count(*) FROM n'
+
+// work of the event loop's that isn't the query's
+const busy = (ms: number) => {
+  const until = performance.now() + ms
+  while (performance.now() < until);
+}
+
 function setup() {
   const { logger, entries } = captureLogger()
   const client = createClient({ url: ':memory:' })
@@ -62,6 +72,46 @@ describe('wrapClientWithQueryLog', () => {
     expect(
       entries.find((e) => e.args.sql === 'INSERT INTO t (id) VALUES (1)')?.args.rowsAffected,
     ).toBe(1)
+  })
+
+  it("leaves out of a query's time what the event loop runs before its result", async () => {
+    const { wrapped, entries } = setup()
+
+    const execute = wrapped.execute('SELECT 1')
+    busy(150)
+    await execute
+    const batch = wrapped.batch(['SELECT 1'])
+    busy(150)
+    await batch
+    {
+      using stack = new DisposableStack()
+      const tx = stack.adopt(await wrapped.transaction('read'), (tx) => tx.close())
+      const txExecute = tx.execute('SELECT 1')
+      busy(150)
+      await txExecute
+    }
+
+    expect(entries.map((entry) => entry.message)).toEqual(['query', 'query', 'query'])
+  })
+
+  // and so a libsql that runs the query elsewhere than the timing expects fails here,
+  // rather than leaves slow queries out of the log
+  it('logs a slow query as slow, from the client and from a transaction', async () => {
+    const { wrapped, entries } = setup()
+
+    await wrapped.execute(SLOW_SQL)
+    await wrapped.batch([SLOW_SQL])
+    {
+      using stack = new DisposableStack()
+      const tx = stack.adopt(await wrapped.transaction('read'), (tx) => tx.close())
+      await tx.execute(SLOW_SQL)
+    }
+
+    expect(entries.map((entry) => entry.message)).toEqual([
+      'query.slow',
+      'query.slow',
+      'query.slow',
+    ])
   })
 
   it('logs failed queries at warn with the error message and rethrows', async () => {

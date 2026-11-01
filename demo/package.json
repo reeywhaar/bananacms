@@ -12,14 +12,14 @@
   },
   "dependencies": {
     "@fontsource-variable/noto-sans-display": "^5.3.0",
-    "marked": "^18.0.14",
     "@reeywhaar/bananacms": "*",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "marked": "^18.1.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
-    "sass": "^1.105.0",
-    "sharp": "^0.35.4"
+    "sass": "^1.107.1",
+    "sharp": "^0.35.5"
   }
 }

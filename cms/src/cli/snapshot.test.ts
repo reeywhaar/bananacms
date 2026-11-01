@@ -40,11 +40,8 @@ const categories = async () => {
   )
 }
 // a snapshot, as the site takes them
-const snapshot = async () => {
-  using databases = await openSiteDatabases(root)
-  const config = snapshotsConfig(path.join(root, 'private'))!
-  return await new SnapshotStore(config).createSnapshot(databases.main.client)
-}
+const snapshot = () =>
+  new SnapshotStore(snapshotsConfig(path.join(root, 'private'))!).createSnapshot()
 const printed = () => info.mock.calls.map((call: unknown[]) => String(call[0])).join('\n')
 
 describe('snapshot', () => {

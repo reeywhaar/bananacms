@@ -1,4 +1,3 @@
-import type { Client } from '@libsql/client'
 import type { Logger } from '../logger/Logger.ts'
 import type { SnapshotStore } from './store.ts'
 
@@ -18,13 +17,11 @@ export class SnapshotScheduler {
   private current: Promise<void> | null = null
 
   private readonly store: SnapshotStore
-  private readonly client: Client
   private readonly delayMs: number
   private readonly logger?: Logger
 
-  constructor(store: SnapshotStore, client: Client, delayMs: number, logger?: Logger) {
+  constructor(store: SnapshotStore, delayMs: number, logger?: Logger) {
     this.store = store
-    this.client = client
     this.delayMs = delayMs
     this.logger = logger
   }
@@ -55,7 +52,7 @@ export class SnapshotScheduler {
     this.running = true
     this.dirty = false
     try {
-      const result = await this.store.createSnapshot(this.client)
+      const result = await this.store.createSnapshot()
       this.logger?.info('scheduled snapshot', { result })
     } catch (error) {
       this.logger?.error('scheduled snapshot failed', {

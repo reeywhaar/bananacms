@@ -1,9 +1,6 @@
-import type { Client } from '@libsql/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SnapshotScheduler } from './scheduler.ts'
 import type { SnapshotStore } from './store.ts'
-
-const clientStub = {} as Client
 
 afterEach(() => {
   vi.useRealTimers()
@@ -14,7 +11,7 @@ describe('SnapshotScheduler', () => {
     vi.useFakeTimers()
     const createSnapshot = vi.fn().mockResolvedValue('created')
     const store = { createSnapshot } as unknown as SnapshotStore
-    const scheduler = new SnapshotScheduler(store, clientStub, 1000)
+    const scheduler = new SnapshotScheduler(store, 1000)
 
     scheduler.markDirty()
     scheduler.markDirty()
@@ -38,7 +35,7 @@ describe('SnapshotScheduler', () => {
       .mockImplementationOnce(() => new Promise((resolve) => (finishFirst = resolve)))
       .mockResolvedValue('created')
     const store = { createSnapshot } as unknown as SnapshotStore
-    const scheduler = new SnapshotScheduler(store, clientStub, 1000)
+    const scheduler = new SnapshotScheduler(store, 1000)
 
     scheduler.markDirty()
     await vi.advanceTimersByTimeAsync(1000)
@@ -54,7 +51,7 @@ describe('SnapshotScheduler', () => {
     vi.useFakeTimers()
     const createSnapshot = vi.fn().mockResolvedValue('created')
     const store = { createSnapshot } as unknown as SnapshotStore
-    new SnapshotScheduler(store, clientStub, 1000)
+    new SnapshotScheduler(store, 1000)
 
     await vi.advanceTimersByTimeAsync(60_000)
     expect(createSnapshot).not.toHaveBeenCalled()
@@ -67,7 +64,7 @@ describe('SnapshotScheduler', () => {
       .fn()
       .mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)))
     const store = { createSnapshot } as unknown as SnapshotStore
-    const scheduler = new SnapshotScheduler(store, clientStub, 1000)
+    const scheduler = new SnapshotScheduler(store, 1000)
 
     scheduler.markDirty()
     await vi.advanceTimersByTimeAsync(1000)

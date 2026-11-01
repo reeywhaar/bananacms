@@ -82,6 +82,7 @@
     "disposablestack": "^1.1.8",
     "drizzle-orm": "^0.45.4",
     "json5": "^2.2.3",
+    "libsql": "^0.5.29",
     "marked": "^18.1.2",
     "music-metadata": "^12.3.3",
     "rsc-html-stream": "^0.0.8",

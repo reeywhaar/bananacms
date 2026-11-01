@@ -185,39 +185,35 @@ export class BackupPusher {
       }
     }
 
-    const staged = await stageBackup(this.config.dbPath)
-    try {
-      const changed = state === null || state.digest !== staged.digest
-      if (!changed && !due) {
-        // The counter moved but the contents did not — a write that changed
-        // nothing, or a checkpoint. Remember the counter so the next pass is
-        // free again.
-        this.seenDataVersion = dataVersion
-        this.logger?.debug('nothing to back up; the database is as it was', {
-          since: state?.pushedAt.toISOString(),
-        })
-        return 'unchanged'
-      }
-
-      const derivedPath = carriesDerived(this.config.mode) ? this.config.derivedDbPath : null
-      const archive = await packArchive(staged, derivedPath, now)
-      const name = archiveFilename(now)
-      await pushArchive(this.config.url, name, archive.path)
-
-      // Only now — see recordBackup.
-      await recordBackup(derived, staged.digest, now)
+    await using staged = await stageBackup(this.config.dbPath)
+    const changed = state === null || state.digest !== staged.digest
+    if (!changed && !due) {
+      // The counter moved but the contents did not — a write that changed
+      // nothing, or a checkpoint. Remember the counter so the next pass is
+      // free again.
       this.seenDataVersion = dataVersion
-      this.logger?.info('backed up', {
-        name,
-        bytes: archive.bytes,
-        mode: this.config.mode,
-        changed,
-        first: state === null,
+      this.logger?.debug('nothing to back up; the database is as it was', {
+        since: state?.pushedAt.toISOString(),
       })
-      return 'pushed'
-    } finally {
-      await staged.cleanup()
+      return 'unchanged'
     }
+
+    const derivedPath = carriesDerived(this.config.mode) ? this.config.derivedDbPath : null
+    const archive = await packArchive(staged, derivedPath, now)
+    const name = archiveFilename(now)
+    await pushArchive(this.config.url, name, archive.path)
+
+    // Only now — see recordBackup.
+    await recordBackup(derived, staged.digest, now)
+    this.seenDataVersion = dataVersion
+    this.logger?.info('backed up', {
+      name,
+      bytes: archive.bytes,
+      mode: this.config.mode,
+      changed,
+      first: state === null,
+    })
+    return 'pushed'
   }
 
   /** null when the counter cannot be read; the caller then does the full check. */

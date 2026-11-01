@@ -97,7 +97,7 @@ async function openClients(logger: Logger): Promise<Clients> {
   await runMigrations(main, derived, { siteMigrations })
   const snapshots = snapshotsConfig(path.resolve(dataPath))
   const scheduler =
-    snapshots && createSnapshotScheduler(snapshots, main, createRootLogger().child('Snapshots'))
+    snapshots && createSnapshotScheduler(snapshots, createRootLogger().child('Snapshots'))
   return {
     main: wrapClientWithQueryLog(main, logger),
     derived: wrapClientWithQueryLog(derived, logger),

@@ -60,43 +60,43 @@ describe('SnapshotStore.createSnapshot', () => {
     const { client, config, store } = await setup()
     await setItem(client, 'a', 'v1')
 
-    expect(await store.createSnapshot(client)).toBe('created')
+    expect(await store.createSnapshot()).toBe('created')
     expect(await readdir(config.dir)).toEqual([
       expect.stringMatching(/^snapshot_\d{8}_\d{9}_[0-9a-f]{16}\.db$/),
     ])
 
     // a write that changes nothing is no change
     await setItem(client, 'a', 'v1')
-    expect(await store.createSnapshot(client)).toBe('skipped-unchanged')
+    expect(await store.createSnapshot()).toBe('skipped-unchanged')
 
     await setItem(client, 'a', 'v2')
-    expect(await store.createSnapshot(client)).toBe('created')
+    expect(await store.createSnapshot()).toBe('created')
     expect(await listSnapshots(config.dir)).toHaveLength(2)
     expect(await itemIn(config, 1)).toBe('v2')
     expect(await itemIn(config, 2)).toBe('v1')
   })
 
   it('skips when the lock is held', async () => {
-    const { client, config, store } = await setup()
+    const { config, store } = await setup()
     await mkdir(config.dir, { recursive: true })
     const lock = await open(join(config.dir, '.lock'), 'wx')
     try {
-      expect(await store.createSnapshot(client)).toBe('skipped-locked')
+      expect(await store.createSnapshot()).toBe('skipped-locked')
     } finally {
       await lock.close()
     }
   })
 
   it('writes over a copy a snapshot cut short left behind', async () => {
-    const { client, config, store } = await setup()
+    const { config, store } = await setup()
     await mkdir(config.dir, { recursive: true })
     await writeFile(join(config.dir, '.pending.db'), 'half a database')
-    expect(await store.createSnapshot(client)).toBe('created')
+    expect(await store.createSnapshot()).toBe('created')
     expect(await readdir(config.dir)).toEqual([expect.stringMatching(/\.db$/)])
   })
 
   it('removes the SQL snapshots of earlier versions once it has written a copy', async () => {
-    const { client, config, store } = await setup()
+    const { config, store } = await setup()
     await mkdir(config.dir, { recursive: true })
     const old = [
       'snapshot_20260101_000000000.sql',
@@ -107,7 +107,7 @@ describe('SnapshotStore.createSnapshot', () => {
     for (const file of old) await writeFile(join(config.dir, file), '-- bananacms-snapshot v1\n')
     await writeFile(join(config.dir, 'notes.txt'), 'mine')
 
-    expect(await store.createSnapshot(client)).toBe('created')
+    expect(await store.createSnapshot()).toBe('created')
     const files = await readdir(config.dir)
     for (const file of old) expect(files).not.toContain(file)
     expect(files).toContain('notes.txt')
@@ -120,7 +120,7 @@ describe('SnapshotStore retention', () => {
     const { client, config, store } = await setup(2)
     for (const v of ['v1', 'v2', 'v3']) {
       await setItem(client, 'a', v)
-      await store.createSnapshot(client)
+      await store.createSnapshot()
     }
     expect(await listSnapshots(config.dir)).toHaveLength(2)
     expect(await itemIn(config, 1)).toBe('v3')
@@ -132,7 +132,7 @@ describe('SnapshotStore.restore', () => {
   it('restores an older state, and snapshots the current one first', async () => {
     const { client, config, store } = await setup()
     await setItem(client, 'a', 'v1')
-    await store.createSnapshot(client)
+    await store.createSnapshot()
     await setItem(client, 'a', 'v2')
     client.close()
 
@@ -148,9 +148,9 @@ describe('SnapshotStore.restore', () => {
   it('restores the oldest snapshot, which snapshotting the current state removes', async () => {
     const { client, config, store } = await setup(2)
     await setItem(client, 'a', 'v1')
-    await store.createSnapshot(client)
+    await store.createSnapshot()
     await setItem(client, 'a', 'v2')
-    await store.createSnapshot(client)
+    await store.createSnapshot()
     await setItem(client, 'a', 'v3')
     client.close()
 
@@ -166,7 +166,7 @@ describe('SnapshotStore.restore', () => {
   it("refuses a snapshot that isn't the file its name says, leaving the database be", async () => {
     const { client, config, store } = await setup()
     await setItem(client, 'a', 'v1')
-    await store.createSnapshot(client)
+    await store.createSnapshot()
     await setItem(client, 'a', 'v2')
     client.close()
     await appendFile((await listSnapshots(config.dir))[0].path, 'more')
@@ -179,8 +179,8 @@ describe('SnapshotStore.restore', () => {
   })
 
   it('rejects an out-of-range index without touching anything', async () => {
-    const { client, store } = await setup()
-    await store.createSnapshot(client)
+    const { store } = await setup()
+    await store.createSnapshot()
     await expect(store.restore(5)).rejects.toThrow(/No snapshot at index/)
   })
 })

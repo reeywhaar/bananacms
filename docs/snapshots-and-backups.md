@@ -8,7 +8,7 @@ The CMS keeps copies of a site's data two ways. Both are off until their variabl
 
 - **When:** as `bananacms dev` or `start` starts and as it stops, and `SNAPSHOTS_DELAY` seconds after a write to the site's database, 600 by default. The writes made in that time go into the same snapshot, and those still waiting when the site stops go into the one it takes then. A snapshot the same as the newest one isn't written.
 - **How many:** `SNAPSHOTS_COUNT`. Past the count, the oldest is removed. The SQL dumps and diffs that snapshots were in earlier versions are removed once the first copy is written.
-- **The files:** each is a whole SQLite database, uploads included, made with `VACUUM INTO`, which copies the database as of one moment, page by page, so a snapshot of any size takes little memory. Its name is `snapshot_<YYYYMMDD_HHmmssSSS>_<hash>.db`: when it was taken, in UTC, and the start of the file's sha256, which tells an unchanged database from a changed one, and which the CLI checks on the way back. `sqlite3` opens one as it is.
+- **The files:** each is a whole SQLite database, uploads included, made with `VACUUM INTO`, which copies the database as of one moment, page by page, so a snapshot of any size takes little memory, and off the main thread, so the site goes on answering while it's made. Its name is `snapshot_<YYYYMMDD_HHmmssSSS>_<hash>.db`: when it was taken, in UTC, and the start of the file's sha256, which tells an unchanged database from a changed one, and which the CLI checks on the way back. `sqlite3` opens one as it is.
 
 ```sh
 bananacms snapshot list              # 1 is the newest
@@ -22,7 +22,7 @@ bananacms snapshot restore 2
 `BACKUP_URL` turns them on: archives of the databases, sent to a backup agent, which keeps them wherever it keeps things. The CMS holds no credentials for the storage.
 
 - **The request:** a multipart `POST` to `BACKUP_URL`, with the archive under `backup` and its name, `bananacms-<YYYYMMDD_HHmmss>.tgz`, under `name`, streamed from disk. Any 2xx answer means the agent took it. The site waits for it up to 30 minutes: an agent that keeps the archives somewhere else, like backio's sidecar, answers once the archive is there, and for a large one that's minutes.
-- **The archive:** a gzipped tar of `database.db`, and `derived.db` unless `BACKUP_MODE` is `main`. Each is copied with SQLite's `VACUUM INTO`, which gives the database as of one moment even while the site writes to it.
+- **The archive:** a gzipped tar of `database.db`, and `derived.db` unless `BACKUP_MODE` is `main`. Each is copied with SQLite's `VACUUM INTO`, which gives the database as of one moment even while the site writes to it, and off the main thread, as snapshots are.
 - **When:** while `dev` or `start` runs, every five minutes, and once more as it stops, only when `database.db` has changed since the archive the agent last took. Finding out costs a read: SQLite says whether anything was committed, and only then is a copy made and compared.
 - **`BACKUP_MODE`:** `main` sends `database.db` alone; `relaxed`, the default, adds `derived.db`, so a restore keeps everybody signed in; `all` also sends every half hour, so the agent can tell a stalled site from a quiet one.
 

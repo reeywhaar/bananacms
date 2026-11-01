@@ -1,6 +1,7 @@
 import { copyFile, mkdir, open, rename, rm, stat, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createClient, type Client } from '@libsql/client'
+import { createClient } from '@libsql/client'
+import { vacuumInto } from '../db/vacuumInto.ts'
 import type { Logger } from '../logger/Logger.ts'
 import type { SnapshotsConfig } from './config.ts'
 import {
@@ -19,10 +20,9 @@ const LOCK_STALE_MS = 60_000
 // directory, so that it's renamed into place rather than copied
 const PENDING_FILE = '.pending.db'
 
-// A snapshot is a copy of the database file, made with SQLite's VACUUM INTO: the
-// database as of one read transaction, with the -wal folded in, written page by
-// page, so a database of any size passes through no more memory than SQLite's
-// page cache. A copy of unchanged content is the same bytes, so the hash in a
+// A snapshot is a copy of the database file made with VACUUM INTO (vacuumInto.ts):
+// as of one read transaction, page by page, so it takes little memory, and off
+// the main thread. A copy of unchanged content is the same bytes, so the hash in a
 // snapshot's name tells whether the database has changed since.
 export class SnapshotStore {
   private readonly config: SnapshotsConfig
@@ -33,28 +33,26 @@ export class SnapshotStore {
     this.logger = logger
   }
 
-  // Copies the database, through `client`, and keeps the copy unless it's the
-  // same as the newest snapshot; then removes the oldest past SNAPSHOTS_COUNT,
-  // and the SQL snapshots of earlier versions.
+  // Copies the database, on a connection of its own, and keeps the copy unless
+  // it's the same as the newest snapshot; then removes the oldest past
+  // SNAPSHOTS_COUNT, and the SQL snapshots of earlier versions.
   // Callers at once, the site's server and the CLI, take turns by a lock file:
   // the one that finds it taken skips rather than waits.
-  async createSnapshot(client: Client): Promise<CreateResult> {
+  async createSnapshot(): Promise<CreateResult> {
     await mkdir(this.config.dir, { recursive: true })
     return this.withLock(async () => {
+      await using stack = new AsyncDisposableStack()
       const pending = join(this.config.dir, PENDING_FILE)
       // one left by a snapshot that was cut short; VACUUM INTO won't overwrite it
       await rm(pending, { force: true })
-      try {
-        await client.execute({ sql: 'VACUUM INTO ?', args: [pending] })
-        const hash = await hashFile(pending)
-        const newest = (await listSnapshots(this.config.dir))[0]
-        if (newest?.hash === hash) return 'skipped-unchanged'
-        const path = join(this.config.dir, snapshotFilename(new Date(), hash))
-        await rename(pending, path)
-        this.logger?.info('snapshot written', { file: path })
-      } finally {
-        await rm(pending, { force: true })
-      }
+      stack.defer(() => rm(pending, { force: true }))
+      await vacuumInto(this.config.dbPath, pending)
+      const hash = await hashFile(pending)
+      const newest = (await listSnapshots(this.config.dir))[0]
+      if (newest?.hash === hash) return 'skipped-unchanged'
+      const path = join(this.config.dir, snapshotFilename(new Date(), hash))
+      await rename(pending, path)
+      this.logger?.info('snapshot written', { file: path })
       await this.removeOldest()
       await this.removeSqlSnapshots()
       return 'created'
@@ -69,30 +67,23 @@ export class SnapshotStore {
   // the one being restored perhaps. A failure on the way leaves the database as
   // it was.
   async restore(index: number): Promise<void> {
+    await using stack = new AsyncDisposableStack()
     const target = await this.snapshotAt(index)
     const restoring = `${this.config.dbPath}.restore-tmp`
     await removeDbFiles(restoring)
-    try {
-      await copyFile(target.path, restoring)
-      if ((await hashFile(restoring)) !== target.hash) {
-        throw new Error(`${target.file} isn't the file its name says: it has changed since`)
-      }
-      await checkDatabase(restoring)
+    stack.defer(() => removeDbFiles(restoring))
+    await copyFile(target.path, restoring)
+    if ((await hashFile(restoring)) !== target.hash) {
+      throw new Error(`${target.file} isn't the file its name says: it has changed since`)
+    }
+    await checkDatabase(restoring)
 
-      const current = createClient({ url: `file:${this.config.dbPath}` })
-      try {
-        const result = await this.createSnapshot(current)
-        if (result === 'skipped-locked') {
-          throw new Error('another process is snapshotting right now; try again')
-        }
-      } finally {
-        current.close()
-      }
-    } catch (error) {
-      await removeDbFiles(restoring)
-      throw error
+    const result = await this.createSnapshot()
+    if (result === 'skipped-locked') {
+      throw new Error('another process is snapshotting right now; try again')
     }
 
+    stack.move()
     await rename(restoring, this.config.dbPath)
     await rm(`${this.config.dbPath}-wal`, { force: true })
     await rm(`${this.config.dbPath}-shm`, { force: true })
@@ -125,6 +116,7 @@ export class SnapshotStore {
   }
 
   private async withLock<T>(fn: () => Promise<T>): Promise<T | 'skipped-locked'> {
+    await using stack = new AsyncDisposableStack()
     const lockPath = join(this.config.dir, '.lock')
     let handle = await tryAcquire(lockPath)
     if (!handle) {
@@ -138,31 +130,27 @@ export class SnapshotStore {
       handle = await tryAcquire(lockPath)
       if (!handle) return 'skipped-locked'
     }
-    try {
-      await handle.writeFile(`${process.pid} ${new Date().toISOString()}\n`)
-      return await fn()
-    } finally {
-      await handle.close()
-      await rm(lockPath, { force: true })
-    }
+    stack.defer(() => rm(lockPath, { force: true }))
+    stack.use(handle)
+    await handle.writeFile(`${process.pid} ${new Date().toISOString()}\n`)
+    return await fn()
   }
 }
 
 // SQLite's integrity check, and a migrations table: a database of the site's
 async function checkDatabase(dbPath: string): Promise<void> {
-  const client = createClient({ url: `file:${dbPath}` })
-  try {
-    const integrity = await client.execute('PRAGMA integrity_check')
-    const verdict = String(integrity.rows[0]?.[0] ?? '')
-    if (integrity.rows.length !== 1 || verdict !== 'ok') {
-      throw new Error(`integrity_check failed on the snapshot: ${verdict}`)
-    }
-    await client.execute('SELECT count(*) FROM migrations')
-  } finally {
+  await using stack = new AsyncDisposableStack()
+  const client = stack.adopt(createClient({ url: `file:${dbPath}` }), async (client) => {
     client.close()
+    await rm(`${dbPath}-wal`, { force: true })
+    await rm(`${dbPath}-shm`, { force: true })
+  })
+  const integrity = await client.execute('PRAGMA integrity_check')
+  const verdict = String(integrity.rows[0]?.[0] ?? '')
+  if (integrity.rows.length !== 1 || verdict !== 'ok') {
+    throw new Error(`integrity_check failed on the snapshot: ${verdict}`)
   }
-  await rm(`${dbPath}-wal`, { force: true })
-  await rm(`${dbPath}-shm`, { force: true })
+  await client.execute('SELECT count(*) FROM migrations')
 }
 
 async function tryAcquire(lockPath: string) {
